@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+/* Tailwind v4 defaults dark: to the OS setting. Use the .dark class so the Display Theme setting works. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Scoring-screen type: Barlow for text, Barlow Condensed for scoreboard numerals and play codes. */
+@theme {
+  --font-score: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+
+  /* Dark theme surfaces (Carbon Black / Graphite) */
+  --color-charcoal-deepest: #101419;
+  --color-charcoal-bg: #1A2028;
+  --color-charcoal-surface: #252D38;
+  --color-charcoal-hover: #2D3643;
+  --color-charcoal-border: #354050;
+  --color-charcoal-quiet: #465160;
+
+  /* Text scale */
+  --color-grey-main: #FAFAFA;
+  --color-grey-secondary: #D1D5DB;
+  --color-grey-labels: #9CA3AF;
+  --color-grey-inactive: #6B7280;
+  --color-grey-light-border: #D1D5DB;
+  --color-grey-light-surface: #F3F4F6;
+  --color-grey-light-alt: #E5E7EB;
+
+  /* Brand accent: Pulse Teal (light #00BFA5, dark #00D7BC) */
+  --color-red-accent: #00BFA5;
+  --color-red-top: #00D7BC;
+  --color-red-hover: #00A892;
+  --color-red-bottom: #006B5D;
+  --color-red-subtext: #CCF7F1;
+
+  /* Teal scale: 500 = Pulse Teal (light), 400 = Pulse Teal (dark) */
+  --color-teal-50: #E6FBF8;
+  --color-teal-100: #CCF7F1;
+  --color-teal-200: #99EFE3;
+  --color-teal-300: #4DE3CF;
+  --color-teal-400: #00D7BC;
+  --color-teal-500: #00BFA5;
+  --color-teal-600: #00806E;
+  --color-teal-700: #006B5D;
+  --color-teal-800: #00554B;
+  --color-teal-900: #00423A;
+  --color-teal-950: #002B26;
+
+  /* Blue scale: 500 = Electric Blue (light), 400 = Electric Blue (dark) */
+  --color-blue-50: #EAF1FF;
+  --color-blue-100: #D6E4FF;
+  --color-blue-200: #B0CBFF;
+  --color-blue-300: #85AEFF;
+  --color-blue-400: #3478FF;
+  --color-blue-500: #246BFD;
+  --color-blue-600: #1B56D6;
+  --color-blue-700: #1744AB;
+  --color-blue-800: #163985;
+  --color-blue-900: #152F66;
+  --color-blue-950: #0E1E40;
+
+  /* Slate scale: 50 = Ice White (#F4F6F8), 900 = Midnight Slate (#18212D) */
+  --color-slate-50: #F4F6F8;
+  --color-slate-100: #EAEEF2;
+  --color-slate-200: #DCE2E8;
+  --color-slate-300: #C5CDD6;
+  --color-slate-400: #94A0AE;
+  --color-slate-500: #6B7787;
+  --color-slate-600: #4B5663;
+  --color-slate-700: #343E4B;
+  --color-slate-800: #232C38;
+  --color-slate-900: #18212D;
+  --color-slate-950: #10161E;
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+  }
+}
+
+/* Optimize touch interactions for fast in-the-stands scoring */
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Disable rubber-band / stretch overscroll on every scroll container */
+html, body, #root, .overflow-y-auto, .overflow-auto {
+  overscroll-behavior: none;
+}
+
+/* Themed, slim scrollbars using exact #6B7280 palette value */
+.app-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #6B7280 transparent;
+}
+.app-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.app-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-scroll::-webkit-scrollbar-thumb {
+  background-color: #6B7280;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.app-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: #9CA3AF;
+}
+
+/* Global scrollbar styling for dark mode */
+.dark *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background-color: #6B7280;
+  border-radius: 9999px;
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #9CA3AF;
+}
+.dark {
+  scrollbar-color: #6B7280 transparent;
+}
+
+/* Never allow sideways page scroll */
+html, body {
+  overflow-x: hidden;
+}

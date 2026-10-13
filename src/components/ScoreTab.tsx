@@ -1,0 +1,3930 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useGame } from '../context/GameContext';
+import {
+  DefensivePosition,
+  FieldingPlayCode,
+  HalfInningStatus,
+  HitLocation,
+  PitcherHand,
+  Play,
+  PlayCode,
+  PlayMode,
+  PositionChange,
+  RunnerOutReason,
+  RUNNER_OUT_REASONS,
+  LINEUP_SPOTS,
+} from '../types/baseball';
+import { getFieldingPlaysForPosition, getPlaysForMode, PLAY_DEFINITIONS } from '../utils/playDefinitions';
+import { calculateGameStats, calculatePitchingStats, formatRate } from '../utils/stats';
+import { usePlayFlow } from '../hooks/usePlayFlow';
+import { usePlayDragReorder } from '../hooks/usePlayDragReorder';
+import { ConfirmationModal } from './ConfirmationModal';
+import { EditPlayModal } from './EditPlayModal';
+import { PitcherOutModal, PitcherOutSelection } from './PitcherOutModal';
+import { HitLocationModal } from './HitLocationModal';
+import { SprayChart } from './SprayChart';
+import { isBattedBallPlay, isHitPlay, getTrajectoryLabel, getZoneLabel, resolveZone } from '../utils/sprayChart';
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Save,
+  Trash2,
+  Edit2,
+  Calendar,
+  Clock,
+  Shield,
+  Play as PlayIcon,
+  XCircle,
+  Activity,
+  ListOrdered,
+  Trophy,
+  Users,
+  Plus,
+  Check,
+  CheckCircle2,
+  Crosshair,
+  MapPin,
+  X,
+  Filter,
+  Zap,
+  Home,
+  Plane,
+  Footprints,
+  CircleDot,
+  AlertTriangle,
+} from 'lucide-react';
+import { AppLogo } from './AppLogo';
+import { ThemedDropdown } from './ThemedDropdown';
+import { OpponentCombobox } from './OpponentCombobox';
+import { ValueCombobox } from './ValueCombobox';
+import { RunnerLockdownModal } from './RunnerLockdownModal';
+import { ScoringValidationModal } from './ScoringValidationModal';
+import { playOutCount, type ScoringResolution } from '../utils/scoringEngine';
+import { PitchingBoard } from './PitchingBoard';
+import { derivePitchingFlowState, reducePitchingAction, PitchingAction } from '../utils/pitchingFlow';
+import {
+  createRunnerLifecycle,
+  getRunnerBaseForPrimary,
+  RunnerAdvanceCause,
+  RunnerLifecycleState,
+  transitionRunner,
+} from '../utils/runnerLifecycle';
+
+const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] = [
+  { code: 'P', label: 'Pitcher (P)' },
+  { code: 'C', label: 'Catcher (C)' },
+  { code: '1B', label: '1st Base (1B)' },
+  { code: '2B', label: '2nd Base (2B)' },
+  { code: '3B', label: '3rd Base (3B)' },
+  { code: 'SS', label: 'Shortstop (SS)' },
+  { code: 'LF', label: 'Left Field (LF)' },
+  { code: 'CF', label: 'Center Field (CF)' },
+  { code: 'RF', label: 'Right Field (RF)' },
+  { code: 'DH', label: 'Designated Hitter (DH)' },
+  { code: 'BENCH', label: 'Bench / Rest' },
+];
+
+const PITCHING_TERMINAL_CODES = new Set<PlayCode>([
+  'strikeout',
+  'walkAllowed',
+  'intentionalWalkAllowed',
+  'hitBatter',
+  'hitAllowed',
+  'homeRunAllowed',
+  'pitchOut',
+]);
+
+interface ScoreTabProps {
+  onOpenHelp?: (mode: PlayMode) => void;
+  onOpenSettings?: () => void;
+  onGameClosed?: () => void;
+  view?: 'score' | 'plays';
+  onChangeView?: (view: 'score' | 'plays') => void;
+}
+
+// Wrapper: remount the inner component whenever a live game starts/ends. The inner component
+// returns early when there is no live game and declares more hooks afterwards, so without a
+// remount, React sees a changed hook count on game start and the screen goes blank.
+// Plain-English names so the Plays list never shows position or stat abbreviations.
+const POSITION_NAMES: Record<string, string> = {
+  P: 'Pitcher',
+  C: 'Catcher',
+  '1B': 'First base',
+  '2B': 'Second base',
+  '3B': 'Third base',
+  SS: 'Shortstop',
+  LF: 'Left field',
+  CF: 'Center field',
+  RF: 'Right field',
+  DH: 'Designated hitter',
+  BENCH: 'Bench',
+  HOME: 'Home plate',
+};
+const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
+const ordinal = (n: number): string => {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] || 'th'}`;
+};
+
+export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
+  const { liveGame } = useGame();
+  return <ScoreTabInner key={liveGame ? `game-${liveGame.id}` : 'no-game'} {...props} />;
+};
+
+const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
+  const {
+    games,
+    liveGame,
+    editingGameId,
+    activeProfile,
+    allOpponents,
+    recentOpponents,
+    deleteOpponent,
+    allTournaments,
+    saveTournament,
+    deleteTournament,
+    allAgeGroups,
+    saveAgeGroup,
+    deleteAgeGroup,
+    allSeasons,
+    saveSeason,
+    deleteSeason,
+    allTeams,
+    addPlayerTeam,
+    startLiveGame,
+    addPlay,
+    addPlays,
+    undoLastPlay,
+    deletePlay,
+    editPlay,
+    updatePlayHitLocation,
+    setPlayRbis,
+    movePlay,
+    movePlayTo,
+    insertPlayAfter,
+    nextInning,
+    prevInning,
+    setInning,
+    setInningPosition,
+    setInningLineupSpot,
+    setLineupSpot,
+    toggleBenchCurrentInning,
+    removeEmptyLastInning,
+    changeInningPosition,
+    removePositionChange,
+    setInningBench,
+    saveGame,
+    discardLiveGame,
+    cancelEditing,
+    updateLiveGameDetails,
+    settings,
+  } = useGame();
+
+  // Normalize list of teams for the active player profile
+  const playerTeams = React.useMemo(() => {
+    if (activeProfile.teams && activeProfile.teams.length > 0) {
+      return activeProfile.teams;
+    }
+    if (activeProfile.teamName) {
+      return [
+        {
+          id: 'primary-team',
+          name: activeProfile.teamName,
+          ageGroup: activeProfile.defaultAgeGroup || 'U12',
+          season: activeProfile.defaultSeason || 'Spring 2026',
+          tournament: activeProfile.defaultTournament || '',
+          isDefault: true,
+        },
+      ];
+    }
+    return [];
+  }, [activeProfile]);
+
+  // New game form state
+  const [newGameDate, setNewGameDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newGameTime, setNewGameTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [newGameOpponent, setNewGameOpponent] = useState('');
+  const [newGameFormError, setNewGameFormError] = useState('');
+  const [newGameIsHome, setNewGameIsHome] = useState<boolean>(true);
+  const initialTeam = playerTeams.find((t) => t.isDefault) || playerTeams[0];
+  const [selectedTeamId, setSelectedTeamId] = useState<string>(() => initialTeam?.id || '');
+  const [newGameTeam, setNewGameTeam] = useState(() => initialTeam?.name || activeProfile.teamName || 'My Team');
+  const [newGameTournament, setNewGameTournament] = useState(() => initialTeam?.tournament || '');
+  const [newGameAgeGroup, setNewGameAgeGroup] = useState(() => initialTeam?.ageGroup || '');
+  const [newGameSeason, setNewGameSeason] = useState(() => initialTeam?.season || '');
+  const [tournamentEditing, setTournamentEditing] = useState(false);
+
+  const selectedTeam = playerTeams.find((t) => t.id === selectedTeamId) || initialTeam;
+  const ageLocked = Boolean(selectedTeam?.ageGroup);
+  const seasonLocked = Boolean(selectedTeam?.season);
+  const tournamentLocked = Boolean(selectedTeam?.tournament);
+
+  // Inline Quick-Add Team state
+  const [showAddTeamInline, setShowAddTeamInline] = useState(false);
+  const [inlineTeamName, setInlineTeamName] = useState('');
+  const [inlineJerseyNumber, setInlineJerseyNumber] = useState('');
+  const [inlineAgeGroup, setInlineAgeGroup] = useState('U12');
+  const [inlineSeason, setInlineSeason] = useState('Spring 2026');
+  const [inlineTournament, setInlineTournament] = useState('');
+
+  // Active scoring mode
+  const [activeMode, setActiveMode] = useState<PlayMode>(() => {
+    if (!liveGame) return 'batting';
+    const isHome = liveGame.isHome !== false;
+    const curInn = liveGame.innings || 1;
+    const hasBat = liveGame.plays.some((p) => p.inning === curInn && p.mode === 'batting') || Boolean(liveGame.halfInningStatus?.[curInn]?.battingCompleted);
+    const hasDef = liveGame.plays.some((p) => p.inning === curInn && (p.mode === 'fielding' || p.mode === 'pitching')) || Boolean(liveGame.halfInningStatus?.[curInn]?.fieldingCompleted);
+    const innPos = liveGame.fieldingPositions?.[curInn] || (liveGame.benchInnings.includes(curInn) ? 'BENCH' : 'CF');
+
+    if (isHome) {
+      if (!hasDef && !hasBat) return innPos === 'P' ? 'pitching' : 'fielding';
+      if (hasDef && !hasBat) return 'batting';
+      return innPos === 'P' ? 'pitching' : 'fielding';
+    } else {
+      if (!hasBat && !hasDef) return 'batting';
+      if (hasBat && !hasDef) return innPos === 'P' ? 'pitching' : 'fielding';
+      return 'batting';
+    }
+  });
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Inning / half-inning change notice banner
+  const [inningNotice, setInningNotice] = useState<{
+    id: number;
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
+  // Pitcher Handedness Split toggle ('R' or 'L')
+  const [pitcherHand, setPitcherHand] = useState<PitcherHand>('R');
+
+  // Modal states
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+  const [isPitcherOutModalOpen, setIsPitcherOutModalOpen] = useState(false);
+  const [teamFinalScore, setTeamFinalScore] = useState('');
+  const [opponentFinalScore, setOpponentFinalScore] = useState('');
+  const [selectedPlayForEdit, setSelectedPlayForEdit] = useState<Play | null>(null);
+  const [showEditDetails, setShowEditDetails] = useState(false);
+  const [playFeedFilter, setPlayFeedFilter] = useState<'all' | 'batting' | 'pitching' | 'fielding'>('batting');
+
+  // Hit Direction Tapper and Spray Chart states
+  const [hitTapperEnabled, setHitTapperEnabled] = useState<boolean>(() => settings.trackHitLocation ?? true);
+  const [pendingHitPlay, setPendingHitPlay] = useState<{ playId: string; code: PlayCode } | null>(null);
+  const [isGameSprayModalOpen, setIsGameSprayModalOpen] = useState(false);
+  const [isDirectTapperOpen, setIsDirectTapperOpen] = useState(false);
+  const pendingHitLocationRef = useRef<HitLocation | null>(null);
+  // Smart-scoring metadata (extra outs, validated context) waiting to be attached to the next primary batting play.
+  const pendingScoringMetaRef = useRef<{
+    code: PlayCode;
+    extraOuts: number;
+    scoringContext: Play['scoringContext'];
+  } | null>(null);
+  // When the hit-location prompt is active, the runner lockdown must wait until the
+  // location is saved/skipped. Otherwise the z-[100] runner modal covers the hit-location modal.
+  const pendingRunnerAfterHitRef = useRef<PlayCode | null>(null);
+  // The primary batting play that opened the runner lockdown. This is the play the
+  // user must be able to undo while the lockdown modal is covering the scoring board.
+  const pendingRunnerPrimaryPlayIdRef = useRef<string | null>(null);
+
+  // Bench confirmation modal state
+  const [benchConfirmInning, setBenchConfirmInning] = useState<number | null>(null);
+  // Position change awaiting the scorer's confirmation (mid-inning switch vs. correcting a mistake)
+  const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
+  const [runnerSession, setRunnerSession] = useState<RunnerLifecycleState | null>(null);
+  const [runnerHistory, setRunnerHistory] = useState<Array<{ state: RunnerLifecycleState; playIds: string[] }>>([]);
+  const [activeRunnerChip, setActiveRunnerChip] = useState<{ base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string } | null>(null);
+  const [primaryTooltip, setPrimaryTooltip] = useState<string | null>(null);
+  const [outResolutionOpen, setOutResolutionOpen] = useState(false);
+  const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
+  const primaryHoldTimerRef = useRef<number | null>(null);
+
+  // Streamlined multi-fielder sequence chaining state (for CS, DP)
+  const [fieldingChain, setFieldingChain] = useState<{
+    type: 'CS' | 'DP';
+    primaryPosition: DefensivePosition | string;
+    prompt: string;
+    targets: { position: DefensivePosition; label: string }[];
+  } | null>(null);
+
+  const playFlow = usePlayFlow({
+    onEvent: (mode, code, eventOptions) => {
+      if (mode === 'batting') {
+        const preselectedLoc = pendingHitLocationRef.current || undefined;
+        pendingHitLocationRef.current = null;
+        const scoringMeta = pendingScoringMetaRef.current?.code === code ? pendingScoringMetaRef.current : null;
+        if (scoringMeta) pendingScoringMetaRef.current = null;
+        const createdPlay = addPlay('batting', code, {
+          pitcherHand,
+          lineupSpot: liveGame?.lineupSpot,
+          hitLocation: preselectedLoc,
+          extraOuts: scoringMeta?.extraOuts,
+          scoringContext: scoringMeta?.scoringContext,
+        });
+        if (createdPlay && getRunnerBaseForPrimary(code)) {
+          pendingRunnerPrimaryPlayIdRef.current = createdPlay.id;
+        }
+        if (!preselectedLoc && hitTapperEnabled && isHitPlay(code) && createdPlay) {
+          pendingRunnerAfterHitRef.current = getRunnerBaseForPrimary(code) ? code : null;
+          setPendingHitPlay({ playId: createdPlay.id, code });
+        }
+      } else if (mode === 'fielding') {
+        const inningPosition = liveGame
+          ? liveGame.fieldingPositions?.[liveGame.innings] ||
+            (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
+          : undefined;
+        addPlay('fielding', code, { defensivePosition: inningPosition });
+      } else {
+        addPlay('pitching', code, {
+          autoOutcome: eventOptions?.autoOutcome,
+          isExtraOut: eventOptions?.isExtraOut,
+        });
+      }
+    },
+    activePosition: liveGame
+      ? liveGame.fieldingPositions?.[liveGame.innings] ||
+        (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
+      : undefined,
+    flowKey: liveGame?.id,
+    homeRunAddsRunAndRbi: !settings.homeRunAddsRunAndRbi,
+  });
+
+  // Hold a play and drag it to reorder. The feed lists the newest play first, so dropping a play
+  // above another one places it later in the game.
+  const { getDragProps } = usePlayDragReorder((dragId, targetId, placement) =>
+    movePlayTo(dragId, targetId, placement === 'above' ? 'after' : 'before')
+  );
+
+  // Plays feed & grouped inning derivations (unconditionally declared before early returns to satisfy React Hook rules)
+  const liveGamePlays = liveGame?.plays;
+
+  const filteredPlays = React.useMemo(() => {
+    if (!liveGamePlays) return [];
+    const list = [...liveGamePlays].reverse();
+    if (playFeedFilter === 'all') return list;
+    return list.filter((p) => p.mode === playFeedFilter);
+  }, [liveGamePlays, playFeedFilter]);
+
+  const handleSelectTeam = (teamId: string) => {
+    setSelectedTeamId(teamId);
+    const found = playerTeams.find((t) => t.id === teamId);
+    if (found) {
+      setNewGameTeam(found.name);
+      setNewGameAgeGroup(found.ageGroup || '');
+      setNewGameSeason(found.season || '');
+      setNewGameTournament(found.tournament || '');
+      setTournamentEditing(false);
+    }
+  };
+
+  const handleSaveInlineTeam = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineTeamName.trim()) return;
+
+    const created = addPlayerTeam(activeProfile.id, {
+      name: inlineTeamName.trim(),
+      jerseyNumber: inlineJerseyNumber.trim() || undefined,
+      ageGroup: inlineAgeGroup.trim(),
+      season: inlineSeason.trim(),
+      tournament: inlineTournament.trim(),
+      isDefault: playerTeams.length === 0,
+    });
+
+    setNewGameTeam(created.name);
+    setNewGameAgeGroup(created.ageGroup || '');
+    setNewGameSeason(created.season || '');
+    setNewGameTournament(created.tournament || '');
+    setTournamentEditing(false);
+    setSelectedTeamId(created.id);
+    setInlineTeamName('');
+    setInlineJerseyNumber('');
+    setInlineTournament('');
+    setShowAddTeamInline(false);
+  };
+
+  // Helper function to process benched state & clear plays
+  const applyBenchForInning = (inningToBench: number) => {
+    if (!liveGame) return;
+
+    // 1. Remove all plays captured in this inning
+    const playsInInning = liveGame.plays.filter((p) => p.inning === inningToBench);
+    playsInInning.forEach((play) => deletePlay(play.id));
+
+    // 2. Bench/rest is independent from the defensive position.
+    if (inningToBench === liveGame.innings && !liveGame.benchInnings.includes(inningToBench)) {
+      toggleBenchCurrentInning();
+    }
+
+    // 3. Stay on this inning. The scorer moves on with "Start Next Inning" when ready.
+  };
+
+
+  // If no live game is active, render Start New Game form
+  if (!liveGame) {
+    const handleStartGame = (e: React.FormEvent) => {
+      e.preventDefault();
+      setNewGameFormError('');
+
+      const gameAgeGroup = (ageLocked ? selectedTeam?.ageGroup : newGameAgeGroup)?.trim() || '';
+      const gameSeason = (seasonLocked ? selectedTeam?.season : newGameSeason)?.trim() || '';
+      const gameTournament = (
+        tournamentEditing && newGameTournament ? newGameTournament : (selectedTeam?.tournament || newGameTournament)
+      ).trim();
+      const gameTeamName = (selectedTeam?.name || newGameTeam || activeProfile.teamName).trim();
+      const missingFields = [
+        !newGameDate.trim() && 'game date',
+        !newGameTime.trim() && 'game time',
+        !newGameOpponent.trim() && 'opponent',
+        !gameTeamName && 'team',
+        !gameAgeGroup && 'age group',
+        !gameSeason && 'season',
+      ].filter(Boolean);
+
+      if (missingFields.length > 0) {
+        setNewGameFormError(
+          `Please complete these required fields:\n${missingFields.map((field) => `• ${field}`).join('\n')}`
+        );
+        return;
+      }
+
+      if (!selectedTeam?.tournament || tournamentEditing) {
+        if (gameTournament) saveTournament(gameTournament);
+      }
+      if (!ageLocked && gameAgeGroup) saveAgeGroup(gameAgeGroup);
+      if (!seasonLocked && gameSeason) saveSeason(gameSeason);
+
+      startLiveGame({
+        date: newGameDate,
+        time: newGameTime,
+        opponent: newGameOpponent.trim(),
+        teamName: gameTeamName,
+        tournament: gameTournament || undefined,
+        ageGroup: gameAgeGroup || undefined,
+        season: gameSeason || undefined,
+        isHome: newGameIsHome,
+      });
+    };
+
+    return (
+      <>
+      <div className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 pt-4 max-w-xl mx-auto w-full animate-in fade-in duration-200">
+
+        <div className="bg-white dark:bg-[#252D38] rounded-md p-6 border border-slate-200/80 dark:border-[#354050] shadow-md">
+          <div className="mb-1">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
+              LIVE SCOREKEEPING
+            </span>
+          </div>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-[#FAFAFA]">
+            Start a New Game
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1 mb-5">
+            Scoring for <strong className="text-slate-700 dark:text-[#D1D5DB]">{activeProfile.playerName || 'your player'}</strong>.
+          </p>
+
+          <form onSubmit={handleStartGame} noValidate className="space-y-4">
+            <div className="p-3.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-200 dark:border-[#354050] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[#18212D] dark:text-[#D1D5DB]" />
+                      Playing for Team *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowAddTeamInline(!showAddTeamInline)}
+                  className="text-xs font-semibold text-[#007A6A] hover:text-[#007A6A] dark:text-[#00D7BC] dark:hover:text-[#CCF7F1] flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {showAddTeamInline ? 'Cancel' : 'Add Another Team'}
+                </button>
+              </div>
+
+              {showAddTeamInline && (
+                <div className="p-3 bg-white dark:bg-[#252D38] rounded-md border border-teal-200 dark:border-[#00D7BC]/40 shadow-xs space-y-2.5 animate-in fade-in duration-150">
+                  <div className="text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC] flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Another Team for {activeProfile.playerName || 'Player'}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mb-1">
+                        Team Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Thunderbolts Travel, East High Varsity"
+                        value={inlineTeamName}
+                        onChange={(e) => setInlineTeamName(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mb-1">
+                        Jersey #
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 24"
+                        value={inlineJerseyNumber}
+                        onChange={(e) => setInlineJerseyNumber(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mb-1">
+                        Age Group (Select or type)
+                      </label>
+                      <ValueCombobox value={inlineAgeGroup} onChange={setInlineAgeGroup} options={allAgeGroups} placeholder="e.g. U12, U14" ariaLabel="e.g. U12, U14" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mb-1">
+                        Season (Select or type)
+                      </label>
+                      <ValueCombobox value={inlineSeason} onChange={setInlineSeason} options={allSeasons} placeholder="e.g. Spring 2026" ariaLabel="e.g. Spring 2026" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mb-1">
+                      Default Tournament (Select or type, optional)
+                    </label>
+                    <ValueCombobox value={inlineTournament} onChange={setInlineTournament} options={allTournaments} placeholder="e.g. Triple Crown Classic" ariaLabel="e.g. Triple Crown Classic" />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddTeamInline(false)}
+                      className="px-3 py-1.5 rounded-md border border-slate-300 dark:border-[#465160] text-xs font-semibold text-slate-600 dark:text-[#D1D5DB] hover:dark:bg-[#2D3643]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveInlineTeam}
+                      disabled={!inlineTeamName.trim()}
+                      className="px-3.5 py-1.5 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] dark:border-t dark:border-[#00D7BC] dark:border-b-2 dark:border-[#00D7BC]/40 disabled:opacity-50 text-[#18212D] dark:text-[#101419] text-xs font-semibold flex items-center gap-1 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Add Team
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {playerTeams.length > 0 ? (
+                <div className="space-y-1.5">
+                  <ThemedDropdown
+                    value={selectedTeamId}
+                    onChange={(id) => {
+                      if (id) handleSelectTeam(String(id));
+                    }}
+                    placeholder="Select a team"
+                    ariaLabel="Playing for team"
+                    allowClear={false}
+                    className="w-full"
+                    buttonClassName="py-2.5 text-sm font-medium"
+                    options={playerTeams.map((team) => ({
+                      value: team.id,
+                      label: `${team.name}${team.jerseyNumber ? ` (#${team.jerseyNumber})` : ''}${team.ageGroup ? ` (${team.ageGroup})` : ''}${team.season ? ` · ${team.season}` : ''}`,
+                    }))}
+                  />
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Enter team name"
+                  required
+                  value={newGameTeam}
+                  onChange={(e) => setNewGameTeam(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md bg-white dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]"
+                />
+              )}
+
+              {selectedTeam && (selectedTeam.jerseyNumber || ageLocked || seasonLocked || tournamentLocked) && (
+                <div className="pt-1 space-y-1.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTeam.jerseyNumber && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#121923] dark:bg-[#00D7BC]/50 text-white border border-slate-300 dark:border-[#354050]">
+                        <Shield className="w-3 h-3" />
+                        #{selectedTeam.jerseyNumber}
+                      </span>
+                    )}
+                    {ageLocked && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#121923] dark:bg-[#00D7BC]/50 text-white border border-slate-300 dark:border-[#354050]">
+                        <Users className="w-3 h-3" />
+                        {selectedTeam.ageGroup}
+                      </span>
+                    )}
+                    {seasonLocked && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#121923] dark:bg-[#00D7BC]/50 text-white border border-slate-300 dark:border-[#354050]">
+                        <Calendar className="w-3 h-3" />
+                        {selectedTeam.season}
+                      </span>
+                    )}
+                    {tournamentLocked && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-[#121923] dark:bg-[#00D7BC]/50 text-white border border-slate-300 dark:border-[#354050] max-w-full">
+                        <Trophy className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{newGameTournament || selectedTeam.tournament}</span>
+                      </span>
+                    )}
+                  </div>
+                  {tournamentEditing && (
+                    <div className="pt-2 flex items-center gap-2 animate-in fade-in duration-150">
+                      <ValueCombobox value={newGameTournament} onChange={setNewGameTournament} options={allTournaments} placeholder="Type or select tournament for today" ariaLabel="Type or select tournament for today" className="flex-1" />
+                      <button
+                        type="button"
+                        onClick={() => setTournamentEditing(false)}
+                        className="px-3 py-1.5 rounded-md bg-slate-100 dark:bg-[#252D38] text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#354050]"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1.5 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  Game Date
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={newGameDate}
+                  onChange={(e) => setNewGameDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] dark:[&::-webkit-calendar-picker-indicator]:invert"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Game Time
+                </label>
+                <input
+                type="time"
+                required
+                value={newGameTime}
+                onChange={(e) => setNewGameTime(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] 
+                dark:[&::-webkit-calendar-picker-indicator]:invert"
+              />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-slate-400" />
+                  Opponent *
+                </span>
+              </label>
+              <OpponentCombobox
+                value={newGameOpponent}
+                onChange={setNewGameOpponent}
+                required
+                allOpponents={allOpponents}
+                onDeleteOpponent={deleteOpponent}
+                placeholder="Type team name or select remembered opponent"
+              />
+            </div>
+
+            {/* Team Designation: Home Team vs Away Team */}
+            <div className="p-3.5 rounded-md bg-slate-50 dark:bg-[#252D38]/50 border border-slate-200 dark:border-[#354050] space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-[#007A6A] dark:text-[#00D7BC]" />
+                  Team Role
+                </label>
+                <span className="text-[12px] font-semibold text-slate-500 dark:text-[#FFFFFF]">
+                  Away Teams Bat First
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 p-1 bg-white dark:bg-[#1A2028] rounded-md border border-slate-200 dark:border-[#354050] shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setNewGameIsHome(true)}
+                  className={`py-2 px-3 rounded-md text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    newGameIsHome
+                      ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                      : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
+                  }`}
+                >
+                  <span className="text-sm font-semibold flex items-center gap-1.5">
+                    <Home className="w-4 h-4" />
+                    <span>Home</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setNewGameIsHome(false)}
+                  className={`py-2 px-3 rounded-md text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    !newGameIsHome
+                      ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                      : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
+                  }`}
+                >
+                  <span className="text-sm font-semibold flex items-center gap-1.5">
+                    <Plane className="w-4 h-4" />
+                    <span>Away</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {(!ageLocked || !seasonLocked) && (
+              <div
+                className={`grid grid-cols-1 gap-3 ${!ageLocked && !seasonLocked ? 'sm:grid-cols-2' : ''}`}
+              >
+                {!ageLocked && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-slate-300" />
+                        Age Group *
+                      </label>
+                      <span className="text-xs text-slate-400 font-semibold">
+                        {allAgeGroups.length} in list
+                      </span>
+                    </div>
+                    <ValueCombobox
+                      value={newGameAgeGroup}
+                      onChange={setNewGameAgeGroup}
+                      required
+                      options={allAgeGroups}
+                      quickPills={allAgeGroups.slice(0, 6)}
+                      onDeleteOption={deleteAgeGroup}
+                      placeholder="Select age group (e.g. U12)"
+                    />
+                  </div>
+                )}
+                {!seasonLocked && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                        Season *
+                      </label>
+                      <span className="text-xs text-slate-400 font-semibold">
+                        {allSeasons.length} in list
+                      </span>
+                    </div>
+                    <ValueCombobox
+                      value={newGameSeason}
+                      onChange={setNewGameSeason}
+                      required
+                      options={allSeasons}
+                      quickPills={allSeasons.slice(0, 5)}
+                      onDeleteOption={deleteSeason}
+                      placeholder="Select season (e.g. Spring 2026)"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="pt-3">
+              <button
+                type="submit"
+                className="w-full py-4 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-semibold text-sm shadow-lg shadow-teal-900/30 active:scale-98 transition-all flex items-center justify-center gap-2"
+              >
+                <PlayIcon className="w-5 h-5 fill-current" />
+                Start Scoring
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <ConfirmationModal
+        isOpen={Boolean(newGameFormError)}
+        title="Complete Game Details"
+        message={newGameFormError}
+        confirmLabel="Got It"
+        variant="warning"
+        onConfirm={() => setNewGameFormError('')}
+        onCancel={() => setNewGameFormError('')}
+      />
+      </>
+    );
+  }
+
+  // Active Live Game View
+  const isEditing = Boolean(editingGameId);
+  const currentInning = liveGame.innings;
+  const currentInningPosition: DefensivePosition =
+    liveGame.fieldingPositions?.[currentInning] || (liveGame.benchInnings.includes(currentInning) ? 'BENCH' : 'CF');
+
+  const selectedInningPosition: DefensivePosition | '' =
+    liveGame.benchInnings.includes(currentInning)
+      ? 'BENCH'
+      : (liveGame.fieldingPositions?.[currentInning] || '');
+
+  const isBenchedCurrentInning = liveGame.benchInnings.includes(currentInning);
+
+  const currentInningLineupSpot = liveGame.inningLineupSpots?.[currentInning] ?? liveGame.lineupSpot;
+
+
+  const stats = calculateGameStats(liveGame, settings.inningsPerGame);
+  const { batting, pitching } = stats;
+  const previousSameDayPitchingPlays = games
+    .filter(
+      (game) =>
+        game.id !== liveGame.id &&
+        game.date === liveGame.date &&
+        (!game.playerId || game.playerId === activeProfile.id)
+    )
+    .flatMap((game) => game.plays.filter((play) => play.mode === 'pitching'));
+  const dailyPitching = calculatePitchingStats(
+    [...previousSameDayPitchingPlays, ...liveGame.plays],
+    1,
+    settings.inningsPerGame,
+    liveGame.date
+  );
+
+  // Pitching flow: the count, pitch totals, batters faced, outs and earned-run context are all
+  // derived from the plays, so Undo / delete / edit always leave the board consistent.
+  const pitchFlowState = derivePitchingFlowState(liveGame.plays, liveGame.innings);
+  const lastPitchingPlayThisInning = [...liveGame.plays]
+    .reverse()
+    .find((p) => p.mode === 'pitching' && p.inning === liveGame.innings);
+  const inningEndedOnRunnerOut = pitchFlowState.outs >= 3 && Boolean(lastPitchingPlayThisInning?.pickoffKind);
+
+  const handlePitchingAction = (action: PitchingAction) => {
+    const result = reducePitchingAction(pitchFlowState, action);
+    if (result.seeds.length > 0) addPlays(result.seeds);
+  };
+
+  // Dynamic positional button array based on the active "Fielding Position" selection:
+  // - All Positions (Universal Core): PO, A, E, DP, TP
+  // - Catcher (C): Universal Core + PB, CS, SB, CI, PK, D3S, DI
+  // - Infielders (1B, 2B, 3B, SS): Universal Core + FC
+  // - Outfielders (LF, CF, RF): Universal Core + OFA
+  // - Pitcher (P): Universal Core + PK
+  const currentPlaysForMode = React.useMemo(() => {
+    if (activeMode === 'fielding') {
+      return getFieldingPlaysForPosition(currentInningPosition);
+    }
+    return getPlaysForMode(activeMode);
+  }, [activeMode, currentInningPosition]);
+
+  const battingPlaysCount = liveGame.plays.filter((p) => p.mode === 'batting').length;
+  const pitchingPlaysCount = liveGame.plays.filter((p) => p.mode === 'pitching').length;
+
+  const getPlayBadgeStyle = (play: Play) => {
+    if (play.mode === 'batting') {
+      if (['single', 'double', 'triple', 'homeRun'].includes(play.code)) {
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-[#00A892] shadow-2xs';
+      }
+      if (['walk', 'intentionalWalk', 'hbp'].includes(play.code)) {
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+      }
+      if (['rbi', 'run', 'stolenBase'].includes(play.code)) {
+        return 'bg-slate-200 text-white border-slate-300 shadow-2xs';
+      }
+      return 'bg-slate-700 dark:bg-[#465160] text-white border-slate-700 shadow-2xs';
+    }
+    if (play.mode === 'pitching') {
+      if (['hitAllowed', 'homeRunAllowed'].includes(play.code)) {
+        return 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+      }
+      if (['pitchOut', 'strikeout'].includes(play.code)) {
+        if (play.code === 'strikeout' && play.droppedThirdStrikeSafe) {
+          return 'bg-blue-600 text-white border-blue-700 shadow-2xs';
+        }
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+      }
+      if (['walkAllowed', 'intentionalWalkAllowed', 'hitBatter'].includes(play.code)) {
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+      }
+      if (play.code === 'pitchStrike' || play.code === 'pitchFoul') {
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+      }
+      if (play.code === 'pitchBall') {
+        return 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+      }
+      return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+    }
+    return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-300 shadow-2xs';
+  };
+
+  // Derive dynamic pitch numbering and user-friendly event descriptions.
+  // Re-evaluates whenever plays are re-ordered (drag-and-drop), added, or removed.
+  const playPitchMetaMap = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        pitchNumber: number | null;
+        whatHappened: string;
+        whatHappenedDetail?: string;
+        shortBadge: string;
+        badgeStyle: string;
+      }
+    >();
+
+    let cumulativePitches = 0;
+
+    for (let i = 0; i < liveGame.plays.length; i++) {
+      const play = liveGame.plays[i];
+      const prevPlay = i > 0 ? liveGame.plays[i - 1] : null;
+
+      if (play.mode !== 'pitching') {
+        const def = PLAY_DEFINITIONS[play.code];
+        let title = def?.fullLabel || play.code;
+        let badge = def?.shortLabel || play.code;
+        let detail: string | undefined = undefined;
+
+        if (play.mode === 'batting') {
+          if (play.code === 'out') {
+            const traj = play.hitLocation?.trajectory;
+            if (traj === 'grounder') title = 'Groundout';
+            else if (traj === 'flyBall') title = 'Flyout';
+            else if (traj === 'popUp') title = 'Pop Out';
+            else if (traj === 'lineDrive') title = 'Lineout';
+            else if (traj === 'bunt') title = 'Bunt Out';
+            else title = 'Out';
+          } else if (play.code === 'strikeout') {
+            title = 'Strikeout';
+          } else if (play.code === 'single') {
+            title = 'Single';
+          } else if (play.code === 'double') {
+            title = 'Double';
+          } else if (play.code === 'triple') {
+            title = 'Triple';
+          } else if (play.code === 'homeRun') {
+            title = 'Home run';
+          } else if (play.code === 'walk') {
+            title = 'Walk';
+          } else if (play.code === 'intentionalWalk') {
+            title = 'Intentional walk';
+          } else if (play.code === 'hbp') {
+            title = 'Hit by pitch';
+          } else if (play.code === 'runnerOut') {
+            const reasonLabel = RUNNER_OUT_REASONS.find((r) => r.code === play.runnerOutReason)?.label;
+            const baseLabel = play.runnerFromBase
+              ? ` (from ${play.runnerFromBase === 1 ? '1st' : play.runnerFromBase === 2 ? '2nd' : '3rd'})`
+              : '';
+            title = reasonLabel ? `Runner Out: ${reasonLabel}${baseLabel}` : play.runnerFromBase
+              ? `Runner Out at ${play.runnerFromBase === 1 ? '1st' : play.runnerFromBase === 2 ? '2nd' : '3rd'}`
+              : 'Runner Out';
+          }
+        } else if (play.mode === 'fielding') {
+          if (play.code === 'fieldersChoice') {
+            title = "Fielder's Choice";
+            badge = 'FC';
+          }
+          if (play.defensivePosition) {
+            detail = `Position: ${play.defensivePosition}`;
+          }
+        }
+
+        map.set(play.id, {
+          pitchNumber: null,
+          whatHappened: title,
+          whatHappenedDetail: detail,
+          shortBadge: badge,
+          badgeStyle: getPlayBadgeStyle(play),
+        });
+        continue;
+      }
+
+      // PITCHING MODE
+      let isPitch = false;
+      switch (play.code) {
+        case 'pitchBall':
+        case 'pitchStrike':
+        case 'pitchFoul':
+        case 'pitchOther':
+          isPitch = true;
+          break;
+        case 'wildPitch':
+          isPitch = play.pitchCounted !== false;
+          break;
+        case 'passedBall':
+        case 'hitBatter':
+        case 'hitAllowed':
+        case 'homeRunAllowed':
+        case 'reachedOnError':
+        case 'fieldersChoice':
+          isPitch = true;
+          break;
+        case 'pitchOut':
+          isPitch = !play.isExtraOut && play.pickoffKind !== 'pickoff';
+          break;
+        case 'strikeout': {
+          const isAuto =
+            play.autoOutcome ||
+            (prevPlay?.code === 'pitchStrike' &&
+              Math.abs((play.timestamp || 0) - (prevPlay.timestamp || 0)) < 150);
+          isPitch = !isAuto;
+          break;
+        }
+        case 'walkAllowed': {
+          const isAuto =
+            play.autoOutcome ||
+            (prevPlay?.code === 'pitchBall' &&
+              Math.abs((play.timestamp || 0) - (prevPlay.timestamp || 0)) < 150);
+          isPitch = !isAuto;
+          break;
+        }
+        default:
+          isPitch = false;
+          break;
+      }
+
+      let currentPitchNumber: number | null = null;
+      if (isPitch) {
+        cumulativePitches++;
+        currentPitchNumber = cumulativePitches;
+      }
+
+      let whatHappened = '';
+      let whatHappenedDetail: string | undefined = undefined;
+      let shortBadge = '';
+      let badgeStyle = getPlayBadgeStyle(play);
+
+      switch (play.code) {
+        case 'pitchBall':
+          whatHappened = 'Ball';
+          shortBadge = 'BALL';
+          badgeStyle = 'bg-slate-100 text-slate-800 border-slate-300 dark:bg-[#252D38] dark:text-[#D1D5DB] dark:border-[#354050] shadow-2xs';
+          break;
+        case 'pitchStrike':
+          whatHappened = 'Strike';
+          shortBadge = 'STRIKE';
+          badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          break;
+        case 'pitchFoul':
+          whatHappened = 'Foul Ball';
+          shortBadge = 'FOUL';
+          badgeStyle = 'bg-slate-200 text-slate-800 border-slate-300 dark:bg-[#252D38] dark:text-[#D1D5DB] dark:border-[#354050] shadow-2xs';
+          break;
+        case 'pitchOther':
+          whatHappened = 'In Play';
+          shortBadge = 'IN PLAY';
+          badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          break;
+        case 'wildPitch': {
+          const isStrike = play.wildPitchPitchType === 'strike';
+          whatHappened = isStrike ? 'Wild Pitch (Swinging Strike)' : 'Wild Pitch (Ball)';
+          if (play.wildPitchRunnerMovement === 'scored') {
+            whatHappenedDetail = `Pitch got past catcher (${isStrike ? 'swinging strike' : 'ball'}); run scored`;
+          } else if (play.wildPitchRunnerMovement === 'out') {
+            whatHappenedDetail = `Pitch got past catcher (${isStrike ? 'swinging strike' : 'ball'}); runner thrown out`;
+          } else if (play.wildPitchRunnerMovement === 'batterSafe1B') {
+            whatHappenedDetail = `Uncaught 3rd strike on wild pitch; batter reached 1st base safely`;
+          } else {
+            whatHappenedDetail = `Pitch got past catcher (${isStrike ? 'swinging strike' : 'ball'}); runners advanced`;
+          }
+          shortBadge = isStrike ? 'WP (STR)' : 'WP';
+          badgeStyle = 'bg-blue-600 text-white border-blue-700 shadow-2xs';
+          break;
+        }
+        case 'passedBall':
+          whatHappened = 'Passed Ball';
+          whatHappenedDetail = 'Catcher misplay; runners advanced';
+          shortBadge = 'PB';
+          badgeStyle = 'bg-blue-600 text-white border-blue-700 shadow-2xs';
+          break;
+        case 'balk':
+          whatHappened = 'Balk';
+          whatHappenedDetail = 'Illegal pitch; runners advanced';
+          shortBadge = 'BALK';
+          badgeStyle = 'bg-blue-700 text-white border-blue-800 shadow-2xs';
+          break;
+        case 'pickoffAttempt': {
+          const base = play.throwTo && play.throwTo !== 'unassisted' ? play.throwTo : '1B';
+          whatHappened = `Pickoff attempt: runner safe at ${positionName(base).toLowerCase()}`;
+          whatHappenedDetail = `Pitcher threw to ${positionName(base).toLowerCase()}; the runner got back safely`;
+          shortBadge = 'PICKOFF';
+          badgeStyle = 'bg-slate-700 text-white border-slate-800 shadow-2xs';
+          break;
+        }
+        case 'strikeout':
+          if (play.droppedThirdStrikeSafe) {
+            whatHappened = 'Dropped 3rd Strike — Safe at 1st';
+            whatHappenedDetail = 'Catcher dropped 3rd strike; batter reached 1st safely (K credited, no out recorded)';
+            shortBadge = 'K (SAFE)';
+            badgeStyle = 'bg-blue-600 text-white border-blue-700 shadow-2xs';
+          } else {
+            whatHappened = 'Strikeout';
+            shortBadge = 'K';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          }
+          break;
+        case 'pitchOut': {
+          if (play.pickoffKind === 'pickoff') {
+            const base = play.throwTo && play.throwTo !== 'unassisted' ? play.throwTo : '1B';
+            whatHappened = `Runner picked off at ${positionName(base).toLowerCase()}`;
+            whatHappenedDetail = 'Pitcher threw to the base and got the runner out';
+            shortBadge = 'PICKOFF OUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.pickoffKind === 'caughtStealing') {
+            const base = play.throwTo && play.throwTo !== 'unassisted' ? play.throwTo : '2B';
+            whatHappened = `Runner caught stealing ${positionName(base).toLowerCase()}`;
+            whatHappenedDetail = 'Runner was thrown out trying to steal';
+            shortBadge = 'CS OUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.isExtraOut) {
+            whatHappened = 'Double play: second out';
+            whatHappenedDetail = 'A second out was recorded on the same play';
+            shortBadge = 'DP OUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.pitcherAction === 'caught') {
+            whatHappened = 'Flyout caught by the pitcher';
+            whatHappenedDetail = 'Pitcher caught the ball in the air for the out';
+            shortBadge = 'FLYOUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.pitcherAction === 'covered') {
+            whatHappened = 'Groundout: pitcher covered first base';
+            whatHappenedDetail = play.assistBy
+              ? `Pitcher covered first base for the out; ${positionName(play.assistBy).toLowerCase()} made the throw`
+              : 'Pitcher covered first base for the out';
+            shortBadge = 'GROUNDOUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.pitcherAction === 'fielded') {
+            const target = play.throwTo && play.throwTo !== 'unassisted' ? play.throwTo : '';
+            whatHappened = target ? `Groundout: pitcher threw to ${positionName(target).toLowerCase()}` : 'Groundout: pitcher fielded it unassisted';
+            whatHappenedDetail = 'Pitcher fielded the ground ball';
+            shortBadge = 'GROUNDOUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else if (play.hitLocation?.trajectory) {
+            const traj = play.hitLocation.trajectory;
+            if (traj === 'grounder') whatHappened = 'Groundout';
+            else if (traj === 'flyBall') whatHappened = 'Flyout';
+            else if (traj === 'popUp') whatHappened = 'Pop Out';
+            else if (traj === 'lineDrive') whatHappened = 'Lineout';
+            else if (traj === 'bunt') whatHappened = 'Bunt Out';
+            else whatHappened = 'Out';
+            shortBadge = 'OUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          } else {
+            whatHappened = 'Out';
+            whatHappenedDetail = 'Batted ball retired for out';
+            shortBadge = 'OUT';
+            badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          }
+          break;
+        }
+        case 'hitAllowed':
+          if (play.hitBases === 4) {
+            whatHappened = 'Home Run Allowed';
+            shortBadge = 'HR';
+            badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          } else if (play.hitBases === 3) {
+            whatHappened = 'Triple Allowed';
+            shortBadge = '3B';
+            badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          } else if (play.hitBases === 2) {
+            whatHappened = 'Double Allowed';
+            shortBadge = '2B';
+            badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          } else {
+            whatHappened = 'Single Allowed';
+            shortBadge = '1B';
+            badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          }
+          break;
+        case 'homeRunAllowed':
+          whatHappened = 'Home Run Allowed';
+          shortBadge = 'HR';
+          badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          break;
+        case 'walkAllowed':
+          whatHappened = 'Walk';
+          whatHappenedDetail = 'Batter awarded first base after four balls';
+          shortBadge = 'WALK';
+          badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          break;
+        case 'intentionalWalkAllowed':
+          whatHappened = 'Intentional walk';
+          whatHappenedDetail = 'Batter awarded first base; no pitches counted';
+          shortBadge = 'IBB';
+          badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          break;
+        case 'hitBatter':
+          whatHappened = 'Hit batter';
+          whatHappenedDetail = 'Pitch hit the batter; batter awarded first base';
+          shortBadge = 'HBP';
+          badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
+          break;
+        case 'reachedOnError':
+          whatHappened = 'Reached on Error';
+          whatHappenedDetail = 'Defensive error; batter safe';
+          shortBadge = 'ERROR';
+          badgeStyle = 'bg-blue-600 text-white border-blue-700 shadow-2xs';
+          break;
+        case 'fieldersChoice':
+          whatHappened = "Fielder's Choice";
+          whatHappenedDetail = 'Lead runner retired; batter safe';
+          shortBadge = 'FC';
+          badgeStyle = 'bg-slate-700 text-white border-slate-800 shadow-2xs';
+          break;
+        case 'earnedRun':
+          whatHappened = 'Earned run (+1)';
+          whatHappenedDetail = 'Run scored against pitcher';
+          shortBadge = 'ER';
+          badgeStyle = 'bg-slate-700 text-white border-slate-800 shadow-2xs';
+          break;
+        case 'runAllowed':
+          whatHappened = 'Unearned run (+1)';
+          whatHappenedDetail = 'Run scored because of an error or passed ball';
+          shortBadge = 'RUN';
+          badgeStyle = 'bg-slate-600 text-white border-slate-700 shadow-2xs';
+          break;
+        default:
+          whatHappened = PLAY_DEFINITIONS[play.code]?.fullLabel || play.code;
+          shortBadge = PLAY_DEFINITIONS[play.code]?.shortLabel || play.code;
+          break;
+      }
+
+      map.set(play.id, {
+        pitchNumber: currentPitchNumber,
+        whatHappened,
+        whatHappenedDetail,
+        shortBadge,
+        badgeStyle,
+      });
+    }
+
+    return map;
+  }, [liveGame.plays]);
+
+  // Pitch number within the inning, shown as "inning.pitch" (e.g. 4.2 = 2nd pitch of the 4th inning).
+  const inningPitchLabelMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    let lastPitchNumber = 0;
+    let baseForInning = 0;
+    let currentInningSeen: number | null = null;
+    for (const play of liveGame.plays) {
+      if (play.mode !== 'pitching') continue;
+      const n = playPitchMetaMap.get(play.id)?.pitchNumber;
+      if (n === null || n === undefined) continue;
+      if (play.inning !== currentInningSeen) {
+        baseForInning = lastPitchNumber;
+        currentInningSeen = play.inning;
+      }
+      map.set(play.id, `${play.inning}.${n - baseForInning}`);
+      lastPitchNumber = n;
+    }
+    return map;
+  }, [liveGame.plays, playPitchMetaMap]);
+
+  const renderPlayCard = (play: Play) => {
+    const { extraClass: dragClass, style: dragStyle, ...dragHandlers } = getDragProps(play.id);
+    const isPitching = play.mode === 'pitching';
+    const meta = playPitchMetaMap.get(play.id) || {
+      pitchNumber: null,
+      whatHappened: PLAY_DEFINITIONS[play.code]?.fullLabel || play.code,
+      shortBadge: PLAY_DEFINITIONS[play.code]?.shortLabel || play.code,
+      badgeStyle: getPlayBadgeStyle(play),
+    };
+    return (
+      <div
+        key={play.id}
+        {...dragHandlers}
+        style={dragStyle}
+        className={`p-2.5 sm:p-3 rounded-md border border-l-[5px] border-l-[#18212D] border-slate-300 bg-white shadow-2xs transition-all text-xs space-y-1.5 dark:border-[#354050] dark:border-l-[#18212D] dark:bg-[#252D38] ${dragClass}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+            {/* Innings */}
+            <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] shrink-0">
+              Inning {play.inning}
+            </span>
+
+            {/* Pitch count for pitching mode (dynamically recalculates when drag-and-drop reorders plays) */}
+            {isPitching && (
+              meta.pitchNumber !== null ? (
+                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border border-[#00BFA5] dark:border-[#00D7BC] shrink-0 tabular-nums">
+                  {inningPitchLabelMap.get(play.id) ?? `#${meta.pitchNumber}`}
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-[#252D38] text-slate-500 dark:text-[#9CA3AF] border border-slate-200 dark:border-[#354050] shrink-0">
+                  No pitch
+                </span>
+              )
+            )}
+
+            {/* What happened badge - single clean label, zero duplicate values */}
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-xs font-semibold tracking-tight shrink-0 border ${meta.badgeStyle}`}
+            >
+              {meta.whatHappened}
+            </span>
+          </div>
+
+          {/* Action buttons: Edit & Delete */}
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSelectedPlayForEdit(play)}
+              className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-[#FAFAFA] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors"
+              title="Edit play"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDeletePlay(play.id)}
+              className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-[#00D7BC]/15 transition-colors"
+              title="Delete play"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Second row: details & context */}
+        {(meta.whatHappenedDetail || play.pitcherHand || play.lineupSpot || play.defensivePosition || play.hitLocation) && (
+          <div className="flex items-center gap-2 flex-wrap text-[13px] text-slate-500 dark:text-[#9CA3AF] pl-0.5">
+            {meta.whatHappenedDetail && (
+              <span className="text-slate-600 dark:text-[#D1D5DB] font-medium">
+                {meta.whatHappenedDetail}
+              </span>
+            )}
+            {play.pitcherHand && (
+              <span className="font-semibold inline-flex items-center gap-1">
+                Facing a <strong className="text-slate-700 dark:text-[#D1D5DB]">{play.pitcherHand === 'L' ? 'left-handed' : 'right-handed'}</strong> pitcher
+              </span>
+            )}
+            {play.lineupSpot && (
+              <span className="font-semibold inline-flex items-center gap-1 text-[#18212D] dark:text-[#D1D5DB]">
+                • Batting <strong className="text-[#18212D] dark:text-[#D1D5DB]">{ordinal(Number(play.lineupSpot))}</strong> in the lineup
+              </span>
+            )}
+            {play.defensivePosition && (
+              <span className="font-semibold inline-flex items-center gap-1">
+                • Position: <strong className="text-slate-700 dark:text-[#D1D5DB]">{positionName(play.defensivePosition)}</strong>
+              </span>
+            )}
+            {play.hitLocation && (
+              <button
+                type="button"
+                onClick={() => setSelectedPlayForEdit(play)}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-[#252D38]/40 border border-slate-300 dark:border-[#354050] text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB] hover:bg-slate-100 transition-colors"
+                title="Click to view/edit hit location on field"
+              >
+                <Crosshair className="w-3 h-3" />
+                <span>{positionName(resolveZone(play.hitLocation))}</span>
+                {play.hitLocation.trajectory && (
+                  <span className="opacity-80">· {getTrajectoryLabel(play.hitLocation.trajectory)}</span>
+                )}
+              </button>
+            )}
+            {!play.hitLocation && play.mode === 'batting' && isHitPlay(play.code) && (
+              <button
+                type="button"
+                onClick={() => setPendingHitPlay({ playId: play.id, code: play.code })}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-500 hover:text-[#007A6A] dark:hover:text-[#00D7BC] hover:border-[#00BFA5] transition-colors"
+                title="Map hit location"
+              >
+                <Crosshair className="w-3 h-3" />
+                <span>Map Hit Spray</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // A mid-inning switch of defensive position, shown in the same card format as a play.
+  const renderPositionChangeCard = (change: PositionChange) => (
+    <div
+      key={change.id}
+      className="p-2.5 sm:p-3 rounded-md border border-l-[5px] border-l-[#18212D] border-slate-300 bg-white shadow-2xs text-xs dark:border-[#354050] dark:border-l-[#18212D] dark:bg-[#252D38]"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] shrink-0">
+            Inning {change.inning}
+          </span>
+          <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold tracking-tight shrink-0 border bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-[#00BFA5] dark:border-[#00D7BC]">
+            Position Change: {change.from} → {change.to}
+          </span>
+        </div>
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => removePositionChange(change.id)}
+            className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-[#00D7BC]/15 transition-colors"
+            title="Remove position change"
+            aria-label={`Remove position change ${change.from} to ${change.to}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Every inning of the game gets a divider (newest first). Innings with plays list them; the rest say
+  // why they are empty: benched / resting, or the player simply did not bat or pitch.
+  const renderPlaysWithInningDividers = (plays: Play[]) => {
+    const allPlays = liveGame.plays;
+    const benched = liveGame.benchInnings || [];
+    const lastInning = Math.max(currentInning, 1, liveGame.maxInning ?? 0, ...allPlays.map((p) => p.inning), ...benched);
+    const tabLabel = playFeedFilter === 'pitching' ? 'pitching' : playFeedFilter === 'fielding' ? 'fielding' : 'batting';
+
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: lastInning }, (_, i) => lastInning - i).map((inning, index) => {
+          const tabPlays = plays.filter((p) => p.inning === inning);
+          const isBenched = benched.includes(inning);
+          const batOrPitchCount = allPlays.filter(
+            (p) => p.inning === inning && (p.mode === 'batting' || p.mode === 'pitching')
+          ).length;
+
+          let status: { text: string; tone: 'bench' | 'none' | 'info' } | null = null;
+          if (isBenched) {
+            status = { text: 'Benched / Resting this inning', tone: 'bench' };
+          } else if (batOrPitchCount === 0) {
+            status =
+              inning === currentInning
+                ? { text: 'No plays yet this inning', tone: 'info' }
+                : { text: 'No plays made', tone: 'none' };
+          } else if (tabPlays.length === 0) {
+            status = { text: `No ${tabLabel} plays this inning`, tone: 'info' };
+          }
+
+          return (
+            <React.Fragment key={inning}>
+              <div className={`flex items-center gap-2 px-0.5 ${index === 0 ? 'pb-1' : 'pt-3 pb-1'}`}>
+                <div className="h-px flex-1 bg-slate-300 dark:bg-[#354050]" />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-3 py-0.5 text-xs font-semibold text-slate-800 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB]">
+                  Inning {inning}
+                  {tabPlays.length > 0 && (
+                    <span className="font-medium text-slate-500 dark:text-[#9CA3AF]">
+                      · {tabPlays.length} {tabPlays.length === 1 ? 'play' : 'plays'}
+                    </span>
+                  )}
+                </span>
+                <div className="h-px flex-1 bg-slate-300 dark:bg-[#354050]" />
+              </div>
+
+              {status && status.tone === 'bench' && (
+                /* Same card layout as a play: inning chip, badge, delete icon */
+                <div className="p-2.5 sm:p-3 rounded-md border border-l-[5px] border-l-[#18212D] border-slate-300 bg-white shadow-2xs text-xs dark:border-[#354050] dark:border-l-[#18212D] dark:bg-[#252D38]">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                      <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] shrink-0">
+                        Inning {inning}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold tracking-tight shrink-0 border bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-[#00BFA5] dark:border-[#00D7BC]">
+                        Benched / Resting
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setInningBench(inning, false)}
+                        className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-[#00D7BC]/15 transition-colors"
+                        title="Remove bench / rest"
+                        aria-label={`Remove bench / rest from inning ${inning}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {status && status.tone !== 'bench' && (
+                /* Same card layout as a play: inning chip + badge */
+                <div className="p-2.5 sm:p-3 rounded-md border border-l-[5px] border-l-[#18212D] border-slate-300 bg-white shadow-2xs text-xs dark:border-[#354050] dark:border-l-[#18212D] dark:bg-[#252D38]">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] shrink-0">
+                      Inning {inning}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold tracking-tight shrink-0 border bg-slate-100 text-slate-700 border-slate-200 dark:bg-[#252D38] dark:text-[#D1D5DB] dark:border-[#354050]">
+                      {status.text}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Plays newest first, with position changes slotted in where they happened */}
+              {(() => {
+                const changes = (liveGame.positionChanges || [])
+                  .filter((c) => c.inning === inning)
+                  .sort((a, b) => b.timestamp - a.timestamp);
+                const items: React.ReactNode[] = [];
+                let next = 0;
+                tabPlays.forEach((play) => {
+                  while (next < changes.length && changes[next].timestamp > (play.timestamp ?? 0)) {
+                    items.push(renderPositionChangeCard(changes[next]));
+                    next += 1;
+                  }
+                  items.push(renderPlayCard(play));
+                });
+                while (next < changes.length) {
+                  items.push(renderPositionChangeCard(changes[next]));
+                  next += 1;
+                }
+                return items;
+              })()}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const isHomeTeam = liveGame.isHome !== false;
+  const opponentDisplay = liveGame.opponent
+    ? (isHomeTeam ? `vs ${liveGame.opponent}` : `@ ${liveGame.opponent}`)
+    : (isHomeTeam ? 'vs Opponent' : '@ Opponent');
+
+  const getButtonStyles = (code: PlayCode) => {
+    switch (code) {
+      case 'homeRun':
+        return 'bg-gradient-to-br from-[#00D7BC] to-[#00A892] text-[#18212D] shadow-md shadow-teal-500/20 border-[#00A892]';
+      case 'single':
+      case 'double':
+      case 'triple':
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs border-[#00BFA5] dark:border-[#00D7BC]';
+      case 'walk':
+      case 'hbp':
+        return 'bg-[#246BFD] dark:bg-[#3478FF] text-white shadow-xs border-slate-300';
+      case 'rbi':
+      case 'run':
+      case 'stolenBase':
+        return 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs border-slate-300';
+      case 'strikeout':
+      case 'out':
+      case 'cs':
+      case 'error':
+      case 'passedBall':
+        return 'bg-slate-100 dark:bg-[#252D38] text-slate-800 dark:text-[#D1D5DB] border-slate-300 dark:border-[#354050]';
+      default:
+        return 'bg-slate-50 dark:bg-[#252D38] text-slate-800 dark:text-[#D1D5DB] border-slate-200 dark:border-[#354050]';
+    }
+  };
+
+  const PRIMARY_BATTING_CODES: PlayCode[] = [
+    'single',
+    'double',
+    'triple',
+    'homeRun',
+    'walk',
+    'hbp',
+    'out',
+    'reachedOnError',
+  ];
+
+  const showInningNotice = useCallback((title: string, subtitle: string) => {
+    setInningNotice({ id: Date.now(), title, subtitle });
+  }, []);
+
+  useEffect(() => {
+    if (!inningNotice) return;
+    const timer = window.setTimeout(() => {
+      setInningNotice(null);
+    }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [inningNotice]);
+
+  const getBattingOutCount = useCallback(
+    (inning: number) => {
+      return liveGame.plays
+        .filter((p) => p.inning === inning && p.mode === 'batting')
+        // playOutCount also covers sacrifices (previously uncounted) and teammates retired on a fielder's choice.
+        .reduce((count, play) => count + playOutCount(play), 0);
+    },
+    [liveGame.plays]
+  );
+
+  const getDefenseOutCount = useCallback(
+    (inning: number) => {
+      const pitchingState = derivePitchingFlowState(liveGame.plays, inning);
+      let outs = pitchingState.outs;
+
+      const nonPitcherFieldingPlays = liveGame.plays.filter(
+        (p) => p.inning === inning && p.mode === 'fielding' && p.defensivePosition !== 'P'
+      );
+      for (const play of nonPitcherFieldingPlays) {
+        if (play.code === 'putout' || play.code === 'caughtStealing') outs += 1;
+        else if (play.code === 'doublePlay') outs += 2;
+        else if (play.code === 'triplePlay') outs += 3;
+      }
+      return outs;
+    },
+    [liveGame.plays]
+  );
+
+  // Backward-compatible alias for existing call sites that want batting outs
+  const getInningOutCount = getBattingOutCount;
+
+  const hasBattedThisInning = useCallback(
+    (inning: number) => {
+      if (liveGame.halfInningStatus?.[inning]?.battingCompleted) return true;
+      return liveGame.plays.some((p) => p.inning === inning && p.mode === 'batting');
+    },
+    [liveGame.halfInningStatus, liveGame.plays]
+  );
+
+  const hasFieldedThisInning = useCallback(
+    (inning: number) => {
+      if (liveGame.halfInningStatus?.[inning]?.fieldingCompleted) return true;
+      return liveGame.plays.some(
+        (p) => p.inning === inning && (p.mode === 'fielding' || p.mode === 'pitching')
+      );
+    },
+    [liveGame.halfInningStatus, liveGame.plays]
+  );
+
+  const canAdvanceToNextInning = useCallback(
+    (fromMode: PlayMode, inning = currentInning) => {
+      const isBatting = fromMode === 'batting';
+      const isDefense = fromMode === 'pitching' || fromMode === 'fielding';
+
+      const battedDone = isBatting || hasBattedThisInning(inning);
+      const fieldedDone = isDefense || hasFieldedThisInning(inning);
+
+      return Boolean(battedDone && fieldedDone);
+    },
+    [currentInning, hasBattedThisInning, hasFieldedThisInning]
+  );
+
+  const handleThirdOut = useCallback(
+    (fromMode: PlayMode, opts?: { allowExtraInning?: boolean }) => {
+      if (typeof window !== 'undefined' && window.navigator?.vibrate) {
+        try {
+          window.navigator.vibrate(20);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Clear any pending runner session, active runner chip, and hit tapper
+      setRunnerSession(null);
+      setRunnerHistory([]);
+      setActiveRunnerChip(null);
+      setPendingHitPlay(null);
+      pendingRunnerPrimaryPlayIdRef.current = null;
+      pendingRunnerAfterHitRef.current = null;
+
+      // Reset batter and pitcher-batter states
+      playFlow.nextPlateAppearance();
+      playFlow.nextPitcherBatter();
+
+      const isBatting = fromMode === 'batting';
+      const isDefense = fromMode === 'pitching' || fromMode === 'fielding';
+
+      // Record half-inning status
+      const existingStatus = liveGame.halfInningStatus?.[currentInning] || {};
+      const updatedStatus: HalfInningStatus = {
+        ...existingStatus,
+        ...(isBatting ? { battingCompleted: true } : {}),
+        ...(isDefense ? { fieldingCompleted: true } : {}),
+      };
+
+      const updatedHalfStatusMap = {
+        ...(liveGame.halfInningStatus || {}),
+        [currentInning]: updatedStatus,
+      };
+
+      const battedDone = isBatting || hasBattedThisInning(currentInning);
+      const fieldedDone = isDefense || hasFieldedThisInning(currentInning);
+      const bothConditionsMet = battedDone && fieldedDone;
+
+      if (bothConditionsMet && currentInning >= settings.inningsPerGame && !opts?.allowExtraInning) {
+        // The scheduled innings are done. Never roll into an extra inning automatically:
+        // the scorer chooses End Game or Add Another Inning.
+        updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
+        showInningNotice(
+          `Inning ${currentInning} complete`,
+          'All scheduled innings are done. Choose End Game or Add Another Inning.'
+        );
+      } else if (bothConditionsMet) {
+        // Both fielded and batted are complete for this inning!
+        // Move on to the next innings ONLY now!
+        updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
+        nextInning(); // changes liveGame.innings to currentInning + 1
+
+        const nextInn = currentInning + 1;
+        const nextInnPosition =
+          liveGame.fieldingPositions?.[nextInn] ||
+          (liveGame.benchInnings.includes(nextInn) ? 'BENCH' : 'CF');
+
+        // Based on Home or Away Team status:
+        if (!isHomeTeam) {
+          // Away team bats first at top of next inning
+          setActiveMode('batting');
+          showInningNotice(
+            `Inning ${currentInning} complete!`,
+            `Both fielded and batted completed. Starting Inning ${nextInn} (▲ Top · Away Batting).`
+          );
+        } else {
+          // Home team fields first at top of next inning
+          const nextDefMode: PlayMode = nextInnPosition === 'P' ? 'pitching' : 'fielding';
+          setActiveMode(nextDefMode);
+          showInningNotice(
+            `Inning ${currentInning} complete!`,
+            `Both fielded and batted completed. Starting Inning ${nextInn} (▲ Top · Home Defense).`
+          );
+        }
+      } else {
+        // Conditions are NOT met! Remain on current inning!
+        updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
+
+        if (isBatting) {
+          // Batting ended, team must now field/pitch in the current inning
+          const defMode: PlayMode = currentInningPosition === 'P' ? 'pitching' : 'fielding';
+          setActiveMode(defMode);
+          showInningNotice(
+            `3rd out recorded · Inning ${currentInning}`,
+            `Batting half complete. Remaining on Inning ${currentInning} to field (▼ Bottom · Defense).`
+          );
+        } else {
+          // Defense ended, team must now bat in the current inning
+          setActiveMode('batting');
+          showInningNotice(
+            `3rd out recorded · Inning ${currentInning}`,
+            `Defense half complete. Remaining on Inning ${currentInning} to bat (▼ Bottom · Batting).`
+          );
+        }
+      }
+    },
+    [
+      currentInning,
+      currentInningPosition,
+      hasBattedThisInning,
+      hasFieldedThisInning,
+      isHomeTeam,
+      liveGame.benchInnings,
+      liveGame.fieldingPositions,
+      liveGame.halfInningStatus,
+      nextInning,
+      playFlow,
+      settings.inningsPerGame,
+      showInningNotice,
+      updateLiveGameDetails,
+    ]
+  );
+
+  const startRunnerSession = (code: PlayCode) => {
+    const base = getRunnerBaseForPrimary(code);
+    if (!base) return;
+    setRunnerHistory([]);
+    setRunnerSession(createRunnerLifecycle(base));
+  };
+
+  const handleScoringPlay = (code: PlayCode) => {
+    if (activeMode === 'batting') {
+      const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError'].includes(code);
+      if (requiresLineupSpot && !currentInningLineupSpot) {
+        setLineupSpotPromptOpen(true);
+        return;
+      }
+      // Internal helpers (spray-chart RBI, legacy edit paths) remain supported but are not
+      // rendered on the primary parent-facing scoring board.
+      if (code === 'rbi') {
+        playFlow.handleRbi();
+        return;
+      }
+      if (code === 'run') {
+        playFlow.handleRun();
+        return;
+      }
+      if (code === 'stolenBase' || code === 'cs') {
+        playFlow.handleBaserunningEvent(code);
+        return;
+      }
+      if (code === 'out') {
+        setOutResolutionOpen(true);
+        return;
+      }
+      if (getRunnerBaseForPrimary(code)) {
+        playFlow.handlePrimaryBattingEvent(code as Parameters<typeof playFlow.handlePrimaryBattingEvent>[0]);
+        // If the field tapper is enabled, the runner lockdown is deliberately deferred
+        // until Hit Location has been saved/skipped. Without this, both full-screen
+        // modals open together and the runner modal hides Hit Location.
+        if (!(hitTapperEnabled && isHitPlay(code))) {
+          startRunnerSession(code);
+        }
+        return;
+      }
+      playFlow.handlePrimaryBattingEvent(code as Parameters<typeof playFlow.handlePrimaryBattingEvent>[0]);
+      if (code === 'homeRun') playFlow.nextPlateAppearance();
+    } else if (activeMode === 'fielding') {
+      const outsBefore = getDefenseOutCount(currentInning);
+      const playOuts =
+        code === 'triplePlay'
+          ? 3
+          : code === 'doublePlay'
+          ? 2
+          : code === 'putout' || code === 'caughtStealing' || code === 'pickoff' || code === 'fieldersChoice'
+          ? 1
+          : 0;
+
+      const CATCHER_FIELDING_CODES: PlayCode[] = [
+        'passedBall',
+        'caughtStealing',
+        'stealAllowed',
+        'catchersInterference',
+        'pickoff',
+        'droppedThirdStrike',
+        'defensiveIndifference',
+      ];
+
+      if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
+        playFlow.handleCatcherEvent(code as any);
+      } else {
+        playFlow.handleFieldingEvent(code as any);
+      }
+
+      // Sequence chaining for multi-fielder plays (CS, DP)
+      if (code === 'caughtStealing') {
+        setFieldingChain({
+          type: 'CS',
+          primaryPosition: 'C',
+          prompt: 'Who applied the tag on the caught stealing?',
+          targets: [
+            { position: '2B', label: '2B (Second Base)' },
+            { position: 'SS', label: 'SS (Shortstop)' },
+            { position: '3B', label: '3B (Third Base)' },
+          ],
+        });
+      } else if (code === 'doublePlay') {
+        setFieldingChain({
+          type: 'DP',
+          primaryPosition: currentInningPosition,
+          prompt: 'Who completed the out at 1st base for the Double Play?',
+          targets: [
+            { position: '1B', label: '1B (First Base)' },
+            { position: '2B', label: '2B (Second Base)' },
+            { position: 'SS', label: 'SS (Shortstop)' },
+          ],
+        });
+      } else {
+        setFieldingChain(null);
+      }
+
+      if (playOuts > 0 && outsBefore + playOuts >= 3) {
+        handleThirdOut('fielding');
+      }
+    } else {
+      if (code === 'pitchBall') playFlow.handlePitchBall();
+      else if (code === 'pitchStrike') playFlow.handlePitchStrike();
+      else if (code === 'pitchFoul') playFlow.handlePitchFoul();
+      else if (code === 'pitchOther' || code === 'balk' || code === 'wildPitch' || code === 'earnedRun' || code === 'runAllowed') {
+        playFlow.handlePitchingIndependentEvent(code);
+      } else {
+        playFlow.handlePitchingTerminal(code as Parameters<typeof playFlow.handlePitchingTerminal>[0]);
+      }
+    }
+  };
+
+  const handleCompleteFieldingChain = (targetPos: DefensivePosition) => {
+    if (!fieldingChain) return;
+    const outsBefore = getDefenseOutCount(currentInning);
+    addPlay('fielding', 'putout', { defensivePosition: targetPos });
+
+    if (fieldingChain.type === 'CS') {
+      
+    } else {
+      
+    }
+    setFieldingChain(null);
+
+    if (outsBefore + 1 >= 3) {
+      handleThirdOut('fielding');
+    }
+  };
+
+  // Record the RBIs chosen in the hit tapper. A home run already auto-adds the batter's own
+  // RBI (when the setting is on), so only the remaining RBIs need to be added for it.
+  const recordHitRbis = (code: PlayCode, totalRbis: number) => {
+    const alreadyRecorded = code === 'homeRun' && settings.homeRunAddsRunAndRbi ? 1 : 0;
+    const extra = Math.max(0, totalRbis - alreadyRecorded);
+    for (let i = 0; i < extra; i++) handleScoringPlay('rbi');
+  };
+
+  // Commit a validated smart-scoring resolution: the batter's play, any auto RBI, and the inning/out bookkeeping.
+  const handleScoringResolution = (res: ScoringResolution) => {
+    setOutResolutionOpen(false);
+    const code = res.outcome;
+    const c = res.context;
+    const scoringContext: Play['scoringContext'] = {
+      action: c.action,
+      requested: c.requested,
+      outsBefore: c.outs,
+      runners: c.runners,
+      runnerScoredFrom3rd: c.runnerScoredFrom3rd,
+      runnersAdvancedSafely: c.runnersAdvancedSafely,
+      leadRunnerPutOut: c.leadRunnerPutOut,
+      defensiveError: c.defensiveError,
+      batterSafeAtFirst: c.batterSafeAtFirst,
+      autoCorrected: res.autoCorrected || undefined,
+    };
+    const playOptions = {
+      pitcherHand,
+      lineupSpot: currentInningLineupSpot,
+      extraOuts: res.extraOuts,
+      scoringContext,
+    };
+    // A bunt/ground-ball single opens the hit tapper (which asks for RBIs itself) when it is enabled.
+    const rbiHandledByTapper = code === 'single' && hitTapperEnabled && !res.inningEnds;
+    const addAutoRbis = () => {
+      if (rbiHandledByTapper) return;
+      for (let i = 0; i < res.rbi; i += 1) {
+        addPlay('batting', 'rbi', { pitcherHand, lineupSpot: currentInningLineupSpot });
+      }
+    };
+
+    if (res.batterReaches && !res.inningEnds) {
+      // Batter is on base and the inning continues: use the normal primary-play flow so the
+      // runner modal / hit tapper behave exactly like a tapped 1B / ROE / FC.
+      pendingScoringMetaRef.current = { code, extraOuts: res.extraOuts, scoringContext };
+      handleScoringPlay(code);
+      addAutoRbis();
+      return;
+    }
+
+    addPlay('batting', code, playOptions);
+    addAutoRbis();
+    if (res.inningEnds) {
+      handleThirdOut('batting');
+    } else {
+      playFlow.nextPlateAppearance();
+    }
+  };
+
+  const closeRunnerSession = () => {
+    setRunnerSession(null);
+    setRunnerHistory([]);
+  };
+
+  const applyRunnerAction = (action: Parameters<typeof transitionRunner>[1]) => {
+    if (!runnerSession) return;
+    const transition = transitionRunner(runnerSession, action);
+    if (!transition.valid) return;
+
+    let terminal = false;
+    const actionPlayIds: string[] = [];
+    const record = (play: Play | undefined) => {
+      if (play) actionPlayIds.push(play.id);
+    };
+
+    if (transition.effect) {
+      const effect = transition.effect;
+      if (effect.type === 'STOLEN_BASE') {
+        record(addPlay('batting', 'stolenBase', {
+          lineupSpot: currentInningLineupSpot,
+          runnerFromBase: effect.fromBase,
+          runnerToBase: effect.toBase,
+          runnerAdvanceCause: effect.cause,
+        }));
+      } else if (effect.type === 'RUNNER_ADVANCE') {
+        record(addPlay('batting', 'runnerAdvance', {
+          lineupSpot: currentInningLineupSpot,
+          runnerFromBase: effect.fromBase,
+          runnerToBase: effect.toBase,
+          runnerAdvanceCause: effect.cause,
+        }));
+      } else if (effect.type === 'RUN') {
+        if (effect.cause === 'steal') {
+          record(addPlay('batting', 'stolenBase', {
+            lineupSpot: currentInningLineupSpot,
+            runnerFromBase: 3,
+            runnerToBase: 4,
+            runnerAdvanceCause: 'steal',
+          }));
+        }
+        record(addPlay('batting', 'run', {
+          lineupSpot: currentInningLineupSpot,
+          runnerFromBase: 3,
+          runnerToBase: 4,
+          runnerAdvanceCause: effect.cause,
+        }));
+        setActiveRunnerChip(null);
+        pendingRunnerPrimaryPlayIdRef.current = null;
+        closeRunnerSession();
+        playFlow.nextPlateAppearance();
+        terminal = true;
+      } else if (effect.type === 'RUNNER_OUT') {
+        // The scorer picks the reason; only a caught-stealing counts as a CS.
+        if (effect.reason === 'caughtStealing') {
+          record(addPlay('batting', 'cs', {
+            lineupSpot: currentInningLineupSpot,
+            runnerFromBase: effect.fromBase,
+            runnerAdvanceCause: 'steal',
+          }));
+        }
+        record(addPlay('batting', 'runnerOut', {
+          lineupSpot: currentInningLineupSpot,
+          runnerFromBase: effect.fromBase,
+          runnerAdvanceCause: effect.cause,
+          runnerOutReason: effect.reason,
+        }));
+        setActiveRunnerChip(null);
+        pendingRunnerPrimaryPlayIdRef.current = null;
+        const outsAfter = getBattingOutCount(currentInning) + 1;
+        closeRunnerSession();
+        terminal = true;
+        if (outsAfter >= 3) {
+          handleThirdOut('batting');
+        } else {
+          playFlow.nextPlateAppearance();
+        }
+      } else if (effect.type === 'LEFT_ON_BASE') {
+        record(addPlay('batting', 'leftOnBase', {
+          lineupSpot: currentInningLineupSpot,
+          runnerFromBase: effect.fromBase,
+          runnerAdvanceCause: effect.cause,
+        }));
+        setActiveRunnerChip(null);
+        pendingRunnerPrimaryPlayIdRef.current = null;
+        closeRunnerSession();
+        terminal = true;
+        handleThirdOut('batting');
+      }
+    }
+
+    if (!terminal) {
+      setRunnerHistory((prev) => [...prev, { state: runnerSession, playIds: actionPlayIds }]);
+      setRunnerSession(transition.state);
+    }
+  };
+
+  const handleRunnerAdvance = (cause: RunnerAdvanceCause) => applyRunnerAction({ type: 'ADVANCE', cause });
+  const handleRunnerOut = (reason: RunnerOutReason) => applyRunnerAction({ type: 'OUT', reason });
+  const handleRunnerScore = (cause?: RunnerAdvanceCause) => applyRunnerAction({ type: 'SCORE', cause });
+  const handleHoldRunnerOnBase = () => {
+    if (!runnerSession) return;
+    setActiveRunnerChip({
+      base: runnerSession.base,
+      sb: runnerSession.sb,
+      cause: runnerSession.advanceCause,
+    });
+    setRunnerSession(null);
+  };
+
+  const handleUndoPrimaryRunnerPlay = () => {
+    const primaryPlayId = pendingRunnerPrimaryPlayIdRef.current;
+    if (!primaryPlayId) return;
+    pendingRunnerPrimaryPlayIdRef.current = null;
+    pendingRunnerAfterHitRef.current = null;
+    setPendingHitPlay(null);
+    setRunnerSession(null);
+    setRunnerHistory([]);
+    setActiveRunnerChip(null);
+    const runnerActionIds = runnerHistory.flatMap((entry) => entry.playIds);
+    runnerActionIds.forEach((playId) => deletePlay(playId));
+    deletePlay(primaryPlayId);
+    playFlow.reopenBatter(false);
+  };
+  const handleRunnerThirdOut = () => applyRunnerAction({ type: 'THIRD_OUT' });
+
+  const handleRunnerUndo = () => {
+    if (!runnerSession || runnerHistory.length === 0) return;
+    const previous = runnerHistory[runnerHistory.length - 1];
+    const transition = transitionRunner(runnerSession, { type: 'UNDO', previous: previous.state });
+    if (!transition.valid) return;
+    previous.playIds.forEach((playId) => deletePlay(playId));
+    setRunnerHistory((prev) => prev.slice(0, -1));
+    setRunnerSession(transition.state);
+  };
+
+  const handleUnifiedRunnerUndo = () => {
+    if (runnerHistory.length > 0) {
+      handleRunnerUndo();
+    } else {
+      handleUndoPrimaryRunnerPlay();
+    }
+  };
+
+  const handleRunnerInjurySub = () => {
+    if (!runnerSession) return;
+    addPlay('batting', 'runnerInjury', {
+      lineupSpot: currentInningLineupSpot,
+      runnerFromBase: runnerSession.base,
+    });
+    setActiveRunnerChip({
+      base: runnerSession.base,
+      sb: runnerSession.sb,
+      cause: runnerSession.advanceCause,
+      subNumber: 'SUB',
+    });
+    setRunnerSession(null);
+    setRunnerHistory([]);
+  };
+
+
+  const handlePitcherOutSelection = ({ fielding, extra }: PitcherOutSelection) => {
+    playFlow.handlePitchingTerminal('pitchOut');
+
+    const additionalOuts = extra === 'doublePlay' ? 1 : extra === 'triplePlay' ? 2 : 0;
+    for (let outIndex = 0; outIndex < additionalOuts; outIndex += 1) {
+      addPlay('pitching', 'pitchOut', { isExtraOut: true });
+    }
+
+    if (fielding === 'putout') addPlay('fielding', 'putout', { defensivePosition: 'P' });
+    if (fielding === 'assist') addPlay('fielding', 'assist', { defensivePosition: 'P' });
+
+    if (extra === 'doublePlay') addPlay('fielding', 'doublePlay', { defensivePosition: 'P' });
+    if (extra === 'triplePlay') addPlay('fielding', 'triplePlay', { defensivePosition: 'P' });
+  };
+
+  const handleNextInning = (opts?: { allowExtraInning?: boolean }) => {
+    if (activeRunnerChip) {
+      addPlay('batting', 'leftOnBase', {
+        lineupSpot: currentInningLineupSpot,
+        runnerFromBase: activeRunnerChip.base,
+        runnerAdvanceCause: activeRunnerChip.cause,
+      });
+    }
+    handleThirdOut(activeMode, opts);
+  };
+
+  // Furthest inning reached so far; the inning chevron can browse up to it but never add one.
+  const reachedInning = Math.max(
+    liveGame.maxInning ?? 0,
+    currentInning,
+    ...liveGame.plays.map((p) => p.inning),
+    ...(liveGame.benchInnings || [])
+  );
+
+  const openSaveGameModal = () => {
+    const match = liveGame?.finalResult?.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
+    setTeamFinalScore(match ? match[1] : '');
+    setOpponentFinalScore(match ? match[2] : '');
+    setIsSaveModalOpen(true);
+  };
+
+  // An extra inning added past the scheduled innings, with nothing recorded in it yet, can be undone.
+  const canRemoveExtraInning =
+    currentInning > settings.inningsPerGame &&
+    currentInning === reachedInning &&
+    !isBenchedCurrentInning &&
+    !liveGame.plays.some((p) => p.inning === currentInning);
+
+  // At (or past) the scheduled number of innings, moving on becomes End Game / Add Another Inning.
+  const showEndGameChoice =
+    currentInning >= settings.inningsPerGame &&
+    (isBenchedCurrentInning || canAdvanceToNextInning(activeMode));
+
+  const RUNNER_ON_CODES = new Set<PlayCode>([
+    'single', 'double', 'triple', 'walk', 'intentionalWalk', 'hbp', 'reachedOnError', 'fieldersChoice', 'runnerAdvance',
+  ]);
+  const NON_PRIMARY_BATTING = new Set<PlayCode>(['rbi', 'run', 'stolenBase', 'cs', 'runnerAdvance', 'runnerOut', 'leftOnBase', 'runnerHold', 'runnerInjury']);
+
+  // Re-sync the UI from the plays that remain. A primary batting play owns the plate appearance;
+  // runner actions that happened after it must never prevent that batter from being reopened when
+  // the primary play itself is deleted/undone.
+  const syncFlowAfterRemoval = (removed: Play | undefined, remaining: Play[]) => {
+    if (!removed) return;
+
+    if (removed.mode === 'pitching') {
+      const inningPlays = remaining.filter((p) => p.mode === 'pitching' && p.inning === removed.inning);
+      let lastTerminalIndex = -1;
+      for (let i = inningPlays.length - 1; i >= 0; i--) {
+        if (PITCHING_TERMINAL_CODES.has(inningPlays[i].code)) {
+          lastTerminalIndex = i;
+          break;
+        }
+      }
+      const playsOnBatter = lastTerminalIndex === -1 ? inningPlays : inningPlays.slice(lastTerminalIndex + 1);
+      let restoredBalls = 0;
+      let restoredStrikes = 0;
+      for (const p of playsOnBatter) {
+        if (p.code === 'pitchBall' || (p.code === 'wildPitch' && p.wildPitchPitchType !== 'strike')) {
+          restoredBalls = Math.min(3, restoredBalls + 1);
+        } else if (p.code === 'pitchStrike' || p.code === 'pitchFoul' || (p.code === 'wildPitch' && p.wildPitchPitchType === 'strike')) {
+          restoredStrikes = Math.min(2, restoredStrikes + 1);
+        }
+      }
+      if (PITCHING_TERMINAL_CODES.has(removed.code)) playFlow.reopenPitcherBatter(restoredBalls, restoredStrikes);
+      else playFlow.syncPitcherCount(restoredBalls, restoredStrikes);
+      return;
+    }
+
+    if (removed.mode !== 'batting') return;
+
+    // If there is no primary batting play left for this inning, there is no active
+    // runner/plate appearance to reconstruct. This is also what makes deleting the
+    // final play reliably return the primary batting board.
+    const remainingPrimaryPlays = remaining.filter(
+      (p) => p.mode === 'batting' && p.inning === removed.inning && !NON_PRIMARY_BATTING.has(p.code)
+    );
+    if (remainingPrimaryPlays.length === 0) {
+      setPendingHitPlay(null);
+      pendingRunnerAfterHitRef.current = null;
+      pendingRunnerPrimaryPlayIdRef.current = null;
+      setRunnerSession(null);
+      setRunnerHistory([]);
+      setActiveRunnerChip(null);
+      playFlow.reopenBatter(false);
+      return;
+    }
+
+    // Removing a primary batting play must always put the batter back at the primary buttons.
+    // Do not compare timestamps: runner actions are deliberately recorded after the primary play.
+    if (!NON_PRIMARY_BATTING.has(removed.code)) {
+      const remainingPrimary = remaining.filter(
+        (p) => p.mode === 'batting' && p.inning === removed.inning && !NON_PRIMARY_BATTING.has(p.code)
+      );
+
+      // If the removed play was the latest primary PA, that PA is now open again.
+      const latestRemainingPrimary = remainingPrimary[remainingPrimary.length - 1];
+      const removedWasLatestPrimary = !latestRemainingPrimary || (removed.timestamp ?? 0) >= (latestRemainingPrimary.timestamp ?? 0);
+
+      if (removedWasLatestPrimary) {
+        setPendingHitPlay(null);
+        pendingRunnerAfterHitRef.current = null;
+        setRunnerSession(null);
+        setRunnerHistory([]);
+        setActiveRunnerChip(null);
+        playFlow.reopenBatter(false);
+        return;
+      }
+    }
+
+    // For a runner-only removal, keep the batter PA state intact and reconstruct only the runner state.
+    let runner = false;
+    const inningPlays = remaining.filter((p) => p.mode === 'batting' && p.inning === removed.inning);
+    for (const p of inningPlays) {
+      if (RUNNER_ON_CODES.has(p.code)) runner = true;
+      else if (['homeRun', 'run', 'cs', 'runnerOut', 'leftOnBase', 'runnerInjury'].includes(p.code)) runner = false;
+    }
+    playFlow.restoreRunner(runner);
+  };
+
+  const handleUndoLastPlay = () => {
+    const lastPlay = liveGame.plays[liveGame.plays.length - 1];
+    const remaining = liveGame.plays.slice(0, -1);
+
+    // Close transient scoring UI before changing the authoritative play list.
+    setPendingHitPlay(null);
+    pendingRunnerAfterHitRef.current = null;
+    pendingRunnerPrimaryPlayIdRef.current = null;
+    setRunnerSession(null);
+    setRunnerHistory([]);
+    setActiveRunnerChip(null);
+
+    undoLastPlay();
+    syncFlowAfterRemoval(lastPlay, remaining);
+  };
+
+  const handleDeletePlay = (playId: string) => {
+    const play = liveGame.plays.find((recordedPlay) => recordedPlay.id === playId);
+    const remaining = liveGame.plays.filter((p) => p.id !== playId);
+
+    // Deleting a primary PA must also clear any transient runner/location UI created from it.
+    if (play?.mode === 'batting' && !NON_PRIMARY_BATTING.has(play.code)) {
+      setPendingHitPlay(null);
+      pendingRunnerAfterHitRef.current = null;
+      setRunnerSession(null);
+      setRunnerHistory([]);
+      setActiveRunnerChip(null);
+    }
+
+    deletePlay(playId);
+    syncFlowAfterRemoval(play, remaining);
+  };
+
+  // The split feed (and any filtered feed) lists each category on its own, so "move" there means
+  // relative to the neighbouring play of the same category.
+  const sameCategoryFeed = playFeedFilter !== 'all';
+  const canMovePlay = (playId: string, step: 1 | -1) => {
+    const plays = liveGame.plays;
+    const i = plays.findIndex((p) => p.id === playId);
+    if (i === -1) return false;
+    let j = i + step;
+    if (sameCategoryFeed) {
+      while (j >= 0 && j < plays.length && plays[j].mode !== plays[i].mode) j += step;
+    }
+    return j >= 0 && j < plays.length;
+  };
+
+
+  const handleSaveGameWithScore = () => {
+    const teamScore = Number(teamFinalScore);
+    const opponentScore = Number(opponentFinalScore);
+    if (
+      teamFinalScore.trim() === '' ||
+      opponentFinalScore.trim() === '' ||
+      !Number.isInteger(teamScore) ||
+      !Number.isInteger(opponentScore) ||
+      teamScore < 0 ||
+      opponentScore < 0
+    ) {
+      return;
+    }
+
+    const outcome = teamScore > opponentScore ? 'W' : teamScore < opponentScore ? 'L' : 'D';
+    // Close all transient scoring UI before committing the game.
+    setPendingHitPlay(null);
+    pendingRunnerAfterHitRef.current = null;
+    pendingRunnerPrimaryPlayIdRef.current = null;
+    setRunnerSession(null);
+    setRunnerHistory([]);
+    setActiveRunnerChip(null);
+    setIsSaveModalOpen(false);
+    saveGame(`${outcome} ${teamScore}-${opponentScore}`);
+    onGameClosed?.();
+  };
+
+  const pitchLimit = settings.pitchCountLimit || 85;
+  const pitchProgressPct = Math.min(100, Math.round((dailyPitching.pitches / pitchLimit) * 100));
+
+  const handleScoreTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest('[data-score-swipe-ignore]')) {
+      touchStartRef.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+
+  const handleScoreTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+
+    const modes: PlayMode[] = ['batting', 'pitching', 'fielding'];
+    const currentIndex = modes.indexOf(activeMode);
+    const nextIndex = Math.max(0, Math.min(modes.length - 1, currentIndex + (deltaX < 0 ? 1 : -1)));
+    if (nextIndex !== currentIndex) {
+      event.preventDefault();
+      setActiveMode(modes[nextIndex]);
+    }
+  };
+
+  return (
+    <div
+      className="font-score flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain pb-44 px-3 sm:px-4 pt-2 max-w-2xl mx-auto w-full space-y-3 animate-in fade-in duration-200"
+      onTouchStart={handleScoreTouchStart}
+      onTouchEnd={handleScoreTouchEnd}
+      onTouchCancel={() => {
+        touchStartRef.current = null;
+      }}
+    >
+      {lineupSpotPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lineup-spot-prompt-title"
+            className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+          >
+            <h2 id="lineup-spot-prompt-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
+              Select batting lineup spot
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">
+              Choose the player&apos;s spot before recording a batting play.
+            </p>
+            <select
+              autoFocus
+              value={currentInningLineupSpot ?? ''}
+              onChange={(e) => setLineupSpot(e.target.value ? Number(e.target.value) : undefined)}
+              className="mt-5 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA]"
+            >
+              <option value="">Select lineup spot</option>
+              {LINEUP_SPOTS.map((s) => (
+                <option key={s.spot} value={s.spot}>
+                  #{s.spot} · {s.label}
+                </option>
+              ))}
+            </select>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setLineupSpotPromptOpen(false)}
+                className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-[#354050] dark:text-[#D1D5DB]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!currentInningLineupSpot}
+                onClick={() => setLineupSpotPromptOpen(false)}
+                className="rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D] dark:text-[#101419] shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Continue
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isEditing && (
+        <div className="p-2.5 rounded-md bg-slate-200 text-slate-950 font-semibold text-xs flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse shrink-0" />
+            <span className="truncate">EDITING PAST GAME ({liveGame.date})</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowEditDetails(true)}
+            className="px-2.5 py-1 rounded-md bg-slate-950 text-white text-[13px] font-semibold shrink-0"
+          >
+            Edit details
+          </button>
+        </div>
+      )}
+
+      {/* Game & Lineup Details Modal Sheet (Opens cleanly without pushing live scoring down) */}
+      {showEditDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-white dark:bg-[#1A2028] p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-[#354050] space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#354050]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#00BFA5] dark:bg-[#00D7BC]" />
+                <h3 className="font-semibold text-sm text-slate-900 dark:text-[#FAFAFA]">
+                  Game & Lineup Details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditDetails(false)}
+                className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={liveGame.date}
+                  onChange={(e) => updateLiveGameDetails({ date: e.target.value })}
+                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Opponent</label>
+                <OpponentCombobox
+                  value={liveGame.opponent || ''}
+                  onChange={(val) => updateLiveGameDetails({ opponent: val })}
+                  allOpponents={allOpponents}
+                  recentOpponents={recentOpponents}
+                  onDeleteOpponent={deleteOpponent}
+                  placeholder="Opponent name"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Team Name</label>
+                <input
+                  type="text"
+                  value={liveGame.teamName}
+                  onChange={(e) => updateLiveGameDetails({ teamName: e.target.value })}
+                  placeholder="e.g. Thunderbolts"
+                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Final Result (Optional)</label>
+                <input
+                  type="text"
+                  value={liveGame.finalResult || ''}
+                  onChange={(e) => updateLiveGameDetails({ finalResult: e.target.value.trim() || undefined })}
+                  placeholder="e.g. W 8-3 or Lost 2-5"
+                  maxLength={40}
+                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Innings Played</label>
+                <div className="flex items-center justify-between w-full px-1.5 py-1 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050]">
+                  <button
+                    type="button"
+                    aria-label="Fewer innings"
+                    disabled={liveGame.innings <= Math.max(1, ...liveGame.plays.map((p) => p.inning))}
+                    onClick={() => updateLiveGameDetails({ innings: liveGame.innings - 1, inningsManual: true })}
+                    className="w-8 h-7 rounded-md bg-white dark:bg-[#354050] border border-slate-300 dark:border-[#465160] text-sm font-semibold text-slate-700 dark:text-[#FAFAFA] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    −
+                  </button>
+                  <span className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]">{liveGame.innings}</span>
+                  <button
+                    type="button"
+                    aria-label="More innings"
+                    disabled={liveGame.innings >= 20}
+                    onClick={() => updateLiveGameDetails({ innings: liveGame.innings + 1, inningsManual: true })}
+                    className="w-8 h-7 rounded-md bg-white dark:bg-[#354050] border border-slate-300 dark:border-[#465160] text-sm font-semibold text-slate-700 dark:text-[#FAFAFA] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Batting Position (Lineup Spot)</label>
+                <select
+                  value={liveGame.lineupSpot ?? ''}
+                  onChange={(e) => {
+                    const spot = e.target.value ? Number(e.target.value) : undefined;
+                    updateLiveGameDetails({ lineupSpot: spot });
+                    setLineupSpot(spot);
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
+                >
+                  <option value="">Not assigned</option>
+                  {LINEUP_SPOTS.map((s) => (
+                    <option key={s.spot} value={s.spot}>
+                      #{s.spot} · {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Team Role</label>
+                <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-[#252D38] rounded-md border border-slate-300 dark:border-[#354050]">
+                  <button
+                    type="button"
+                    onClick={() => updateLiveGameDetails({ isHome: true })}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition-all ${
+                      liveGame.isHome !== false
+                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                        : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
+                    }`}
+                  >
+                    <Home className="w-3.5 h-3.5 inline mr-1" />
+                    <span>Home (vs)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateLiveGameDetails({ isHome: false })}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-xs font-semibold transition-all ${
+                      liveGame.isHome === false
+                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                        : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
+                    }`}
+                  >
+                    <Plane className="w-3.5 h-3.5 inline mr-1" />
+                    <span>Away (@)</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Tournament</label>
+                <ValueCombobox
+                  value={liveGame.tournament || ''}
+                  onChange={(val) => updateLiveGameDetails({ tournament: val })}
+                  options={allTournaments}
+                  quickPills={allTournaments.slice(0, 4)}
+                  onDeleteOption={deleteTournament}
+                  placeholder="Tournament (optional)"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Age Group</label>
+                <ValueCombobox
+                  value={liveGame.ageGroup || ''}
+                  onChange={(val) => updateLiveGameDetails({ ageGroup: val })}
+                  options={allAgeGroups}
+                  quickPills={allAgeGroups.slice(0, 5)}
+                  onDeleteOption={deleteAgeGroup}
+                  placeholder="Age group (e.g. U12)"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Season</label>
+                <ValueCombobox
+                  value={liveGame.season || ''}
+                  onChange={(val) => updateLiveGameDetails({ season: val })}
+                  options={allSeasons}
+                  quickPills={allSeasons.slice(0, 4)}
+                  onDeleteOption={deleteSeason}
+                  placeholder="Season (e.g. Spring 2026)"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowEditDetails(false)}
+                className="w-full h-12 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-semibold text-sm transition-colors shadow-xs cursor-pointer"
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditDetails(false);
+                  setIsDiscardModalOpen(true);
+                }}
+                className="w-full h-11 rounded-md text-red-600 dark:text-[#D4626D] border border-red-200 dark:border-[#86252D] text-sm font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isEditing ? 'Cancel edit' : 'Discard this game'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'score' && (
+      <>
+      {/* Compact scoreboard: game, inning and live numbers. Kept short so the scoring keys stay the focus. */}
+      <section className="rounded-md overflow-hidden text-white">
+        <div className="flex items-start gap-2 pl-4 pr-2 pt-3 pb-3 bg-[#00BFA5] dark:bg-[#252D38]">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[20px] leading-tight font-semibold tracking-tight truncate">
+              {isEditing ? `Edit ${opponentDisplay}` : opponentDisplay}
+            </h2>
+            <p className="truncate text-[13px] text-white">
+              {liveGame.teamName || activeProfile.teamName || 'Dugout Pulse'} · {isHomeTeam ? 'Home' : 'Away'}
+              {currentInningLineupSpot ? ` · Batting #${currentInningLineupSpot}` : ''}
+            </p>
+            {/* Age group, season, tournament. A missing value is a tappable prompt. */}
+            <p className="truncate text-[13px] text-white">
+              {liveGame.ageGroup } | { liveGame.date} | {liveGame.tournament }
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowEditDetails(true)}
+            aria-label="Edit game details"
+            className="shrink-0 w-10 h-10 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 active:bg-white/15 flex items-center justify-center cursor-pointer transition-colors"
+          >
+            <Edit2 className="w-[18px] h-[18px] text-white" />
+          </button>
+
+          
+          <button
+            type="button"
+            onClick={() => {
+              setShowEditDetails(false);
+              setIsDiscardModalOpen(true);
+            }}
+            className="shrink-0 w-10 h-10 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors"
+            >
+            <Trash2 className="w-[18px] h-[18px] text-whit" />
+          </button>
+        </div>
+
+        {/* One row: inning stepper on the left, live numbers on the right */}
+        {(() => {
+          const cells: Array<{ label: string; value: React.ReactNode }> =
+            activeMode === 'batting'
+              ? [
+                  { label: 'Hits/AB', value: `${batting.h}-${batting.ab}` },
+                  { label: 'RBI', value: batting.rbi },
+                  { label: 'Runs', value: batting.r },
+                ]
+              : activeMode === 'pitching'
+              ? [
+                  {
+                    label: 'Pitches',
+                    value: (
+                      <>
+                        {dailyPitching.pitches}
+                        <span className="text-[13px] text-slate-300 font-normal">/{pitchLimit}</span>
+                      </>
+                    ),
+                  },
+                  { label: 'Strikes', value: dailyPitching.strikePercentage ? `${dailyPitching.strikePercentage.toFixed(0)}%` : '—' },
+                  { label: 'Strikeouts', value: dailyPitching.k },
+                ]
+              : [
+                  { label: 'Position', value: currentInningPosition },
+                  { label: 'Outs', value: `${getDefenseOutCount(currentInning)}/3` },
+                  {
+                    label: 'Plays',
+                    value: liveGame.plays.filter((p) => p.inning === currentInning && p.mode === 'fielding').length,
+                  },
+                ];
+          return (
+            <div className="flex items-stretch border-t border-white/10 bg-black/15">
+              <div className="flex items-center shrink-0 pl-1  bg-[#18212D] dark:bg-[#252D38] ">
+                <button
+                  type="button"
+                  onClick={prevInning}
+                  disabled={currentInning <= 1}
+                  aria-label="Previous inning"
+                  className="w-10 h-11 flex items-center justify-center text-white disabled:text-white/25 active:bg-white/10 rounded-md"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <span className="text-[16px] font-semibold tracking-tight whitespace-nowrap">Inning {currentInning} of {Math.max(settings.inningsPerGame, currentInning)}</span>
+                <button
+                  type="button"
+                  onClick={() => setInning(currentInning + 1)}
+                  disabled={currentInning >= reachedInning}
+                  aria-label="Next inning"
+                  className="w-10 h-11 flex items-center justify-center text-white disabled:text-white/25 active:bg-white/10 rounded-md"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="flex-1 grid border-l border-white/10" style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}>
+                {cells.map((cell) => (
+                  <div key={cell.label} className="px-1 py-1.5 text-center min-w-0  bg-[#18212D] dark:bg-[#252D38] ">
+                    <div className="font-display text-[20px] leading-none font-semibold tabular-nums text-white">{cell.value}</div>
+                    <div className="mt-0.5 text-[12px] text-slate-300 truncate">{cell.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </section>
+
+      {/* Half-Inning / Inning Transition Toast Notice */}
+      {inningNotice && (
+        <div className="rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100 dark:bg-[#252D38]/40 p-2.5 shadow-2xs flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-[#00BFA5] dark:bg-[#00D7BC] animate-pulse shrink-0" />
+            <div className="text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB] truncate">
+              <span className="font-semibold mr-1">{inningNotice.title}</span>
+              <span className="text-[#18212D] dark:text-[#D1D5DB] font-medium">{inningNotice.subtitle}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setInningNotice(null)}
+            className="text-[#18212D] dark:text-[#D1D5DB] hover:text-[#18212D] text-xs font-semibold px-1.5 py-0.5 shrink-0"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Sticky mode tabs */}
+      <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 pt-0 pb-2 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md">
+        {/* Mode tabs: sentence case, weight only on the active one */}
+        <div className="flex rounded-sm bg-slate-200/80 dark:bg-[#1A2028] border border-slate-300/80 dark:border-[#354050] p-1 gap-1">
+          {(['batting', 'pitching', 'fielding'] as PlayMode[]).map((mode) => {
+            const playsInThisModeAndInning = liveGame.plays.filter((p) => p.mode === mode && p.inning === currentInning).length;
+            const isActive = activeMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setActiveMode(mode)}
+                aria-pressed={isActive}
+                className={`flex-1 h-10 text-[15px] rounded-sm transition-colors flex items-center justify-center gap-1.5 capitalize ${
+                  isActive
+                    ? 'bg-[#00BFA5]/60 dark:bg-[#252D38] text-[#FAFAFA] dark:text-[#FAFAFA] font-medium border-t-3 border-[#00BFA5] dark:border-[#465160]'
+                    : 'bg-white/40 text-slate-900 dark:text-[#9CA3AF] font-medium hover:bg-white/60 dark:hover:bg-[#252D38]/70 border-t-3 border-white/60'
+                }`}
+              >
+                <span>{mode}</span>
+                {playsInThisModeAndInning > 0 && (
+                  <span
+                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[12px] font-medium leading-none ${
+                      isActive
+                        ? 'bg-[#18212D] dark:bg-[#00D7BC] text-white dark:text-[#101419]'
+                        : 'bg-[#00BFA5] dark:bg-[#1A2028] text-white dark:text-[#D1D5DB]'
+                    }`}
+                  >
+                    <span className={playsInThisModeAndInning === 1 ? '-translate-x-[0.5px] -translate-y-[0.5px]' : ''}>
+                      {playsInThisModeAndInning}
+                    </span>
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+
+
+      {/* PRIMARY ACTION BOARD (No scrolling needed!) */}
+      {activeMode === 'batting' ? (
+        isBenchedCurrentInning ? (
+          <div className="rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100/70 dark:bg-[#252D38]/20 p-5 text-center space-y-2.5 shadow-2xs">
+            <div className="inline-flex px-3 py-0.5 rounded-full text-[13px] font-semibold bg-slate-100/80 dark:bg-[#252D38]/60 text-[#18212D] dark:text-[#D1D5DB]">
+              Bench / Resting for Inning {currentInning}
+            </div>
+            <h3 className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+              {activeProfile.playerName || 'Player'} is on Bench / Resting
+            </h3>
+            <p className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] max-w-sm mx-auto">
+              Player batting appearance is paused.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
+            >
+              Back in Game
+            </button>
+          </div>
+        ) : activeRunnerChip ? (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRunnerHistory([]);
+                setRunnerSession({
+                  status: 'ON_BASE',
+                  base: activeRunnerChip.base,
+                  sb: activeRunnerChip.sb,
+                  advanceCause: activeRunnerChip.cause,
+                  actionCount: 0,
+                });
+                setActiveRunnerChip(null);
+              }}
+              className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100 dark:bg-[#252D38]/30 p-3.5 text-left shadow-xs hover:border-slate-300 transition-all active:scale-[0.99] cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB]">
+                  <span className="w-2 h-2 rounded-full bg-slate-200 animate-pulse" />
+                  <span>Runner on Base</span>
+                </div>
+                <span className="text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB]">
+                  Manage Runner →
+                </span>
+              </div>
+              <div className="mt-1 font-semibold text-slate-950 dark:text-[#FAFAFA] text-sm sm:text-base flex items-center gap-1.5">
+                <Footprints className="w-4 h-4 text-blue-500 shrink-0" />
+                <span>{activeProfile.playerName || 'Player'} safe on {activeRunnerChip.base === 1 ? '1st' : activeRunnerChip.base === 2 ? '2nd' : '3rd'} Base</span>
+              </div>
+            </button>
+
+            {/* Option to End Inning while Runner is on Base */}
+            <button
+              type="button"
+              onClick={() => {
+                addPlay('batting', 'leftOnBase', {
+                  lineupSpot: currentInningLineupSpot,
+                  runnerFromBase: activeRunnerChip.base,
+                  runnerAdvanceCause: activeRunnerChip.cause,
+                });
+                setActiveRunnerChip(null);
+                setRunnerSession(null);
+                setRunnerHistory([]);
+                handleThirdOut('batting');
+              }}
+              className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100 hover:bg-slate-100 dark:bg-[#252D38]/30 dark:hover:bg-[#252D38]/50 p-3 text-left transition-all active:scale-[0.99] cursor-pointer"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-semibold text-sm text-[#18212D] dark:text-[#D1D5DB]">
+                  3rd Out Made Elsewhere ({canAdvanceToNextInning('batting') ? 'End Inning' : 'End Batting Half'})
+                </span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#252D38]/80 text-[#18212D] dark:text-[#D1D5DB] shrink-0">
+                  Left on Base (LOB)
+                </span>
+              </div>
+              <div className="text-[13px] font-semibold text-[#18212D] dark:text-[#D1D5DB] mt-0.5">
+                Teammate made 3rd out · Record LOB ·{' '}
+                {canAdvanceToNextInning('batting')
+                  ? `Go to Inning ${currentInning + 1}`
+                  : `Remain on Inning ${currentInning} (switch to defense)`}
+              </div>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-2 pb-1">
+            {PRIMARY_BATTING_CODES.map((code) => {
+              const def = PLAY_DEFINITIONS[code];
+              const labels: Record<string, [string, string]> = {
+                single: ['1B', 'Single'],
+                double: ['2B', 'Double'],
+                triple: ['3B', 'Triple'],
+                homeRun: ['HR', 'Home run'],
+                walk: ['BB', 'Walk'],
+                hbp: ['HBP', 'Hit by pitch'],
+                out: ['OUT', 'Out'],
+                reachedOnError: ['ROE', 'Error'],
+              };
+              const [label, subtitle] = labels[code];
+              const tooltip = def?.description || subtitle;
+
+              // Neutral scoring cards keep the action grid calm; the code carries the brand accent.
+              const buttonColor = 'min-h-[92px] rounded-lg p-3 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
+
+
+              return (
+                <div key={code} className="relative">
+                  <button
+                    type="button"
+                    onPointerDown={() => {
+                      if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current);
+                      primaryHoldTimerRef.current = window.setTimeout(() => setPrimaryTooltip(code), 500);
+                    }}
+                    onPointerUp={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
+                    onPointerCancel={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
+                    onPointerLeave={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
+                    onClick={() => { setPrimaryTooltip(null); handleScoringPlay(code); }}
+                    disabled={playFlow.isPrimaryEventDisabled}
+                    className={`w-full min-h-[92px] rounded-md p-2 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer ${buttonColor}`}
+                  >
+                    <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
+                    <span className="mt-1.5 text-[13px] font-medium text-slate-600 dark:text-[#D1D5DB] truncate max-w-full">{subtitle}</span>
+                  </button>
+                  {primaryTooltip === code && (
+                    <div className="absolute z-40 bottom-full left-0 right-0 mb-2 rounded-md bg-slate-950 text-white px-3 py-2 text-[13px] font-semibold shadow-xl">{tooltip}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      ) : activeMode === 'pitching' ? (
+        isBenchedCurrentInning ? (
+          <div className="rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100/70 dark:bg-[#252D38]/20 p-5 text-center space-y-2.5 shadow-2xs">
+            <div className="inline-flex px-3 py-0.5 rounded-full text-[13px] font-semibold bg-slate-100/80 dark:bg-[#252D38]/60 text-[#18212D] dark:text-[#D1D5DB]">
+              Bench / Resting for Inning {currentInning}
+            </div>
+            <h3 className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+              {activeProfile.playerName || 'Player'} is on Bench / Resting
+            </h3>
+            <p className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] max-w-sm mx-auto">
+              Player pitching appearance is paused.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
+            >
+              Back in Game
+            </button>
+          </div>
+        ) : (
+          <>
+            {Boolean(
+              lastPitchingPlayThisInning &&
+              PITCHING_TERMINAL_CODES.has(lastPitchingPlayThisInning.code)
+            ) && (
+              <div className="rounded-md border border-slate-300 bg-slate-100 dark:bg-[#252D38]/40 dark:border-[#354050] px-3.5 py-2.5 shadow-xs flex items-center gap-1.5">
+                <div className="w-8 h-8 rounded-md bg-slate-200 dark:bg-[#354050] text-slate-950 dark:text-[#FAFAFA] flex items-center justify-center text-base font-semibold shrink-0">
+                  <Zap className="w-4 h-4 text-[#18212D] dark:text-[#FAFAFA]" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB]">
+                    Next Batter Up
+                  </div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]">
+                    Start the new batter's pitch count.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <PitchingBoard
+              state={pitchFlowState}
+              pitchLimit={pitchLimit}
+              dailyPitches={dailyPitching.pitches}
+              onAction={handlePitchingAction}
+              endedOnRunnerOut={inningEndedOnRunnerOut}
+            />
+          </>
+        )
+      ) : (
+        isBenchedCurrentInning ? (
+          <div className="rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100/70 dark:bg-[#252D38]/20 p-5 text-center space-y-2.5 shadow-2xs">
+            <div className="inline-flex px-3 py-0.5 rounded-full text-[13px] font-semibold bg-slate-100/80 dark:bg-[#252D38]/60 text-[#18212D] dark:text-[#D1D5DB]">
+              Bench / Resting for Inning {currentInning}
+            </div>
+            <h3 className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+              {activeProfile.playerName || 'Player'} is on Bench / Resting
+            </h3>
+            <p className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] max-w-sm mx-auto">
+              Player fielding appearance is paused.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
+            >
+              Back in Game
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Streamlined Sequence Chaining Card (Multi-Fielder Plays: CS, DP) */}
+            {fieldingChain && (
+              <div className="rounded-xl p-3 bg-teal-50/90 dark:bg-[#00D7BC]/10 border-2 border-[#00BFA5] dark:border-[#00D7BC] shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-[#00BFA5] dark:text-[#00D7BC]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-teal-900 dark:text-[#00D7BC]">
+                      {fieldingChain.type === 'CS' ? 'Complete Caught Stealing (Step 2 of 2)' : 'Complete Double Play (Step 2 of 2)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFieldingChain(null)}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:text-[#9CA3AF] dark:hover:text-white px-1.5 py-0.5 rounded cursor-pointer"
+                  >
+                    Skip
+                  </button>
+                </div>
+                <p className="text-xs font-medium text-slate-700 dark:text-[#D1D5DB]">
+                  {fieldingChain.prompt}
+                </p>
+                <div className="flex items-center gap-2 pt-0.5">
+                  {fieldingChain.targets.map((tgt) => (
+                    <button
+                      key={tgt.position}
+                      type="button"
+                      onClick={() => handleCompleteFieldingChain(tgt.position)}
+                      className="flex-1 py-2 px-2.5 rounded-lg bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer text-center"
+                    >
+                      {tgt.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setFieldingChain(null)}
+                    className="py-2 px-3 rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] text-slate-700 dark:text-[#D1D5DB] text-xs font-semibold hover:bg-slate-100 dark:hover:bg-[#252D38] cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic Button Grid based on Active Position */}
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {currentPlaysForMode.map((def) => {
+                return (
+                  <button
+                    key={def.code}
+                    type="button"
+                    onClick={() => handleScoringPlay(def.code)}
+                    className="min-h-[92px] rounded-lg p-3 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
+                  >
+                    <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">{def.shortLabel}</span>
+                    <span className="text-[13px] font-medium leading-tight text-center mt-1 text-slate-600 dark:text-[#D1D5DB]">{def.fullLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Next PA prompt if PA complete in batting */}
+      {activeMode === 'batting' &&
+        !isBenchedCurrentInning &&
+        !runnerSession &&
+        playFlow.battingState === 'PA_COMPLETE' && (
+          <button
+            type="button"
+            onClick={playFlow.nextPlateAppearance}
+            className="w-full rounded-lg bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] py-3 text-[#18212D] dark:text-[#101419] font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
+          >
+            NEXT AT BAT
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+
+      {/* End of Inning / End Half Button (two lines: action, then what happens next) */}
+      {canRemoveExtraInning && (
+        <button
+          type="button"
+          onClick={() => removeEmptyLastInning()}
+          className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] py-2.5 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer shadow-2xs"
+        >
+          Remove Inning {currentInning} (added by mistake)
+        </button>
+      )}
+
+      {/* Final scheduled inning finished: End Game, or keep going with an extra inning */}
+      {showEndGameChoice ? (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={openSaveGameModal}
+            className="min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00BFA5]/90 ring-2 ring-inset ring-[#efefef] dark:ring-[#354050]"
+          >
+            <span className="font-semibold text-xl">End Game</span>
+            <span className="text-[13px] font-normal text-white">Enter final score &amp; save</span>
+          </button>
+          <button
+            type="button"
+            onClick={isBenchedCurrentInning ? () => setInning(currentInning + 1) : () => handleNextInning({ allowExtraInning: true })}
+            className="min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] ring-2 ring-inset ring-[#efefef] dark:ring-[#354050]"
+          >
+            <span className="font-semibold text-xl">Add Another Inning</span>
+            <span className="text-[13px] font-normal text-white">Next: Inning {currentInning + 1}</span>
+          </button>
+        </div>
+      ) : (
+          <button
+            type="button"
+            onClick={isBenchedCurrentInning ? () => setInning(currentInning + 1) : () => handleNextInning()}
+            className="w-full min-h-[92px] rounded-md p-2 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00BFA5]/90 dark:hover:bg-[#00D7BC]/90 ring-2 ring-inset ring-[#efefef] dark:ring-[#354050]"
+          >
+            {isBenchedCurrentInning ? (
+              <>
+                <span className="font-semibold text-xl text-white">Start Next Inning</span>
+                <span className="text-[13px] font-normal text-white">Next: Inning {currentInning + 1}</span>
+              </>
+            ) : canAdvanceToNextInning(activeMode) ? (
+              <>
+                <span className="font-semibold text-xl text-white">End Inning {currentInning}</span>
+                <span className="text-[13px] font-normal text-white">Next: Inning {currentInning + 1}</span>
+              </>
+            ) : activeMode === 'batting' ? (
+              <>
+                <span className="font-semibold text-xl text-white">End Batting Half</span>
+                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next: switch to defense, Inning {currentInning}</span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-xl text-white">End Defense Half</span>
+                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next: switch to batting, Inning {currentInning}</span>
+              </>
+            )}
+          </button>
+      )}
+
+      {/* Pitch Count Tracker & Rest-Day Indicator (Pitching Mode) */}
+      {activeMode === 'pitching' && !isBenchedCurrentInning && (
+        <div className="bg-slate-900 text-white rounded-md p-3 border border-slate-800 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-slate-300" />
+              <span className="font-semibold text-slate-300">Pitch count</span>
+            </div>
+            <span className="text-[13px] font-semibold text-slate-300 flex items-center">
+              Limit: {pitchLimit} pitches · Rest: <span className="text-slate-300 font-semibold">{dailyPitching.restDaysRequired === 0 ? '0 Days' : `${dailyPitching.restDaysRequired} Day(s)`}</span>
+              {pitching.pitches >= pitchLimit && (
+               <span className="flex items-center p-1"> · 
+                <span className="text-[#FF5252] px-1 ">[LIMIT REACHED - <span className="font-display text-[16px] leading-none font-semibold tabular-nums">{pitching.pitches}</span>/ {pitchLimit}]</span>
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className={`h-full transition-all duration-300 ${
+                pitchProgressPct > 85 ? 'bg-[#FF5252]' : pitchProgressPct > 65 ? 'bg-[#FF6F00]' : 'bg-[#00BFA5]'
+              }`}
+              style={{ width: `${pitchProgressPct}%` }}
+            />
+          </div>
+          {playFlow.pitchingState === 'BATTER_RESOLVED' && (
+            <button
+              type="button"
+              onClick={playFlow.nextPitcherBatter}
+              className="w-full py-2.5 rounded-md bg-slate-200 hover:bg-slate-200 text-slate-950 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              Next Batter
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+{/* Scoring category cards — only items applicable to the active mode, side by side on wider screens, stacked on mobile */}
+{activeMode === 'batting' && !isBenchedCurrentInning && (
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+    {/* Batting Lineup Spot Card */}
+    <div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
+      {currentInningLineupSpot ? (
+        <>
+          <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]"> Batting Lineup Spot</span>
+          <div className="flex items-center justify-between gap-2 min-h-8">
+            <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
+              #{currentInningLineupSpot} · {LINEUP_SPOTS.find((spot) => spot.spot === currentInningLineupSpot)?.label || 'Selected'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLineupSpotPromptOpen(true)}
+              className="shrink-0 rounded-md border border-slate-300 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#2D3643]"
+            >
+              Change
+            </button>
+          </div>
+          </>
+      ) : (
+        <>
+          <label htmlFor="batting-lineup-spot" className="block text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
+            Batting Lineup Spot
+          </label>
+          <ThemedDropdown<number>
+            value={undefined}
+            onChange={(value) => { if (value !== undefined) setLineupSpot(value); }}
+            placeholder="Select batting lineup spot"
+            ariaLabel="Batting lineup spot"
+            allowClear={false}
+            className="w-full"
+            buttonClassName="h-10"
+            options={LINEUP_SPOTS.map((spot) => ({
+              value: spot.spot,
+              label: `#${spot.spot} · ${spot.label}`,
+            }))}
+          />
+        </>
+      )}
+    </div>
+
+
+{/* Pitcher Hand Selector */}
+<div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
+  <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
+    Pitcher
+  </span>
+
+  <div className="flex p-0.5 bg-slate-100 dark:bg-[#1A2028] rounded-md border border-slate-200 dark:border-[#354050]">
+    {(
+      [
+        ['R', 'Right'],
+        ['L', 'Left'],
+      ] as const
+    ).map(([hand, label]) => (
+      <button
+        key={hand}
+        type="button"
+        onClick={() => setPitcherHand(hand)}
+        aria-pressed={pitcherHand === hand}
+        className={`h-8 flex-1 rounded-md text-xs font-semibold transition-all ${
+          pitcherHand === hand
+            ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+            : 'text-slate-600 dark:text-[#D1D5DB]'
+        }`}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+</div>
+
+{/* Enable Hit Location Switch */}
+<div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
+  <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
+    Hit Location
+  </span>
+
+  <div className="flex items-center justify-between gap-2 min-h-8">
+    <span className="text-xs font-medium text-slate-600 dark:text-[#D1D5DB]">
+      Enable / Disable
+    </span>
+
+    <button
+      type="button"
+      role="switch"
+      aria-label="Enable / Disable Hit Location"
+      aria-checked={hitTapperEnabled}
+      onClick={() => setHitTapperEnabled(!hitTapperEnabled)}
+      className="cursor-pointer select-none shrink-0"
+    >
+      <span
+        aria-hidden="true"
+        className={`relative block w-10 h-6 rounded-full transition-colors ${
+          hitTapperEnabled
+            ? 'bg-[#00BFA5] dark:bg-[#00D7BC]'
+            : 'bg-slate-300 dark:bg-[#465160]'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            hitTapperEnabled ? 'translate-x-4' : ''
+          }`}
+        />
+      </span>
+    </button>
+  </div>
+</div>
+  </div>
+)}
+
+{activeMode === 'fielding' && (
+  <div className="grid grid-cols-1 text-xs">
+    {/* Fielding Position Card */}
+    <div className="bg-white dark:bg-[#252D38] rounded-lg px-3.5 py-3 border border-slate-200 dark:border-[#354050] shadow-sm space-y-2">
+      <label htmlFor="fielding-position" className="block text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
+        Fielding Position
+      </label>
+      <ThemedDropdown<DefensivePosition>
+        value={selectedInningPosition || undefined}
+        ariaLabel="Fielding Position"
+        placeholder="Select fielding position"
+        className="w-full"
+        buttonClassName="h-10"
+        allowClear={false}
+        options={DEFENSIVE_POSITIONS.map((position) => ({
+          value: position.code,
+          label: position.code === 'BENCH' ? 'Bench' : `${position.code} - ${position.label.split('(')[0].trim()}`,
+        }))}
+        onChange={(value) => {
+          if (!value) return;
+          const val = value;
+          if (val === 'BENCH') {
+            const existingPlaysInInning = liveGame.plays.filter((p) => p.inning === currentInning);
+            if (existingPlaysInInning.length > 0) {
+              setBenchConfirmInning(currentInning);
+              return;
+            }
+            applyBenchForInning(currentInning);
+          } else {
+            const heldPosition = liveGame.fieldingPositions?.[currentInning];
+            if (liveGame.benchInnings.includes(currentInning)) {
+              toggleBenchCurrentInning();
+              setInningPosition(currentInning, val);
+            } else if (heldPosition && heldPosition !== 'BENCH' && heldPosition !== val) {
+              setPendingPositionChange({ inning: currentInning, from: heldPosition, to: val });
+            } else if (!heldPosition) {
+              setInningPosition(currentInning, val);
+            }
+          }
+        }}
+      />
+    </div>
+  </div>
+)}
+
+      
+
+      {/* Sticky action bar (thumb zone, sits just above the bottom nav): the ONLY Undo / Plays / Save */}
+      <div
+        className="fixed inset-x-0 z-20 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050]"
+        style={{ bottom: 'calc(4.2rem + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="max-w-2xl mx-auto px-3 py-2 grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={handleUndoLastPlay}
+            disabled={liveGame.plays.length === 0}
+            aria-label="Undo last play"
+            className={`h-12 px-2 rounded-md border text-sm font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              liveGame.plays.length === 0
+                ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#6B7280]'
+                : 'border-slate-300 bg-white text-slate-700 shadow-2xs active:bg-slate-100 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]'
+            }`}
+          >
+            <RotateCcw className="w-4 h-4 text-slate-500" />
+            <span>Undo</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeView?.('plays')}
+            className="h-12 px-2 rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] text-slate-700 dark:text-[#D1D5DB] text-sm font-semibold flex items-center justify-center gap-1.5 shadow-2xs active:bg-slate-100 dark:active:bg-[#252D38] transition-colors cursor-pointer"
+          >
+            <span>Plays</span>
+            <span className="min-w-5 h-5 px-1 rounded-full bg-slate-200 dark:bg-[#252D38] text-[13px] font-semibold inline-flex items-center justify-center">
+              {liveGame.plays.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const match = liveGame?.finalResult?.match(/(\d+)\s*[-\u2013]\s*(\d+)/);
+              setTeamFinalScore(match ? match[1] : '');
+              setOpponentFinalScore(match ? match[2] : '');
+              setIsSaveModalOpen(true);
+            }}
+            className="h-12 px-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] active:bg-[#00A892] dark:active:bg-[#2D3643] text-[#18212D] dark:text-[#101419] text-sm font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>{isEditing ? 'Save edits' : 'Save game'}</span>
+          </button>
+          
+        </div>
+      </div>
+      </>
+      )}
+      {view === 'plays' && (
+      <>
+      <button
+        type="button"
+        onClick={() => onChangeView?.('score')}
+        className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] py-2.5 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer shadow-2xs"
+      >
+        ← Back to Scoring
+      </button>
+
+      {/* Recent Plays Feed */}
+      <div className="bg-white dark:bg-[#252D38] rounded-md p-4 sm:p-5 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-4">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-xs text-slate-700 dark:text-[#D1D5DB]">
+              Plays in This Game
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[13px] font-semibold bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050]">
+              {liveGame.plays.length}
+            </span>
+
+          </div>
+
+        </div>
+
+        {/* Filter Segmented Control: Batting / Pitching */}
+        {liveGame.plays.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#252D38]/80 rounded-md border border-slate-200/80 dark:border-[#354050]">
+            <button
+              type="button"
+              onClick={() => setPlayFeedFilter('batting')}
+              className={`flex-1 min-w-[85px] py-1.5 px-2.5 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                playFeedFilter === 'batting'
+                  ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                  : 'text-slate-600 dark:text-[#9CA3AF] hover:text-[#18212D] dark:hover:text-[#D1D5DB]'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Batting</span>
+              <span className={`text-xs font-semibold ${playFeedFilter === 'batting' ? 'text-white/90' : 'text-slate-500'}`}>
+                ({battingPlaysCount})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPlayFeedFilter('pitching')}
+              className={`flex-1 min-w-[90px] py-1.5 px-2.5 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                playFeedFilter === 'pitching'
+                  ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                  : 'text-slate-600 dark:text-[#9CA3AF] hover:text-[#18212D] dark:hover:text-[#D1D5DB]'
+              }`}
+            >
+              <CircleDot className="w-3.5 h-3.5" />
+              <span>Pitching</span>
+              <span className={`text-xs font-semibold ${playFeedFilter === 'pitching' ? 'text-white/90' : 'text-slate-500'}`}>
+                ({pitchingPlaysCount})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPlayFeedFilter('fielding')}
+              className={`flex-1 min-w-[90px] py-1.5 px-2.5 rounded-md text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                playFeedFilter === 'fielding'
+                  ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
+                  : 'text-slate-600 dark:text-[#9CA3AF] hover:text-[#18212D] dark:hover:text-[#D1D5DB]'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>Fielding</span>
+              <span className={`text-xs font-semibold ${playFeedFilter === 'fielding' ? 'text-white/90' : 'text-slate-500'}`}>
+                ({liveGame.plays.filter((p) => p.mode === 'fielding').length})
+              </span>
+            </button>
+
+          </div>
+        )}
+
+        {/* Plays Rendering */}
+        {liveGame.plays.length === 0 && liveGame.benchInnings.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-400 font-medium">
+            No plays recorded yet. Tap any play button above to begin.
+          </div>
+        ) : (
+          /* Plays for the selected tab, always all of them, split by inning */
+          <div className="space-y-3">
+            {/* Filter Mode Header Banner */}
+            <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-md border border-slate-200/80 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/80">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#354050]">
+                  {playFeedFilter === 'batting' ? (
+                    <Zap className="w-4 h-4 text-blue-500" />
+                  ) : playFeedFilter === 'pitching' ? (
+                    <CircleDot className="w-4 h-4 text-blue-500" />
+                  ) : (
+                    <Shield className="w-4 h-4 text-blue-500" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-800 dark:text-[#D1D5DB]">
+                    {playFeedFilter === 'batting'
+                      ? `All Batting Plays (${filteredPlays.length})`
+                      : playFeedFilter === 'pitching'
+                      ? `All Pitching Plays (${filteredPlays.length})`
+                      : `All Fielding Plays (${filteredPlays.length})`}
+                  </h4>
+                  <p className="text-[13px] font-semibold text-slate-500 dark:text-[#9CA3AF]">
+                    {(() => {
+                      const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+                      if (playFeedFilter === 'batting') {
+                        return [
+                          `${n(batting.h, 'hit', 'hits')} in ${n(batting.ab, 'at-bat', 'at-bats')}`,
+                          ...(batting.hr > 0 ? [n(batting.hr, 'home run', 'home runs')] : []),
+                          ...(batting.rbi > 0 ? [n(batting.rbi, 'run batted in', 'runs batted in')] : []),
+                          ...(batting.r > 0 ? [n(batting.r, 'run scored', 'runs scored')] : []),
+                        ].join(' · ');
+                      }
+                      if (playFeedFilter === 'pitching') {
+                        return [
+                          `${pitching.ipDisplay} innings pitched`,
+                          `${n(pitching.pitches, 'pitch', 'pitches')} (${n(pitching.strikes, 'strike', 'strikes')}, ${n(pitching.balls, 'ball', 'balls')})`,
+                          n(pitching.k, 'strikeout', 'strikeouts'),
+                        ].join(' · ');
+                      }
+                      return 'All defensive fielding plays';
+                    })()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* All plays for this tab, newest first, with a divider between innings */}
+            {renderPlaysWithInningDividers(filteredPlays)}
+          </div>
+        )}
+
+      </div>
+      </>
+      )}
+
+      {/* Confirmation Modals */}
+      <PitcherOutModal
+        isOpen={isPitcherOutModalOpen}
+        onClose={() => setIsPitcherOutModalOpen(false)}
+        onSelect={handlePitcherOutSelection}
+      />
+
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-game-score-title"
+            className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+          >
+            <h2 id="save-game-score-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
+              {isEditing ? 'Update Final Score' : 'Enter Final Score'}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
+              The scores determine the game result recorded in Game History.
+            </p>
+
+            <div className="mt-5 grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-3">
+              <label htmlFor="team-final-score" className="min-w-0 truncate text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">
+                {liveGame.teamName || activeProfile.teamName || 'My Team'}
+              </label>
+              <input
+                id="team-final-score"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                value={teamFinalScore}
+                onChange={(event) => setTeamFinalScore(event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-center text-lg font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA]"
+                aria-label={`${liveGame.teamName || activeProfile.teamName || 'My Team'} final score`}
+                autoFocus
+              />
+              <label htmlFor="opponent-final-score" className="min-w-0 truncate text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">
+                {liveGame.opponent || 'Opponent'}
+              </label>
+              <input
+                id="opponent-final-score"
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                value={opponentFinalScore}
+                onChange={(event) => setOpponentFinalScore(event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-center text-lg font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA]"
+                aria-label={`${liveGame.opponent || 'Opponent'} final score`}
+              />
+            </div>
+
+            <div className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-600 dark:bg-[#252D38] dark:text-[#D1D5DB]">
+              {teamFinalScore.trim() !== '' && opponentFinalScore.trim() !== '' &&
+              Number.isInteger(Number(teamFinalScore)) && Number.isInteger(Number(opponentFinalScore))
+                ? `${Number(teamFinalScore) > Number(opponentFinalScore) ? 'Win' : Number(teamFinalScore) < Number(opponentFinalScore) ? 'Loss' : 'Draw'} · ${teamFinalScore}-${opponentFinalScore}`
+                : 'Enter both final scores'}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveGameWithScore}
+                disabled={
+                  teamFinalScore.trim() === '' ||
+                  opponentFinalScore.trim() === '' ||
+                  !Number.isInteger(Number(teamFinalScore)) ||
+                  !Number.isInteger(Number(opponentFinalScore)) ||
+                  Number(teamFinalScore) < 0 ||
+                  Number(opponentFinalScore) < 0
+                }
+                className="rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D] dark:text-[#101419] shadow-md hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:cursor-not-allowed disabled:opacity-40 "
+              >
+                {isEditing ? 'Save Score & Changes' : 'Save Score & Game'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {lineupSpotPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lineup-spot-prompt-title"
+            className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+          >
+            <h2 id="lineup-spot-prompt-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
+              Select batting lineup spot
+            </h2>
+            <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
+              Choose the batter's position in the lineup before recording this play.
+            </p>
+            <div className="mt-4">
+              <ThemedDropdown<number>
+                value={currentInningLineupSpot}
+                onChange={(value) => {
+                  if (value === undefined) return;
+                  setLineupSpot(value);
+                  setLineupSpotPromptOpen(false);
+                }}
+                placeholder="Select batting lineup spot"
+                ariaLabel="Batting lineup spot"
+                allowClear={false}
+                className="w-full"
+                buttonClassName="h-11"
+                options={LINEUP_SPOTS.map((spot) => ({
+                  value: spot.spot,
+                  label: `#${spot.spot} · ${spot.label}`,
+                }))}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setLineupSpotPromptOpen(false)}
+              className="mt-4 w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
+            >
+              Cancel
+            </button>
+          </section>
+        </div>
+      )}
+
+      {pendingPositionChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#1A2028] rounded-md shadow-2xl border border-slate-200 dark:border-[#354050] p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="position-change-title"
+          >
+            <div className="flex items-start gap-2">
+              <div className="p-3 rounded-md shrink-0 bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 id="position-change-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
+                  Change position in Inning {pendingPositionChange.inning}?
+                </h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB] leading-relaxed">
+                  {activeProfile.playerName || 'The player'} is at <strong>{pendingPositionChange.from}</strong> and you picked{' '}
+                  <strong>{pendingPositionChange.to}</strong>. How should this be recorded?
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'record');
+                  setPendingPositionChange(null);
+                }}
+                className="w-full rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] px-4 py-3 text-left text-[#18212D] dark:text-[#101419] shadow-md active:scale-[0.99] transition-all cursor-pointer"
+              >
+                <span className="block text-sm font-semibold">Switched during the inning</span>
+                <span className="block text-xs font-normal opacity-80">
+                  Keeps {pendingPositionChange.from} for plays so far and uses {pendingPositionChange.to} from now on. Both positions get the inning.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'correct');
+                  setPendingPositionChange(null);
+                }}
+                className="w-full rounded-md border border-slate-300 dark:border-[#354050] px-4 py-3 text-left text-slate-800 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] active:scale-[0.99] transition-all cursor-pointer"
+              >
+                <span className="block text-sm font-semibold">I picked the wrong position</span>
+                <span className="block text-xs font-normal opacity-80">
+                  Replaces {pendingPositionChange.from} with {pendingPositionChange.to} for the whole inning, including plays already recorded.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingPositionChange(null)}
+                className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmationModal
+        isOpen={isDiscardModalOpen}
+        title={isEditing ? 'Cancel Editing?' : 'Discard This Game?'}
+        message={
+          isEditing
+            ? 'Are you sure you want to cancel? Any changes made during this edit session will be lost and the saved game will remain unchanged.'
+            : 'Are you sure you want to discard this live game? All recorded plays from this session will be permanently deleted.'
+        }
+        confirmLabel={isEditing ? 'Yes, Cancel Edit' : 'Yes, Discard'}
+        variant="danger"
+        onConfirm={() => {
+          setNewGameFormError('');
+          if (isEditing) {
+            cancelEditing();
+          } else {
+            setPendingHitPlay(null);
+            pendingRunnerAfterHitRef.current = null;
+            pendingRunnerPrimaryPlayIdRef.current = null;
+            setRunnerSession(null);
+            setRunnerHistory([]);
+            setActiveRunnerChip(null);
+            discardLiveGame();
+            onGameClosed?.();
+          }
+          setIsDiscardModalOpen(false);
+        }}
+        onCancel={() => setIsDiscardModalOpen(false)}
+      />
+
+      {/* Bench Play Clear Alert Modal matching app style */}
+      <ConfirmationModal
+        isOpen={benchConfirmInning !== null}
+        title={`Clear Inning ${benchConfirmInning} Plays?`}
+        message={`Changing Inning ${benchConfirmInning} to Bench / Rest will remove all ${
+          benchConfirmInning !== null
+            ? liveGame.plays.filter((p) => p.inning === benchConfirmInning).length
+            : 0
+        } play(s) recorded in this inning. Are you sure you want to proceed?`}
+        confirmLabel="Clear Plays & Set Bench"
+        variant="danger"
+        onConfirm={() => {
+          if (benchConfirmInning !== null) {
+            applyBenchForInning(benchConfirmInning);
+            setBenchConfirmInning(null);
+          }
+        }}
+        onCancel={() => setBenchConfirmInning(null)}
+      />
+
+      {/* Edit Individual Play Modal */}
+      {selectedPlayForEdit && (
+        <EditPlayModal
+          play={selectedPlayForEdit}
+          maxInnings={liveGame.innings}
+          allPlays={liveGame.plays}
+          onSetRbis={setPlayRbis}
+          onSave={(playId, inning, mode, code, lineupSpot, hitLocation, throwTo) =>
+            editPlay(playId, inning, mode, code, lineupSpot, hitLocation, throwTo)
+          }
+          onDelete={handleDeletePlay}
+          onMove={movePlay}
+          moveWithinCategory={sameCategoryFeed}
+          onInsertAfter={insertPlayAfter}
+          canMoveEarlier={canMovePlay(selectedPlayForEdit.id, -1)}
+          canMoveLater={canMovePlay(selectedPlayForEdit.id, 1)}
+          onClose={() => setSelectedPlayForEdit(null)}
+        />
+      )}
+
+      {/* Hit Direction Tapper Modal (auto-prompt on batted ball hits) */}
+      {pendingHitPlay && (
+        <HitLocationModal
+          isOpen={Boolean(pendingHitPlay)}
+          playCode={pendingHitPlay.code}
+          initialLocation={
+            liveGame.plays.find((p) => p.id === pendingHitPlay.playId)?.hitLocation
+          }
+          allowPlayChange={false}
+          onSave={(loc, _code, rbiEarned) => {
+            const runnerCode = pendingRunnerAfterHitRef.current;
+            pendingRunnerAfterHitRef.current = null;
+            updatePlayHitLocation(pendingHitPlay.playId, loc);
+            recordHitRbis(pendingHitPlay.code, rbiEarned);
+            setPendingHitPlay(null);
+            if (runnerCode) startRunnerSession(runnerCode);
+          }}
+          onSkip={() => {
+            const runnerCode = pendingRunnerAfterHitRef.current;
+            pendingRunnerAfterHitRef.current = null;
+            setPendingHitPlay(null);
+            if (runnerCode) startRunnerSession(runnerCode);
+          }}
+          onClose={() => {
+            const runnerCode = pendingRunnerAfterHitRef.current;
+            pendingRunnerAfterHitRef.current = null;
+            setPendingHitPlay(null);
+            if (runnerCode) startRunnerSession(runnerCode);
+          }}
+        />
+      )}
+
+      {/* Direct Hit Direction Tapper Modal (tap field first, then select play) */}
+      {isDirectTapperOpen && (
+        <HitLocationModal
+          isOpen={isDirectTapperOpen}
+          playCode="single"
+          allowPlayChange={true}
+          onSave={(loc, chosenCode, rbiEarned) => {
+            setIsDirectTapperOpen(false);
+            pendingHitLocationRef.current = loc;
+            handleScoringPlay(chosenCode);
+            recordHitRbis(chosenCode, rbiEarned);
+          }}
+          onSkip={() => setIsDirectTapperOpen(false)}
+          onClose={() => setIsDirectTapperOpen(false)}
+        />
+      )}
+
+      {outResolutionOpen && (
+        <ScoringValidationModal
+          playerName={activeProfile.playerName || 'the batter'}
+          initialOuts={getBattingOutCount(currentInning)}
+          onConfirm={handleScoringResolution}
+          onCancel={() => setOutResolutionOpen(false)}
+        />
+      )}
+
+      {runnerSession && (
+        <RunnerLockdownModal
+          playerName={activeProfile.playerName || 'Player'}
+          jerseyNumber={activeProfile.jerseyNumber}
+          state={runnerSession}
+          historyCount={runnerHistory.length}
+          inningOuts={getInningOutCount(currentInning)}
+          onAdvance={handleRunnerAdvance}
+          onOut={handleRunnerOut}
+          onScore={handleRunnerScore}
+          onThirdOut={handleRunnerThirdOut}
+          onUndo={handleUnifiedRunnerUndo}
+          onHoldOnBase={handleHoldRunnerOnBase}
+          onInjurySub={handleRunnerInjurySub}
+        />
+      )}
+
+      {/* Live Game Spray Chart Modal */}
+      {isGameSprayModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-lg max-h-[92vh] flex flex-col bg-white dark:bg-[#1A2028] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="game-spray-title"
+          >
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-[#354050] flex items-center justify-between bg-slate-50 dark:bg-[#252D38]/60">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#00BFA5] dark:bg-[#00D7BC]" />
+                <h3 id="game-spray-title" className="font-semibold text-sm text-slate-900 dark:text-[#FAFAFA]">
+                  Game Spray Chart
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGameSprayModalOpen(false)}
+                className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1 space-y-3">
+              <SprayChart
+                plays={liveGame.plays}
+                heightClass="h-64 sm:h-72"
+                showFilters={true}
+                showStats={true}
+                showLegend={true}
+                title={`Plays in Game (${liveGame.opponent ? `vs ${liveGame.opponent}` : liveGame.date})`}
+              />
+            </div>
+            <div className="p-3 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/60 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsGameSprayModalOpen(false)}
+                className="px-5 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-xs font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] "
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
