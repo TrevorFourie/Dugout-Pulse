@@ -49,6 +49,7 @@ interface GameContextType {
       lineupSpot?: number;
       hitLocation?: HitLocation;
       isExtraOut?: boolean;
+      partOfMultiOutPlay?: boolean;
       autoOutcome?: boolean;
       runnerFromBase?: 1 | 2 | 3;
       runnerToBase?: 1 | 2 | 3 | 4;
@@ -1059,6 +1060,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lineupSpot?: number;
         hitLocation?: HitLocation;
         isExtraOut?: boolean;
+        partOfMultiOutPlay?: boolean;
         autoOutcome?: boolean;
         runnerFromBase?: 1 | 2 | 3;
         runnerToBase?: 1 | 2 | 3 | 4;
@@ -1125,6 +1127,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lineupSpot: currentLineupSpot,
           hitLocation: mode === 'batting' ? options?.hitLocation : undefined,
           isExtraOut: options?.isExtraOut,
+          partOfMultiOutPlay: options?.partOfMultiOutPlay,
           autoOutcome: options?.autoOutcome,
           runnerFromBase: options?.runnerFromBase,
           runnerToBase: options?.runnerToBase,

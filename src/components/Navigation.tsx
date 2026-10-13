@@ -9,12 +9,13 @@ import {
   Loader2,
   Settings,
   Compass,
+  BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { exportStatsPdf } from '../utils/pdfReport';
 import defaultLogoSrc from '../assets/dugout-pulse-logo.png?inline';
 
-export type TabId = 'dashboard' | 'score' | 'games' | 'crazyPlays';
+export type TabId = 'dashboard' | 'score' | 'games' | 'crazyPlays' | 'stats';
 
 interface NavigationProps {
   activeTab: TabId;
@@ -97,7 +98,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Bottom Sticky Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050] pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-5 p-1.5 gap-1">
+        <div className="max-w-md mx-auto grid grid-cols-6 p-1.5 gap-1">
           {/* Dashboard Tab */}
           <button
             type="button"
@@ -131,6 +132,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span className="text-[11px] font-semibold">
               {liveGame ? 'Scoring' : 'Score'}
             </span>
+          </button>
+
+          {/* Stats Tab */}
+          <button
+            type="button"
+            onClick={() => onSelectTab('stats')}
+            className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all ${
+              activeTab === 'stats'
+                ? 'bg-[#E6FBF8] dark:bg-[#252D38] text-[#006B5D] dark:text-[#00D7BC] border border-[#00BFA5]/40 dark:border-[#00D7BC]/40 shadow-none'
+                : 'text-slate-500 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
+            }`}
+          >
+            <BarChart3 className="w-5 h-5 mb-0.5" />
+            <span className="text-[11px] font-semibold">Stats</span>
           </button>
 
           {/* Games History Tab */}

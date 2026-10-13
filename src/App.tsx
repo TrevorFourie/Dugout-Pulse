@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
+import { StatsTab } from './components/StatsTab';
 import { ScoreTab } from './components/ScoreTab';
 import { GamesTab } from './components/GamesTab';
 import { Navigation, TabId } from './components/Navigation';
@@ -32,11 +33,9 @@ const MainApp: React.FC = () => {
 
   return (
     <div className="min-h-full flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
-      {/* Top and Bottom Navigation */}
       <Navigation
         activeTab={activeTab}
         onSelectTab={(tab) => {
-          // Tapping the Score tab always returns to the main scoring screen.
           if (tab === 'score') setScoreView('score');
           setActiveTab(tab);
         }}
@@ -44,11 +43,17 @@ const MainApp: React.FC = () => {
         onOpenSettings={handleOpenSettings}
       />
 
-      {/* Main Tab Content */}
       <main className="flex-1 min-h-0 min-w-0 flex flex-col">
         {activeTab === 'dashboard' && (
           <DashboardTab
             onNavigateToScore={() => setActiveTab('score')}
+            onNavigateToStats={() => setActiveTab('stats')}
+            onOpenHelp={() => handleOpenHelp('batting')}
+            onOpenSettings={() => handleOpenSettings()}
+          />
+        )}
+        {activeTab === 'stats' && (
+          <StatsTab
             onOpenHelp={() => handleOpenHelp('batting')}
             onOpenSettings={() => handleOpenSettings()}
           />
@@ -68,7 +73,6 @@ const MainApp: React.FC = () => {
         {activeTab === 'crazyPlays' && <CrazyPlaysGuide />}
       </main>
 
-      {/* Global Modals */}
       <HelpModal
         isOpen={isHelpOpen}
         initialMode={helpInitialMode}
@@ -82,7 +86,6 @@ const MainApp: React.FC = () => {
         onOpenSetupWizard={() => setIsManualSetupOpen(true)}
       />
 
-      {/* First-Time User Setup Screen / Wizard */}
       {(isFirstTimeUser || isManualSetupOpen) && (
         <SetupScreen
           onComplete={() => {

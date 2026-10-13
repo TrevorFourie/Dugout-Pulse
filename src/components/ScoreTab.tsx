@@ -133,6 +133,14 @@ export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
   return <ScoreTabInner key={liveGame ? `game-${liveGame.id}` : 'no-game'} {...props} />;
 };
 
+type DoublePlayAction = 'catch' | 'step' | 'throw';
+
+const DOUBLE_PLAY_ACTIONS: { action: DoublePlayAction; title: string; description: string }[] = [
+  { action: 'catch', title: 'Caught the ball', description: 'Fly ball, line drive or throw for an out (Putout)' },
+  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Doubled off a runner who left early, or a force or tag (Putout)' },
+  { action: 'throw', title: 'Threw to a base', description: 'Throw that helped complete the double play (Assist)' },
+];
+
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
   const {
     games,
@@ -301,13 +309,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
   const primaryHoldTimerRef = useRef<number | null>(null);
 
-  // Streamlined multi-fielder sequence chaining state (for CS, DP)
-  const [fieldingChain, setFieldingChain] = useState<{
-    type: 'CS' | 'DP';
-    primaryPosition: DefensivePosition | string;
-    prompt: string;
-    targets: { position: DefensivePosition; label: string }[];
-  } | null>(null);
+  // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
+  // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
+  const [fieldingChain, setFieldingChain] = useState<{ endsHalfInning: boolean } | null>(null);
+  const [dpActions, setDpActions] = useState<DoublePlayAction[]>([]);
 
   const playFlow = usePlayFlow({
     onEvent: (mode, code, eventOptions) => {
@@ -1612,6 +1617,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         (p) => p.inning === inning && p.mode === 'fielding' && p.defensivePosition !== 'P'
       );
       for (const play of nonPitcherFieldingPlays) {
+        // Putouts/assists logged for the player on a double play are already part of its 2 outs.
+        if (play.partOfMultiOutPlay) continue;
         if (play.code === 'putout' || play.code === 'caughtStealing') outs += 1;
         else if (play.code === 'doublePlay') outs += 2;
         else if (play.code === 'triplePlay') outs += 3;
@@ -1679,6 +1686,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
       const isBatting = fromMode === 'batting';
       const isDefense = fromMode === 'pitching' || fromMode === 'fielding';
+      // Scoring from the Fielding tab must never switch tabs.
+      const switchMode = (mode: PlayMode) => {
+        if (fromMode !== 'fielding') setActiveMode(mode);
+      };
 
       // Record half-inning status
       const existingStatus = liveGame.halfInningStatus?.[currentInning] || {};
@@ -1719,7 +1730,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         // Based on Home or Away Team status:
         if (!isHomeTeam) {
           // Away team bats first at top of next inning
-          setActiveMode('batting');
+          switchMode('batting');
           showInningNotice(
             `Inning ${currentInning} complete!`,
             `Both fielded and batted completed. Starting Inning ${nextInn} (▲ Top · Away Batting).`
@@ -1727,7 +1738,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         } else {
           // Home team fields first at top of next inning
           const nextDefMode: PlayMode = nextInnPosition === 'P' ? 'pitching' : 'fielding';
-          setActiveMode(nextDefMode);
+          switchMode(nextDefMode);
           showInningNotice(
             `Inning ${currentInning} complete!`,
             `Both fielded and batted completed. Starting Inning ${nextInn} (▲ Top · Home Defense).`
@@ -1740,14 +1751,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         if (isBatting) {
           // Batting ended, team must now field/pitch in the current inning
           const defMode: PlayMode = currentInningPosition === 'P' ? 'pitching' : 'fielding';
-          setActiveMode(defMode);
+          switchMode(defMode);
           showInningNotice(
             `3rd out recorded · Inning ${currentInning}`,
             `Batting half complete. Remaining on Inning ${currentInning} to field (▼ Bottom · Defense).`
           );
         } else {
           // Defense ended, team must now bat in the current inning
-          setActiveMode('batting');
+          switchMode('batting');
           showInningNotice(
             `3rd out recorded · Inning ${currentInning}`,
             `Defense half complete. Remaining on Inning ${currentInning} to bat (▼ Bottom · Batting).`
@@ -1843,34 +1854,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         playFlow.handleFieldingEvent(code as any);
       }
 
-      // Sequence chaining for multi-fielder plays (CS, DP)
-      if (code === 'caughtStealing') {
-        setFieldingChain({
-          type: 'CS',
-          primaryPosition: 'C',
-          prompt: 'Who applied the tag on the caught stealing?',
-          targets: [
-            { position: '2B', label: '2B (Second Base)' },
-            { position: 'SS', label: 'SS (Shortstop)' },
-            { position: '3B', label: '3B (Third Base)' },
-          ],
-        });
-      } else if (code === 'doublePlay') {
-        setFieldingChain({
-          type: 'DP',
-          primaryPosition: currentInningPosition,
-          prompt: 'Who completed the out at 1st base for the Double Play?',
-          targets: [
-            { position: '1B', label: '1B (First Base)' },
-            { position: '2B', label: '2B (Second Base)' },
-            { position: 'SS', label: 'SS (Shortstop)' },
-          ],
-        });
-      } else {
-        setFieldingChain(null);
-      }
-
-      if (playOuts > 0 && outsBefore + playOuts >= 3) {
+      // A Double Play asks what the player did on it (catch / step on base / throw) in a modal. When the
+      // play ends the half-inning, the third-out handling waits until that modal is confirmed or skipped.
+      const endsHalfInning = playOuts > 0 && outsBefore + playOuts >= 3;
+      if (code === 'doublePlay') {
+        setDpActions([]);
+        setFieldingChain({ endsHalfInning });
+      } else if (endsHalfInning) {
         handleThirdOut('fielding');
       }
     } else {
@@ -1885,21 +1875,29 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  const handleCompleteFieldingChain = (targetPos: DefensivePosition) => {
-    if (!fieldingChain) return;
-    const outsBefore = getDefenseOutCount(currentInning);
-    addPlay('fielding', 'putout', { defensivePosition: targetPos });
+  const toggleDpAction = (action: DoublePlayAction) => {
+    setDpActions((prev) => (prev.includes(action) ? prev.filter((a) => a !== action) : [...prev, action]));
+  };
 
-    if (fieldingChain.type === 'CS') {
-      
-    } else {
-      
+  // Confirm the double play follow-up: log the player's putout(s) / assist, then end the half-inning if needed.
+  const handleConfirmDoublePlay = () => {
+    if (!fieldingChain) return;
+    const endsHalfInning = fieldingChain.endsHalfInning;
+    for (const action of dpActions) {
+      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', { partOfMultiOutPlay: true });
     }
     setFieldingChain(null);
+    setDpActions([]);
+    if (endsHalfInning) handleThirdOut('fielding');
+  };
 
-    if (outsBefore + 1 >= 3) {
-      handleThirdOut('fielding');
-    }
+  // Skip: keep the double play only, still ending the half-inning if the play did.
+  const handleDismissFieldingChain = () => {
+    if (!fieldingChain) return;
+    const endsHalfInning = fieldingChain.endsHalfInning;
+    setFieldingChain(null);
+    setDpActions([]);
+    if (endsHalfInning) handleThirdOut('fielding');
   };
 
   // Record the RBIs chosen in the hit tapper. A home run already auto-adds the batter's own
@@ -3010,49 +3008,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Streamlined Sequence Chaining Card (Multi-Fielder Plays: CS, DP) */}
-            {fieldingChain && (
-              <div className="rounded-xl p-3 bg-teal-50/90 dark:bg-[#00D7BC]/10 border-2 border-[#00BFA5] dark:border-[#00D7BC] shadow-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-[#00BFA5] dark:text-[#00D7BC]" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-teal-900 dark:text-[#00D7BC]">
-                      {fieldingChain.type === 'CS' ? 'Complete Caught Stealing (Step 2 of 2)' : 'Complete Double Play (Step 2 of 2)'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFieldingChain(null)}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:text-[#9CA3AF] dark:hover:text-white px-1.5 py-0.5 rounded cursor-pointer"
-                  >
-                    Skip
-                  </button>
-                </div>
-                <p className="text-xs font-medium text-slate-700 dark:text-[#D1D5DB]">
-                  {fieldingChain.prompt}
-                </p>
-                <div className="flex items-center gap-2 pt-0.5">
-                  {fieldingChain.targets.map((tgt) => (
-                    <button
-                      key={tgt.position}
-                      type="button"
-                      onClick={() => handleCompleteFieldingChain(tgt.position)}
-                      className="flex-1 py-2 px-2.5 rounded-lg bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer text-center"
-                    >
-                      {tgt.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setFieldingChain(null)}
-                    className="py-2 px-3 rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] text-slate-700 dark:text-[#D1D5DB] text-xs font-semibold hover:bg-slate-100 dark:hover:bg-[#252D38] cursor-pointer"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Dynamic Button Grid based on Active Position */}
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {currentPlaysForMode.map((def) => {
@@ -3333,10 +3288,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             if (liveGame.benchInnings.includes(currentInning)) {
               toggleBenchCurrentInning();
               setInningPosition(currentInning, val);
+              // Only exception to staying on Fielding: becoming the Pitcher opens the Pitching tab.
+              if (val === 'P') setActiveMode('pitching');
             } else if (heldPosition && heldPosition !== 'BENCH' && heldPosition !== val) {
               setPendingPositionChange({ inning: currentInning, from: heldPosition, to: val });
             } else if (!heldPosition) {
               setInningPosition(currentInning, val);
+              if (val === 'P') setActiveMode('pitching');
             }
           }
         }}
@@ -3700,6 +3658,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 type="button"
                 onClick={() => {
                   changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'record');
+                  if (pendingPositionChange.to === 'P') setActiveMode('pitching');
                   setPendingPositionChange(null);
                 }}
                 className="w-full rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] px-4 py-3 text-left text-[#18212D] dark:text-[#101419] shadow-md active:scale-[0.99] transition-all cursor-pointer"
@@ -3713,6 +3672,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 type="button"
                 onClick={() => {
                   changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'correct');
+                  if (pendingPositionChange.to === 'P') setActiveMode('pitching');
                   setPendingPositionChange(null);
                 }}
                 className="w-full rounded-md border border-slate-300 dark:border-[#354050] px-4 py-3 text-left text-slate-800 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] active:scale-[0.99] transition-all cursor-pointer"
@@ -3728,6 +3688,69 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fieldingChain && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#1A2028] rounded-md shadow-2xl border border-slate-200 dark:border-[#354050] p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="double-play-title"
+          >
+            <div className="flex items-start gap-2">
+              <div className="p-3 rounded-md shrink-0 bg-teal-100 text-[#00BFA5] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">
+                <Zap className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 id="double-play-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
+                  Double Play: what did {activeProfile.playerName || 'the player'} do?
+                </h3>
+                <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB] leading-relaxed">
+                  Select everything that applies.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2.5">
+              {DOUBLE_PLAY_ACTIONS.map((opt) => {
+                const selected = dpActions.includes(opt.action);
+                return (
+                  <button
+                    key={opt.action}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={selected}
+                    onClick={() => toggleDpAction(opt.action)}
+                    className={`w-full rounded-md px-4 py-3 text-left active:scale-[0.99] transition-all cursor-pointer ${
+                      selected
+                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-md'
+                        : 'border border-slate-300 dark:border-[#354050] text-slate-800 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38]'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{opt.title}</span>
+                    <span className="block text-xs font-normal opacity-80">{opt.description}</span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={handleConfirmDoublePlay}
+                disabled={dpActions.length === 0}
+                className="w-full rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] px-4 py-3 text-sm font-semibold text-[#18212D] dark:text-[#101419] shadow-md active:scale-[0.99] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissFieldingChain}
+                className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer"
+              >
+                Skip
               </button>
             </div>
           </div>

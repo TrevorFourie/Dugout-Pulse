@@ -2,41 +2,34 @@ import React, { useState, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
 import {
   calculateSeasonStats,
-  calculateGroupedStats,
   filterGames,
   formatRate,
-  formatEraWhip,
 } from '../utils/stats';
-import { Play as GamePlay } from '../types/baseball';
 import {
   Play,
   PlayCircle,
   HelpCircle,
   Award,
-  Shield,
   Activity,
   ChevronRight,
   Sparkles,
   TrendingUp,
   Filter,
-  Trophy,
-  Calendar,
-  Layers,
   RotateCcw,
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
-import { SprayChart } from './SprayChart';
-import { isHitPlay } from '../utils/sprayChart';
 
 interface DashboardTabProps {
   onNavigateToScore: () => void;
+  onNavigateToStats: () => void;
   onOpenHelp: () => void;
   onOpenSettings: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToScore,
+  onNavigateToStats,
   onOpenHelp,
   onOpenSettings,
 }) => {
@@ -48,17 +41,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     isLoading,
   } = useGame();
 
-  const [activeStatGroup, setActiveStatGroup] = useState<'batting' | 'pitching' | 'fielding'>('batting');
-
   // Dashboard Filters
   const [selectedTeam, setSelectedTeam] = useState<string>('ALL');
   const [selectedSeason, setSelectedSeason] = useState<string>('ALL');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('ALL');
   const [selectedTournament, setSelectedTournament] = useState<string>('ALL');
-
-  // Breakdown View
-  const [activeBreakdownGroup, setActiveBreakdownGroup] = useState<'tournament' | 'season' | 'ageGroup' | 'teamName'>('tournament');
-  const [breakdownStatType, setBreakdownStatType] = useState<'batting' | 'pitching' | 'fielding'>('batting');
 
   // All games for this player
   const playerGames = useMemo(() => {
@@ -131,33 +118,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     setSelectedTournament('ALL');
   };
 
-  // Grouped stats breakdown
-  const groupedBreakdown = useMemo(() => {
-    return calculateGroupedStats(
-      isFilterActive ? filteredGames : playerGames,
-      activeBreakdownGroup,
-      settings.inningsPerGame
-    );
-  }, [filteredGames, playerGames, isFilterActive, activeBreakdownGroup, settings.inningsPerGame]);
-
-  const allSeasonPlays: GamePlay[] = useMemo(() => {
-    const list: GamePlay[] = [];
-    // When a saved game is being edited, the live game is a working copy of that saved game.
-    // Use the live copy in its place so its plays are not counted twice.
-    const liveIsSavedCopy = Boolean(liveGame && playerGames.some((g) => g.id === liveGame.id));
-    filteredGames.forEach((g) => {
-      if (liveGame && g.id === liveGame.id) return;
-      if (g.plays) {
-        list.push(...g.plays);
-      }
-    });
-    if (liveGame && liveGame.plays) {
-      const liveVisible = !liveIsSavedCopy || filteredGames.some((g) => g.id === liveGame.id);
-      if (liveVisible) list.push(...liveGame.plays);
-    }
-    return list;
-  }, [filteredGames, playerGames, liveGame]);
-
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6 text-center">
@@ -172,7 +132,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   }
 
   const seasonStats = calculateSeasonStats(filteredGames, settings.inningsPerGame, activeProfile.id);
-  const { gameCount, batting, pitching, fielding, lastGameHits } = seasonStats;
+  const { gameCount, batting, lastGameHits } = seasonStats;
 
   const playerNameDisplay = activeProfile.playerName
     ? `${activeProfile.playerName}`
@@ -279,7 +239,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* Interactive Filters Bar (Team, Season, Age Group, Tournament) */}
+      {/* Interactive Filters Bar */}
       <div className="bg-white dark:bg-[#252D38] rounded-2xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -307,9 +267,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
         </div>
 
-        {/* 4 Filter Dropdowns */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          {/* Team Filter */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
               Team
@@ -321,14 +279,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             >
               <option value="ALL">All Teams ({availableTeams.length || 1})</option>
               {availableTeams.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
 
-          {/* Season Filter */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
               Season
@@ -340,14 +295,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             >
               <option value="ALL">All Seasons</option>
               {availableSeasons.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           </div>
 
-          {/* Age Group Filter */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
               Age Group
@@ -359,14 +311,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             >
               <option value="ALL">All Age Groups</option>
               {availableAgeGroups.map((ag) => (
-                <option key={ag} value={ag}>
-                  {ag}
-                </option>
+                <option key={ag} value={ag}>{ag}</option>
               ))}
             </select>
           </div>
 
-          {/* Tournament Filter */}
           <div>
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
               Tournament
@@ -380,9 +329,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <option value="__TOURNAMENTS_ONLY__">🏆 Tournaments Only</option>
               <option value="__LEAGUE_ONLY__">⚾ Regular League Only</option>
               {availableTournaments.map((tourney) => (
-                <option key={tourney} value={tourney}>
-                  {tourney}
-                </option>
+                <option key={tourney} value={tourney}>{tourney}</option>
               ))}
             </select>
           </div>
@@ -393,7 +340,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       <div>
         <div className="flex items-center justify-between mb-2.5 px-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
-            Season Snapshot
+            Season Snapshot Overview
           </span>
           <span className="text-xs font-semibold text-slate-600 dark:text-[#D1D5DB]">
             {gameCount} {gameCount === 1 ? 'Game' : 'Games'} Logged
@@ -401,52 +348,32 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Tile 1: Games */}
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-              Games
-            </span>
+            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Games</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                {gameCount}
-              </span>
+              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{gameCount}</span>
               <Activity className="w-4 h-4 text-slate-300 dark:text-[#6B7280]" />
             </div>
           </div>
 
-          {/* Tile 2: Batting AVG */}
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-              Batting Avg
-            </span>
+            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Batting Avg</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                {formatRate(batting.avg)}
-              </span>
+              <span className="text-2xl sm:text-3xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</span>
               <Award className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]/40" />
             </div>
           </div>
 
-          {/* Tile 3: Hits */}
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-              Hits
-            </span>
+            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Hits</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                {batting.h}
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400">
-                {batting.ab} AB
-              </span>
+              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{batting.h}</span>
+              <span className="text-[11px] font-semibold text-slate-400">{batting.ab} AB</span>
             </div>
           </div>
 
-          {/* Tile 4: Last Game Hits */}
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
-              Last Game Hits
-            </span>
+            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Last Game Hits</span>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
                 {lastGameHits !== null ? lastGameHits : '—'}
@@ -457,751 +384,26 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         </div>
       </div>
 
-      {/* Player Statistics Card (Batting / Pitching / Fielding) */}
-      <div className="bg-white dark:bg-[#252D38] rounded-2xl border border-slate-200/80 dark:border-[#354050] shadow-xs overflow-hidden">
-        {/* Card Header & Group Switcher */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#354050] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 dark:bg-[#1A2028]/60">
+      {/* Navigation Card to Full Stats Tab */}
+      <button
+        onClick={onNavigateToStats}
+        className="w-full p-5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-teal-500/10 dark:from-[#00D7BC]/10 dark:to-teal-950/40 border border-teal-200 dark:border-[#00D7BC]/30 text-left flex items-center justify-between group transition-all hover:shadow-md"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] group-hover:scale-105 transition-transform">
+            <BarChart3 className="w-6 h-6" />
+          </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
-              Player Statistics
-            </span>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
-              Calculated Season Totals
-            </h3>
-          </div>
-
-          {/* Sub tabs */}
-          <div className="flex p-1 rounded-xl bg-slate-200/80 dark:bg-[#252D38]">
-            {(['batting', 'pitching', 'fielding'] as const).map((group) => (
-              <button
-                key={group}
-                onClick={() => setActiveStatGroup(group)}
-                className={`px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-all ${
-                  activeStatGroup === group
-                    ? 'bg-white dark:bg-[#354050] text-[#18212D] dark:text-[#FAFAFA] shadow-xs'
-                    : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
-                }`}
-              >
-                {group}
-              </button>
-            ))}
+            <div className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+              View Full Player Statistics & Deep Dive Breakdowns
+            </div>
+            <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
+              Explore complete batting slash lines, pitching splits, fielding positions, and tournament breakdowns.
+            </div>
           </div>
         </div>
-
-        {/* Stats Grid Content */}
-        <div className="p-4 sm:p-5">
-          {activeStatGroup === 'batting' && (
-            <div className="space-y-4">
-              {/* Primary Slash line */}
-              <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">AVG</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                    {formatRate(batting.avg)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">OBP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">
-                    {formatRate(batting.obp)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">SLG</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">
-                    {formatRate(batting.slg)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">OPS</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">
-                    {formatRate(batting.ops)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Counting Metrics Grid (H, HR, RBI, R, BB, SO, SB, CS, PA) */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-center">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">H (Hits)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.h}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">HR (Home Runs)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.hr}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">2B (Doubles)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.doubles}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">3B (Triples)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.triples}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">RBI</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.rbi}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">R (Runs)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.r}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">BB (Walks)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.bb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">IBB</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.ibb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SO (Strikeouts)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.so}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SB (Stolen Bases)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.sb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">CS (Caught Stealing)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.cs}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">PA (Appearances)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.pa}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">AB (At Bats)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.ab}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SH (Sac Bunts)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.sh}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">ROE</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.roe}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">FC</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.fc}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">GIDP</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.gidp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">HBP</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.hbp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SF</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.sf}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">TB</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.tb}</div>
-                </div>
-              </div>
-
-              {/* FEATURE 5: Batting Splits (vs RHP vs vs LHP) */}
-              <div className="pt-2 border-t border-slate-200 dark:border-[#354050] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
-                    Pitcher Handedness Splits
-                  </span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-extrabold uppercase text-slate-400">
-                        <th className="py-2 pr-3">Split</th>
-                        <th className="py-2 px-2 text-center">PA</th>
-                        <th className="py-2 px-2 text-center">AB</th>
-                        <th className="py-2 px-2 text-center">H</th>
-                        <th className="py-2 px-2 text-center text-[#007A6A] dark:text-[#00D7BC]">AVG</th>
-                        <th className="py-2 px-2 text-center">OBP</th>
-                        <th className="py-2 px-2 text-center">SLG</th>
-                        <th className="py-2 px-2 text-center">OPS</th>
-                        <th className="py-2 px-2 text-center">HR</th>
-                        <th className="py-2 pl-2 text-center">SO</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#354050] font-semibold">
-                      <tr>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-extrabold">
-                          vs Righties (RHP)
-                        </td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.pa}</td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.ab}</td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.h}</td>
-                        <td className="py-2 px-2 text-center text-[#007A6A] dark:text-[#00D7BC] font-semibold">
-                          {formatRate(seasonStats.splits.vsRHP.avg)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsRHP.obp)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsRHP.slg)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsRHP.ops)}
-                        </td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.hr}</td>
-                        <td className="py-2 pl-2 text-center">{seasonStats.splits.vsRHP.so}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-extrabold">
-                          vs Lefties (LHP)
-                        </td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.pa}</td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.ab}</td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.h}</td>
-                        <td className="py-2 px-2 text-center text-[#007A6A] dark:text-[#00D7BC] font-semibold">
-                          {formatRate(seasonStats.splits.vsLHP.avg)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsLHP.obp)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsLHP.slg)}
-                        </td>
-                        <td className="py-2 px-2 text-center">
-                          {formatRate(seasonStats.splits.vsLHP.ops)}
-                        </td>
-                        <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.hr}</td>
-                        <td className="py-2 pl-2 text-center">{seasonStats.splits.vsLHP.so}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* FEATURE 6: Performance by Batting Order Spot */}
-              {seasonStats.lineupStats.length > 0 && (
-                <div className="pt-2 border-t border-slate-200 dark:border-[#354050] space-y-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
-                    Performance by Lineup Spot
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {seasonStats.lineupStats.map((item) => (
-                      <div
-                        key={item.spot}
-                        className="p-3 rounded-xl bg-slate-50 dark:bg-[#252D38]/40 border border-slate-200 dark:border-[#354050] flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]">
-                            #{item.spot} Spot ({item.games} {item.games === 1 ? 'game' : 'games'})
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            {item.batting.h} H · {item.batting.ab} AB · {item.batting.hr} HR · {item.batting.rbi} RBI
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-base font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                            {formatRate(item.batting.avg)}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-semibold">AVG</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* FEATURE 7: Batting Spray Chart & Hit Direction */}
-              <div className="pt-3 border-t border-slate-200 dark:border-[#354050] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
-                    Batting Spray Chart & Hit Direction
-                  </span>
-                  <span className="text-[10px] font-semibold text-slate-500 dark:text-[#9CA3AF]">
-                    {(() => {
-                      const tracked = allSeasonPlays.filter((p) => p.mode === 'batting' && p.hitLocation);
-                      const hits = tracked.filter((p) => isHitPlay(p.code)).length;
-                      const outs = tracked.filter((p) => !isHitPlay(p.code)).length;
-                      return `${hits} hit${hits !== 1 ? 's' : ''}${outs > 0 ? ` · ${outs} out${outs !== 1 ? 's' : ''}` : ''} mapped`;
-                    })()}
-                  </span>
-                </div>
-                <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 dark:bg-[#252D38]/40 border border-slate-200 dark:border-[#354050]">
-                  <SprayChart
-                    plays={allSeasonPlays}
-                    heightClass="h-72 sm:h-80"
-                    showFilters={true}
-                    showStats={true}
-                    showLegend={true}
-                    defaultView="zones"
-                    showViewToggle={true}
-                    title="Batting Spray Chart & Direction Tapper Analysis"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeStatGroup === 'pitching' && (
-            <div className="space-y-4">
-              {/* Pitching Summary */}
-              <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">IP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                    {pitching.ipDisplay}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">
-                    ERA ({settings.inningsPerGame} Inn)
-                  </div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                    {formatEraWhip(pitching.era)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">WHIP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">
-                    {formatEraWhip(pitching.whip)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Pitching Details */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-center">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">K (Strikeouts)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.k}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">H (Hits Allowed)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.h}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">BB (Walks Allowed)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.bb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">IBB</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.ibb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">ER (Earned Runs)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.er}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">R (Runs Allowed)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.r}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">HR Allowed</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.hr}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">HBP</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.hbp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">WP</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.wp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">BK</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.bk}</div>
-                </div>
-              </div>
-
-              {/* FEATURE 1: Pitch Count Season Totals & Pitch Smart Guidelines */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#252D38]/40 border border-slate-200 dark:border-[#354050] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] uppercase tracking-wider flex items-center gap-1.5">
-                    <Activity className="w-4 h-4 text-blue-500" />
-                    Season Pitch Count Totals
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500">
-                    {pitching.pitches} Total Pitches
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-200 dark:border-[#354050]">
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase">Strikes</div>
-                    <div className="text-sm font-semibold text-blue-500">{pitching.strikes}</div>
-                  </div>
-                  <div className="p-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-200 dark:border-[#354050]">
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase">Balls</div>
-                    <div className="text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">{pitching.balls}</div>
-                  </div>
-                  <div className="p-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-200 dark:border-[#354050]">
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase">Strike %</div>
-                    <div className="text-sm font-semibold text-teal-500">
-                      {pitching.strikePercentage ? `${pitching.strikePercentage.toFixed(1)}%` : '—'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF] bg-white dark:bg-[#1A2028] p-2.5 rounded-md border border-slate-200 dark:border-[#354050]">
-                  <strong className="text-slate-800 dark:text-[#D1D5DB] block mb-0.5">Pitch Smart Rest Guidelines:</strong>
-                  1-20 pitches: 0 days · 21-35 pitches: 1 day · 36-50 pitches: 2 days · 51-65 pitches: 3 days · 66+: 4 days rest.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeStatGroup === 'fielding' && (
-            <div className="space-y-4">
-              {/* Fielding Summary */}
-              <div className="grid grid-cols-2 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Fielding % (FPCT)</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                    {formatRate(fielding.fpct)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Chances</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">
-                    {fielding.chances}
-                  </div>
-                </div>
-              </div>
-
-              {/* Fielding Details */}
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-center">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">PO (Putouts)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.po}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">A (Assists)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.a}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">E (Errors)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.e}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">DP (Double Plays)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.dp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">PB (Passed Balls)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.pb}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">CS (Caught Steal)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.cs}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">TP (Triple Plays)</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.tp}</div>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SB Allowed</div>
-                  <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.sbAllowed}</div>
-                </div>
-              </div>
-
-              {/* FEATURE 2: Defensive Breakdown by Position Played */}
-              {seasonStats.fieldingByPosition.length > 0 && (
-                <div className="pt-2 border-t border-slate-200 dark:border-[#354050] space-y-2">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
-                    Defensive Stats by Position
-                  </span>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-extrabold uppercase text-slate-400">
-                          <th className="py-2 pr-3">Position</th>
-                          <th className="py-2 px-2 text-center">Innings</th>
-                          <th className="py-2 px-2 text-center">Chances</th>
-                          <th className="py-2 px-2 text-center">PO</th>
-                          <th className="py-2 px-2 text-center">A</th>
-                          <th className="py-2 px-2 text-center">E</th>
-                          <th className="py-2 pl-2 text-center text-[#007A6A] dark:text-[#00D7BC]">FPCT</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-[#354050] font-semibold">
-                        {seasonStats.fieldingByPosition.map((pos) => (
-                          <tr key={pos.position}>
-                            <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-extrabold flex items-center gap-1.5">
-                              <Shield className="w-3.5 h-3.5 text-teal-500" />
-                              <span>{pos.position}</span>
-                            </td>
-                            <td className="py-2 px-2 text-center">{pos.innings}.0</td>
-                            <td className="py-2 px-2 text-center">{pos.chances}</td>
-                            <td className="py-2 px-2 text-center">{pos.po}</td>
-                            <td className="py-2 px-2 text-center">{pos.a}</td>
-                            <td className="py-2 px-2 text-center">{pos.e}</td>
-                            <td className="py-2 pl-2 text-center text-[#007A6A] dark:text-[#00D7BC] font-semibold">
-                              {formatRate(pos.fpct)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footnote */}
-        <div className="px-4 py-3 bg-slate-50 dark:bg-[#252D38]/60 border-t border-slate-200 dark:border-[#354050] text-[11px] text-slate-500 dark:text-[#9CA3AF] italic">
-          Totals are calculated strictly from recorded events. League or age-group rules can change official scoring.
-        </div>
-      </div>
-
-      {/* Statistical Breakdowns Card (By Tournament, Season, Age Group, Team) */}
-      <div className="bg-white dark:bg-[#252D38] rounded-2xl border border-slate-200/80 dark:border-[#354050] shadow-xs overflow-hidden">
-        {/* Header & Controls */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#354050] bg-slate-50/70 dark:bg-[#1A2028]/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
-                Deep Dive Breakdowns
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] mt-0.5">
-              Stats by Tournament, Season, Age & Team
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-              Compare performance splits across competitions and teams.
-            </p>
-          </div>
-
-          {/* Grouping switcher (Tournament, Season, Age Group, Team) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 rounded-xl bg-slate-200/80 dark:bg-[#252D38] w-full md:w-auto">
-            {[
-              { id: 'tournament', label: '🏆 By Tournament' },
-              { id: 'season', label: '🗓️ By Season' },
-              { id: 'ageGroup', label: '🎂 By Age Group' },
-              { id: 'teamName', label: '⚾ By Team' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveBreakdownGroup(tab.id as any)}
-                className={`px-2 py-2 rounded-md text-xs font-semibold whitespace-nowrap truncate text-center transition-all ${
-                  activeBreakdownGroup === tab.id
-                    ? 'bg-white dark:bg-[#354050] text-[#18212D] dark:text-[#FAFAFA] shadow-xs'
-                    : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sub-header: Stat Category (Batting / Pitching / Fielding) */}
-        <div className="px-4 sm:px-5 py-2.5 bg-slate-100/60 dark:bg-[#252D38]/40 border-b border-slate-200 dark:border-[#354050] flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] uppercase tracking-wider">
-            Display Columns:
-          </span>
-          <div className="grid grid-cols-3 gap-1 min-[420px]:flex">
-            {(['batting', 'pitching', 'fielding'] as const).map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setBreakdownStatType(cat)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider text-center transition-colors ${
-                  breakdownStatType === cat
-                    ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] '
-                    : 'bg-white dark:bg-[#252D38] text-slate-600 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050]'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Breakdowns Table & Cards */}
-        <div className="p-4 sm:p-5">
-          {groupedBreakdown.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 dark:bg-[#252D38]/30 rounded-xl border border-dashed border-slate-200 dark:border-[#354050] space-y-2">
-              <Trophy className="w-8 h-8 text-slate-300 dark:text-[#6B7280] mx-auto" />
-              <div className="text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">
-                No breakdown data available yet
-              </div>
-              <p className="text-xs text-slate-500 dark:text-[#9CA3AF] max-w-sm mx-auto">
-                Start scoring games and assign a tournament, age group (e.g. U12), or season (e.g. Spring 2026) to see comparative stat splits here.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-extrabold uppercase text-slate-400">
-                    <th className="py-2.5 pr-4">
-                      {activeBreakdownGroup === 'tournament'
-                        ? 'Tournament'
-                        : activeBreakdownGroup === 'season'
-                        ? 'Season'
-                        : activeBreakdownGroup === 'ageGroup'
-                        ? 'Age Group'
-                        : 'Team'}
-                    </th>
-                    <th className="py-2.5 px-2 text-center">Games</th>
-                    {breakdownStatType === 'batting' && (
-                      <>
-                        <th className="py-2.5 px-2 text-center">PA</th>
-                        <th className="py-2.5 px-2 text-center">AB</th>
-                        <th className="py-2.5 px-2 text-center">H</th>
-                        <th className="py-2.5 px-2 text-center">2B</th>
-                        <th className="py-2.5 px-2 text-center">3B</th>
-                        <th className="py-2.5 px-2 text-center">HR</th>
-                        <th className="py-2.5 px-2 text-center">RBI</th>
-                        <th className="py-2.5 px-2 text-center">R</th>
-                        <th className="py-2.5 px-2 text-center">BB</th>
-                        <th className="py-2.5 px-2 text-center">SO</th>
-                        <th className="py-2.5 px-2 text-center">SB</th>
-                        <th className="py-2.5 px-2 text-center text-[#007A6A] dark:text-[#00D7BC]">AVG</th>
-                        <th className="py-2.5 px-2 text-center">OBP</th>
-                        <th className="py-2.5 px-2 text-center">SLG</th>
-                        <th className="py-2.5 pl-2 text-center text-blue-600 dark:text-blue-400">OPS</th>
-                      </>
-                    )}
-                    {breakdownStatType === 'pitching' && (
-                      <>
-                        <th className="py-2.5 px-2 text-center">IP</th>
-                        <th className="py-2.5 px-2 text-center text-[#007A6A] dark:text-[#00D7BC]">ERA</th>
-                        <th className="py-2.5 px-2 text-center">WHIP</th>
-                        <th className="py-2.5 px-2 text-center">K</th>
-                        <th className="py-2.5 px-2 text-center">BB</th>
-                        <th className="py-2.5 px-2 text-center">H</th>
-                        <th className="py-2.5 px-2 text-center">ER</th>
-                        <th className="py-2.5 pl-2 text-center">Pitches</th>
-                      </>
-                    )}
-                    {breakdownStatType === 'fielding' && (
-                      <>
-                        <th className="py-2.5 px-2 text-center">Chances</th>
-                        <th className="py-2.5 px-2 text-center">PO</th>
-                        <th className="py-2.5 px-2 text-center">A</th>
-                        <th className="py-2.5 px-2 text-center">E</th>
-                        <th className="py-2.5 px-2 text-center">DP</th>
-                        <th className="py-2.5 px-2 text-center">PB</th>
-                        <th className="py-2.5 pl-2 text-center text-[#007A6A] dark:text-[#00D7BC]">FPCT</th>
-                      </>
-                    )}
-                    <th className="py-2.5 pl-3 text-right">Filter</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#354050] font-semibold">
-                  {groupedBreakdown.map((group) => {
-                    const b = group.batting;
-                    const p = group.pitching;
-                    const f = group.fielding;
-
-                    return (
-                      <tr
-                        key={group.groupKey}
-                        className="hover:bg-slate-50 dark:hover:bg-[#252D38]/50 transition-colors"
-                      >
-                        <td className="py-3 pr-4 font-semibold text-slate-900 dark:text-[#FAFAFA] flex items-center gap-2">
-                          {activeBreakdownGroup === 'tournament' && (
-                            <Trophy className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          )}
-                          {activeBreakdownGroup === 'season' && (
-                            <Calendar className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                          )}
-                          {activeBreakdownGroup === 'ageGroup' && (
-                            <Layers className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          )}
-                          {activeBreakdownGroup === 'teamName' && (
-                            <Shield className="w-3.5 h-3.5 text-[#007A6A] dark:text-[#00D7BC] shrink-0" />
-                          )}
-                          <span className="truncate max-w-[180px] sm:max-w-xs">{group.groupLabel}</span>
-                        </td>
-                        <td className="py-3 px-2 text-center font-extrabold text-slate-700 dark:text-[#D1D5DB]">
-                          {group.gameCount}
-                        </td>
-
-                        {breakdownStatType === 'batting' && (
-                          <>
-                            <td className="py-3 px-2 text-center">{b.pa}</td>
-                            <td className="py-3 px-2 text-center">{b.ab}</td>
-                            <td className="py-3 px-2 text-center text-slate-900 dark:text-[#FAFAFA] font-semibold">{b.h}</td>
-                            <td className="py-3 px-2 text-center">{b.doubles}</td>
-                            <td className="py-3 px-2 text-center">{b.triples}</td>
-                            <td className="py-3 px-2 text-center font-semibold text-[#007A6A] dark:text-[#00D7BC]">{b.hr}</td>
-                            <td className="py-3 px-2 text-center">{b.rbi}</td>
-                            <td className="py-3 px-2 text-center">{b.r}</td>
-                            <td className="py-3 px-2 text-center">{b.bb}</td>
-                            <td className="py-3 px-2 text-center">{b.so}</td>
-                            <td className="py-3 px-2 text-center">{b.sb}</td>
-                            <td className="py-3 px-2 text-center text-[#007A6A] dark:text-[#00D7BC] font-semibold text-sm">
-                              {formatRate(b.avg)}
-                            </td>
-                            <td className="py-3 px-2 text-center">{formatRate(b.obp)}</td>
-                            <td className="py-3 px-2 text-center">{formatRate(b.slg)}</td>
-                            <td className="py-3 pl-2 text-center text-blue-600 dark:text-blue-400 font-semibold">
-                              {formatRate(b.ops)}
-                            </td>
-                          </>
-                        )}
-
-                        {breakdownStatType === 'pitching' && (
-                          <>
-                            <td className="py-3 px-2 text-center">{p.ipDisplay}</td>
-                            <td className="py-3 px-2 text-center font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                              {formatEraWhip(p.era)}
-                            </td>
-                            <td className="py-3 px-2 text-center">{formatEraWhip(p.whip)}</td>
-                            <td className="py-3 px-2 text-center font-semibold text-teal-500">{p.k}</td>
-                            <td className="py-3 px-2 text-center">{p.bb}</td>
-                            <td className="py-3 px-2 text-center">{p.h}</td>
-                            <td className="py-3 px-2 text-center">{p.er}</td>
-                            <td className="py-3 pl-2 text-center font-mono">{p.pitches}</td>
-                          </>
-                        )}
-
-                        {breakdownStatType === 'fielding' && (
-                          <>
-                            <td className="py-3 px-2 text-center">{f.chances}</td>
-                            <td className="py-3 px-2 text-center">{f.po}</td>
-                            <td className="py-3 px-2 text-center">{f.a}</td>
-                            <td className="py-3 px-2 text-center">{f.e}</td>
-                            <td className="py-3 px-2 text-center">{f.dp}</td>
-                            <td className="py-3 px-2 text-center">{f.pb}</td>
-                            <td className="py-3 pl-2 text-center font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                              {formatRate(f.fpct)}
-                            </td>
-                          </>
-                        )}
-
-                        <td className="py-3 pl-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (activeBreakdownGroup === 'tournament') {
-                                setSelectedTournament(group.groupKey);
-                              } else if (activeBreakdownGroup === 'season') {
-                                setSelectedSeason(group.groupKey);
-                              } else if (activeBreakdownGroup === 'ageGroup') {
-                                setSelectedAgeGroup(group.groupKey);
-                              } else if (activeBreakdownGroup === 'teamName') {
-                                setSelectedTeam(group.groupKey);
-                              }
-                            }}
-                            className="px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-[#252D38] hover:bg-slate-200 dark:hover:bg-[#354050] text-slate-700 dark:text-[#D1D5DB]"
-                            title="Filter dashboard to this group"
-                          >
-                            Filter
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+        <ChevronRight className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC] group-hover:translate-x-1 transition-transform" />
+      </button>
 
       {/* Help Link Footer */}
       <button
