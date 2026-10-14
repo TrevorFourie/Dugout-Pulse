@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useGame } from '../context/GameContext';
 import {
   calculateSeasonStats,
-  filterGames,
   formatRate,
 } from '../utils/stats';
 import {
@@ -14,8 +13,6 @@ import {
   ChevronRight,
   Sparkles,
   TrendingUp,
-  Filter,
-  RotateCcw,
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
@@ -42,82 +39,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     isLoading,
   } = useGame();
 
-  // Dashboard Filters
-  const [selectedTeam, setSelectedTeam] = useState<string>('ALL');
-  const [selectedSeason, setSelectedSeason] = useState<string>('ALL');
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('ALL');
-  const [selectedTournament, setSelectedTournament] = useState<string>('ALL');
-
-  // All games for this player
+  // All saved games for the active player.
   const playerGames = useMemo(() => {
     return games.filter((g) => !g.playerId || g.playerId === activeProfile.id);
   }, [games, activeProfile.id]);
-
-  // Filtered games based on active filters
-  const filteredGames = useMemo(() => {
-    return filterGames(playerGames, {
-      teamName: selectedTeam,
-      season: selectedSeason,
-      ageGroup: selectedAgeGroup,
-      tournament: selectedTournament,
-    });
-  }, [playerGames, selectedTeam, selectedSeason, selectedAgeGroup, selectedTournament]);
-
-  // Distinct filter options
-  const availableTeams = useMemo(() => {
-    const set = new Set<string>();
-    if (activeProfile.teamName) set.add(activeProfile.teamName);
-    (activeProfile.teams || []).forEach((t) => {
-      if (t.name) set.add(t.name);
-    });
-    playerGames.forEach((g) => {
-      if (g.teamName) set.add(g.teamName);
-    });
-    return Array.from(set).sort();
-  }, [activeProfile, playerGames]);
-
-  const availableSeasons = useMemo(() => {
-    const set = new Set<string>();
-    playerGames.forEach((g) => {
-      if (g.season) set.add(g.season);
-    });
-    (activeProfile.teams || []).forEach((t) => {
-      if (t.season) set.add(t.season);
-    });
-    return Array.from(set).sort();
-  }, [playerGames, activeProfile.teams]);
-
-  const availableAgeGroups = useMemo(() => {
-    const set = new Set<string>();
-    playerGames.forEach((g) => {
-      if (g.ageGroup) set.add(g.ageGroup);
-    });
-    (activeProfile.teams || []).forEach((t) => {
-      if (t.ageGroup) set.add(t.ageGroup);
-    });
-    return Array.from(set).sort();
-  }, [playerGames, activeProfile.teams]);
-
-  const availableTournaments = useMemo(() => {
-    const set = new Set<string>();
-    playerGames.forEach((g) => {
-      if (g.tournament) set.add(g.tournament);
-    });
-    return Array.from(set).sort();
-  }, [playerGames]);
-
-  const isFilterActive =
-    selectedTeam !== 'ALL' ||
-    selectedSeason !== 'ALL' ||
-    selectedAgeGroup !== 'ALL' ||
-    selectedTournament !== 'ALL';
-
-  const handleResetFilters = () => {
-    setSelectedTeam('ALL');
-    setSelectedSeason('ALL');
-    setSelectedAgeGroup('ALL');
-    setSelectedTournament('ALL');
-  };
 
   if (isLoading) {
     return (
@@ -132,7 +57,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     );
   }
 
-  const seasonStats = calculateSeasonStats(filteredGames, settings.inningsPerGame, activeProfile.id);
+  const seasonStats = calculateSeasonStats(playerGames, settings.inningsPerGame, activeProfile.id);
   const { gameCount, batting, lastGameHits } = seasonStats;
 
   const playerNameDisplay = activeProfile.playerName
@@ -236,106 +161,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
       {/* Batting, pitching and fielding milestones */}
       <MilestoneTracker
-        games={filteredGames.filter((game) => !liveGame || game.id !== liveGame.id)}
+        games={playerGames.filter((game) => !liveGame || game.id !== liveGame.id)}
         onViewStats={onNavigateToStats}
       />
-
-      {/* Interactive Filters Bar */}
-      <div className="bg-white dark:bg-[#252D38] rounded-2xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]" />
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-[#FAFAFA]">
-              Filter Stats
-            </span>
-            {isFilterActive && (
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-[#00D7BC]/15 text-[#007A6A] dark:text-[#00D7BC]">
-                Filtered: {filteredGames.length} of {playerGames.length} games
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {isFilterActive && (
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-[#D1D5DB] flex items-center gap-1 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Reset filters
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <div>
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
-              Team
-            </label>
-            <select
-              value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-1 focus:ring-[#18212D] dark:focus:ring-[#00D7BC]"
-            >
-              <option value="ALL">All Teams ({availableTeams.length || 1})</option>
-              {availableTeams.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
-              Season
-            </label>
-            <select
-              value={selectedSeason}
-              onChange={(e) => setSelectedSeason(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-1 focus:ring-[#18212D] dark:focus:ring-[#00D7BC]"
-            >
-              <option value="ALL">All Seasons</option>
-              {availableSeasons.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
-              Age Group
-            </label>
-            <select
-              value={selectedAgeGroup}
-              onChange={(e) => setSelectedAgeGroup(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-1 focus:ring-[#18212D] dark:focus:ring-[#00D7BC]"
-            >
-              <option value="ALL">All Age Groups</option>
-              {availableAgeGroups.map((ag) => (
-                <option key={ag} value={ag}>{ag}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">
-              Tournament
-            </label>
-            <select
-              value={selectedTournament}
-              onChange={(e) => setSelectedTournament(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-1 focus:ring-[#18212D] dark:focus:ring-[#00D7BC]"
-            >
-              <option value="ALL">All Games</option>
-              <option value="__TOURNAMENTS_ONLY__">🏆 Tournaments Only</option>
-              <option value="__LEAGUE_ONLY__">⚾ Regular League Only</option>
-              {availableTournaments.map((tourney) => (
-                <option key={tourney} value={tourney}>{tourney}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
       {/* Season Snapshot (4 Tiles) */}
       <div>
