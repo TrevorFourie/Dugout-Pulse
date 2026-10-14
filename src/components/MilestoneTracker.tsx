@@ -178,8 +178,8 @@ function getGameAchievements(game: Game): Achievement[] {
   if (strikeoutTheSide) {
     achievements.push({
       id: 'strikeout-the-side',
-      title: 'Struck Out the Side',
-      description: 'Recorded at least three strikeouts in one inning.',
+      title: 'Three-Strikeout Inning',
+      description: 'Recorded three or more strikeouts in one inning.',
       category: 'Pitching',
       icon: Zap,
     });
