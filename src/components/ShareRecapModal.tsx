@@ -7,10 +7,7 @@ import {
   X,
   Check,
   Award,
-  Sparkles,
   Calendar,
-  Shield,
-  Activity,
   Trophy,
 } from 'lucide-react';
 import { BaseballBatIcon, BaseballBallIcon, BaseballGloveIcon } from './BaseballIcons';
