@@ -31,7 +31,7 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
+      <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
       <Navigation
         activeTab={activeTab}
         onSelectTab={(tab) => {
@@ -42,7 +42,7 @@ const MainApp: React.FC = () => {
         onOpenSettings={handleOpenSettings}
       />
 
-      <main className="flex-1 min-h-0 min-w-0 flex flex-col">
+      <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
         {activeTab === 'dashboard' && (
           <DashboardTab
             onNavigateToScore={() => setActiveTab('score')}

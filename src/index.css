@@ -143,5 +143,19 @@ html, body, #root, .overflow-y-auto, .overflow-auto {
 
 /* Never allow sideways page scroll */
 html, body {
-  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Fixed-height shell: the document itself never scrolls, so it can't stretch */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@supports (height: 100dvh) {
+  html, body, #root {
+    height: 100dvh;
+  }
 }
