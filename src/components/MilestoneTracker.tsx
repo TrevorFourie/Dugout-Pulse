@@ -287,7 +287,10 @@ function ProgressCard({ milestone }: { milestone: ProgressMilestone }) {
           {milestone.category}
         </p>
       </div>
-      <p className="mt-2 text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">
+        {milestone.label}
+      </p>
+      <p className="mt-1 text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">
         {milestone.target} {milestone.unit}
       </p>
       <p className="mt-0.5 text-xs text-slate-500 dark:text-[#9CA3AF]">
@@ -464,11 +467,16 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
         </div>
       </div>
 
-      {/* Progress toward a milestone in each discipline */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {data.progressMilestones.map((milestone) => (
-          <ProgressCard key={milestone.category} milestone={milestone} />
-        ))}
+      {/* Next milestone to aim for in each discipline */}
+      <div className="space-y-2">
+        <h3 className="px-1 text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+          Next Milestone
+        </h3>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {data.progressMilestones.map((milestone) => (
+            <ProgressCard key={milestone.category} milestone={milestone} />
+          ))}
+        </div>
       </div>
 
       {/* Personal bests across batting, pitching and fielding */}
