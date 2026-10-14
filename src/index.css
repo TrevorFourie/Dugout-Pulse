@@ -79,6 +79,18 @@
   }
 }
 
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: #94A0AE;   /* slate-400 */
+    opacity: 1;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #6B7280;
+  }
+}
+
 /* Optimize touch interactions for fast in-the-stands scoring */
 html, body {
   touch-action: manipulation;

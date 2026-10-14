@@ -164,6 +164,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               <span className="py-0 text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">GAME DAY SCORING</span>
               <h1 className="text-2xl sm:text-4xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
                 {playerNameDisplay}
+                {activeProfile.jerseyNumber && (
+                  <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB] px-0.5"> · #{activeProfile.jerseyNumber}</span>
+                )}
               </h1>
               <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-[#9CA3AF] flex items-center flex-wrap">
                 <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB]">
