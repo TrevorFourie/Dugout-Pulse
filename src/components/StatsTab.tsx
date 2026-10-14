@@ -251,8 +251,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]"
             >
               <option value="ALL">All Games</option>
-              <option value="__TOURNAMENTS_ONLY__">🏆 Tournaments Only</option>
-              <option value="__LEAGUE_ONLY__">⚾ Regular League Only</option>
+              <option value="__TOURNAMENTS_ONLY__">Tournaments Only</option>
+              <option value="__LEAGUE_ONLY__">Regular League Only</option>
               {availableTournaments.map((tourney) => <option key={tourney} value={tourney}>{tourney}</option>)}
             </select>
           </div>

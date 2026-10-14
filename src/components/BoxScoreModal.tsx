@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Game } from '../types/baseball';
 import { calculateGameStats, formatRate, formatEraWhip, getInningPositions } from '../utils/stats';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
-import { Calendar, Clock, X, Award, Crosshair } from 'lucide-react';
+import { Calendar, Clock, X, Award, Crosshair, Trophy } from 'lucide-react';
 import { SprayChart } from './SprayChart';
 import { getTrajectoryLabel, isHitPlay, resolveZone } from '../utils/sprayChart';
 
@@ -115,7 +115,7 @@ const BoxScoreModalDialog: React.FC<BoxScoreDialogProps> = ({
           )}
           {game.tournament && (
             <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-[#252D38] text-blue-800 dark:text-[#FAFAFA] font-semibold flex items-center gap-1">
-              🏆 {game.tournament}
+              <Trophy className="w-3.5 h-3.5 shrink-0" /> {game.tournament}
             </span>
           )}
           {game.benchInnings.length > 0 && (

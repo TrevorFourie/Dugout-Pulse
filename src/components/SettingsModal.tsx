@@ -816,7 +816,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             )}
                             {team.tournament && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center gap-0.5">
-                                🏆 {team.tournament}
+                                <Trophy className="w-3 h-3 shrink-0" /> {team.tournament}
                               </span>
                             )}
                           </div>

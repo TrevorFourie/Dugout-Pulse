@@ -16,6 +16,8 @@ import {
   Award,
   Filter,
   RotateCcw,
+  Home,
+  Plane,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 
@@ -139,12 +141,12 @@ const GameHistoryRow: React.FC<GameHistoryRowProps> = ({
                 </span>
               )}
               {game.isHome !== undefined && (
-                <span className={`rounded px-2 py-1 text-[10px] font-semibold ${
+                <span className={`rounded px-2 py-1 text-[10px] font-semibold inline-flex items-center gap-1 ${
                   isHomeTeam
                     ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
                     : 'bg-teal-100 text-teal-800 dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]'
                 }`}>
-                  {isHomeTeam ? '🏠 Home Team (vs)' : '✈️ Away / Visitor (@)'}
+                  {isHomeTeam ? <><Home className="w-3 h-3" /> Home Team (vs)</> : <><Plane className="w-3 h-3" /> Away / Visitor (@)</>}
                 </span>
               )}
               {game.teamName && <span className="rounded bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 dark:bg-[#252D38] dark:text-[#D1D5DB]">{game.teamName}</span>}

@@ -7,11 +7,10 @@ import {
   X,
   Check,
   Award,
-  Sparkles,
   Calendar,
-  Shield,
-  Activity,
+  Trophy,
 } from 'lucide-react';
+import { BaseballBatIcon, BaseballBallIcon, BaseballGloveIcon } from './BaseballIcons';
 import { AppLogo } from './AppLogo';
 import { saveBase64File, shareText } from '../utils/saveFile';
 
@@ -55,17 +54,17 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
 
   // Text summary for clipboard / SMS
   const generateTextSummary = () => {
-    let text = `⚾ ${teamName} ${opponentDisplay} (${game.date})\n`;
+    let text = `DUGOUT PULSE | ${teamName} ${opponentDisplay} (${game.date})\n`;
     if (game.tournament || game.ageGroup || game.season) {
       const tags = [
-        game.tournament ? `🏆 ${game.tournament}` : null,
+        game.tournament ? `TOURNAMENT: ${game.tournament}` : null,
         game.ageGroup ? `${game.ageGroup}` : null,
         game.season ? `${game.season}` : null,
       ].filter(Boolean).join(' · ');
-      text += `📋 ${tags}\n`;
+      text += `${tags}\n`;
     }
-    text += `👤 ${playerName} ${jerseyNumber}\n\n`;
-    text += `🏏 BATTING: ${batting.h}-for-${batting.ab}`;
+    text += `PLAYER: ${playerName} ${jerseyNumber}\n\n`;
+    text += `BATTING: ${batting.h}-for-${batting.ab}`;
     if (batting.hr > 0) text += `, ${batting.hr} HR`;
     if (batting.doubles > 0) text += `, ${batting.doubles} 2B`;
     if (batting.triples > 0) text += `, ${batting.triples} 3B`;
@@ -76,7 +75,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
     text += ` (AVG: ${formatRate(batting.avg)})\n`;
 
     if (hasPitching) {
-      text += `🎯 PITCHING: ${pitching.ipDisplay} IP, ${pitching.k} K, ${pitching.er} ER, ${pitching.pitches} Pitches`;
+      text += `PITCHING: ${pitching.ipDisplay} IP, ${pitching.k} K, ${pitching.er} ER, ${pitching.pitches} Pitches`;
       if (pitching.restDaysRequired > 0) {
         text += ` (${pitching.restDaysRequired} Days Rest Req.)`;
       }
@@ -84,7 +83,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
     }
 
     if (hasFielding) {
-      text += `🧤 FIELDING: ${fielding.po} PO, ${fielding.a} A, ${fielding.e} E (FPCT: ${formatRate(fielding.fpct)})\n`;
+      text += `FIELDING: ${fielding.po} PO, ${fielding.a} A, ${fielding.e} E (FPCT: ${formatRate(fielding.fpct)})\n`;
       if (positionsPlayed.length > 0) {
         text += `Positions: ${positionsPlayed.join(' · ')}\n`;
       }
@@ -375,7 +374,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
                     )}
                     {game.tournament && (
                       <span className="px-1.5 py-0.2 rounded bg-blue-900/60 text-blue-200 text-[10px] font-semibold">
-                        🏆 {game.tournament}
+                        <Trophy className="w-3 h-3 inline-block mr-1" /> {game.tournament}
                       </span>
                     )}
                   </div>
@@ -405,7 +404,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
             {/* Batting Stat Box */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-[#9CA3AF] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                <BaseballBatIcon size={14} className="text-blue-400" />
                 <span>Batting Line</span>
               </div>
               <div className="grid grid-cols-5 gap-1.5 text-center bg-slate-900/80 dark:bg-[#1A2028] rounded-xl p-3 border border-slate-800 dark:border-[#354050]">
@@ -442,7 +441,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
             {hasPitching && (
               <div className="space-y-1.5">
                 <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-[#9CA3AF] flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-blue-400" />
+                  <BaseballBallIcon size={14} className="text-blue-400" />
                   <span>Pitching & Rest</span>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 text-center bg-slate-900/80 dark:bg-[#1A2028] rounded-xl p-3 border border-slate-800 dark:border-[#354050]">
@@ -471,7 +470,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
             {/* Defensive Positions */}
             {positionsPlayed.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-slate-300 dark:text-[#D1D5DB] bg-slate-900/50 dark:bg-[#1A2028] px-3 py-2 rounded-md border border-slate-800 dark:border-[#354050]">
-                <Shield className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <BaseballGloveIcon size={14} className="text-teal-400 shrink-0" />
                 <span className="font-semibold text-slate-400 dark:text-[#9CA3AF]">Fielding:</span>
                 <span className="truncate">{positionsPlayed.join(' · ')}</span>
               </div>

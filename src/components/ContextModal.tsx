@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, PlayCode, PlayMode } from '../types/baseball';
 import { useGame } from '../context/GameContext';
-import { Flame, Check, X, Undo2, Plus, AlertTriangle, Info } from 'lucide-react';
+import { Flame, Check, X, Undo2, Plus, AlertTriangle, Info, Lightbulb } from 'lucide-react';
+import { BaseballBallIcon } from './BaseballIcons';
 
 export interface RunnerState {
   playerName: string;
@@ -212,7 +213,7 @@ export const ContextModal: React.FC = () => {
             
             <div className="p-3 rounded-md bg-slate-100 dark:bg-[#252D38]/50">
               <p className="text-xs text-slate-600 dark:text-[#9CA3AF] text-center">
-                💡 Non-expert friendly: Choose what happened on the play
+                <Lightbulb className="inline w-4 h-4 mr-1.5 align-[-2px]" /> Non-expert friendly: Choose what happened on the play
               </p>
             </div>
           </div>
@@ -220,7 +221,7 @@ export const ContextModal: React.FC = () => {
         
         <div className="px-6 py-4 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#1A2028]/80">
           <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-[#9CA3AF]">
-            <span>⚾ Contextual Morphing Lockdown Modal</span>
+            <span className="inline-flex items-center gap-1"><BaseballBallIcon size={13} /> Contextual Morphing Lockdown Modal</span>
             <span>•</span>
             <span>Sub-3-Second Data Entry</span>
           </div>
