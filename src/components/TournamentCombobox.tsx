@@ -249,7 +249,7 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
                   : 'bg-white dark:bg-[#252D38]/80 border-slate-200 dark:border-[#354050] text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-50'
               }`}
             >
-              🏆 {t}
+              <Trophy className="w-3.5 h-3.5 shrink-0" /> {t}
             </button>
           );
         })}
