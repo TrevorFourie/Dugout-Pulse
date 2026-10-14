@@ -16,7 +16,8 @@ import {
   isHitPlay,
 } from '../utils/sprayChart';
 import { getPlayShortLabel } from '../utils/playDefinitions';
-import { Crosshair, Info } from 'lucide-react';
+import { Crosshair, Info, Star } from 'lucide-react';
+import { BaseballBallIcon } from './BaseballIcons';
 
 // The field is drawn in a 300x300 coordinate space. hit x/y are stored as
 // percentages of that 300x300 space. The visible window (VIEW_BOX) is cropped
@@ -283,7 +284,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
                     }`}
                     title="Show only the hits (already counted in Hits) that drove in a run"
                   >
-                    <span>★</span>
+                    <Star className="w-3 h-3 fill-current" />
                     <span>RBI Hits ({stats.rbiHitsCount})</span>
                   </button>
                 )}
@@ -364,7 +365,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
             <span className="text-slate-400">·</span>
             {stats.rbiHitsCount > 0 ? (
               <span className="inline-flex items-center gap-1 font-semibold text-blue-700 dark:text-blue-300">
-                <span className="text-blue-500">★</span>
+                <Star className="w-3 h-3 text-blue-500 fill-current" />
                 <span>
                   {stats.rbiHitsCount === stats.hitsCount
                     ? stats.hitsCount === 1
@@ -403,7 +404,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
             title="Learn how Base Hits and Runs/RBIs work"
           >
             <Info className="w-3 h-3" />
-            <span>{showHitExplainer ? 'Hide Note' : 'What do ★ and RBI mean?'}</span>
+            <span>{showHitExplainer ? 'Hide Note' : 'What do star markers and RBI mean?'}</span>
           </button>
         </div>
       )}
@@ -419,7 +420,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
             In baseball rules, any <strong>Single (1B), Double (2B), Triple (3B), or Home Run (HR)</strong> is recorded as a <strong>Base Hit</strong> because the batter struck the ball and reached base safely. A hit does <em>not</em> need to score a runner (for example, leading off an inning or when runners hold at 2nd or 3rd base).
           </p>
           <p className="text-xs leading-relaxed text-blue-800 dark:text-blue-300">
-            Hits that directly brought a runner across home plate are marked with a <strong className="text-blue-700 dark:text-blue-300">★ Star & Teal Halo</strong> and count as <strong>RBIs (Runs Batted In)</strong>.
+            Hits that directly brought a runner across home plate are marked with a <strong className="text-blue-700 dark:text-blue-300">star marker and teal halo</strong> and count as <strong>RBIs (Runs Batted In)</strong>.
           </p>
         </div>
       )}
@@ -628,17 +629,12 @@ export const SprayChart: React.FC<SprayChartProps> = ({
 
                   {/* Inner star for RBI hit */}
                   {isRbiHit ? (
-                    <text
-                      x={px}
-                      y={py + 2.5 * dotScale}
+                    <path
+                      d="M0 -3.5 L1 -1.1 L3.5 -1.1 L1.5 0.5 L2.3 3 L0 1.5 L-2.3 3 L-1.5 0.5 L-3.5 -1.1 L-1 -1.1 Z"
+                      transform={`translate(${px} ${py + 2.5 * dotScale}) scale(${dotScale})`}
                       fill="#FFFFFF"
-                      fontSize={isHR ? '6' : '5'}
-                      fontWeight="900"
-                      textAnchor="middle"
                       pointerEvents="none"
-                    >
-                      ★
-                    </text>
+                    />
                   ) : !isHit && !crowded ? (
                     /* Subtle X for Outs */
                     <text
@@ -765,12 +761,12 @@ export const SprayChart: React.FC<SprayChartProps> = ({
               <div className="flex items-center gap-2 flex-wrap text-xs">
                 {runCtx.rbiCount > 0 ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/25 text-blue-300 border border-blue-500/40 font-semibold">
-                    <span className="text-blue-400 text-xs">★</span>
+                    <Star className="w-3 h-3 text-blue-400 fill-current" />
                     <span>Brought In {runCtx.rbiCount} Run{runCtx.rbiCount > 1 ? 's' : ''} ({runCtx.rbiCount} RBI)</span>
                   </span>
                 ) : isHit ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/20 text-blue-200 border border-blue-500/30 font-semibold">
-                    <span>⚾</span>
+                    <BaseballBallIcon size={13} />
                     <span>Base Hit · 0 Runs Brought In (Runners held / bases empty)</span>
                   </span>
                 ) : (
@@ -844,7 +840,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
             <span>Out / In Play</span>
           </div>
           <div className="flex items-center gap-1 text-blue-700 dark:text-blue-400">
-            <span className="w-3.5 h-3.5 rounded-full border border-blue-400 bg-blue-400 flex items-center justify-center text-xs text-slate-950 font-semibold">★</span>
+            <span className="w-3.5 h-3.5 rounded-full border border-blue-400 bg-blue-400 flex items-center justify-center text-slate-950"><Star className="w-2.5 h-2.5 fill-current" /></span>
             <span>Brought in Run (RBI)</span>
           </div>
         </div>
