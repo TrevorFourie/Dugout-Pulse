@@ -1660,7 +1660,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 About App
               </h3>
               <p className="mt-2 text-xs text-slate-500 dark:text-[#6B7280]">
-                © 2026 Dugout Pulse (Trevor Fourie). All rights reserved.
+                © 2026 Dugout Pulse . All rights reserved.
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-[#6B7280]">
                 Build Version: B1001-1225

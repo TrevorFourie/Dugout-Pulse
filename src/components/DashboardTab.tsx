@@ -399,26 +399,27 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Help Link Footer */}
       <button
         onClick={onOpenHelp}
-        className="w-full p-4 rounded-2xl bg-blue-50/70 dark:bg-[#252D38]/50 border border-blue-100 dark:border-[#354050] text-left flex items-center justify-between group transition-colors"
+        className="w-full p-5 rounded-2xl bg-gradient-to-r from-blue-50/70 via-emerald-500/10 to-blue-50/10 dark:from-[#00D7BC]/10 dark:to-teal-950/40 border border-teal-200 dark:border-[#00D7BC]/30 text-left flex items-center justify-between group transition-all hover:shadow-md"
       >
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] group-hover:bg-[#00BFA5] transition-colors">
+        <div className="flex items-center gap-3.5">
+          <div className="p-3 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] group-hover:scale-105 transition-transform">
             <HelpCircle className="w-5 h-5" />
           </div>
           <div>
-            <div className="font-semibold text-sm text-slate-900 dark:text-[#FAFAFA]">
+            <div className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
               New to scorekeeping?
             </div>
-            <div className="text-xs text-slate-500 dark:text-[#9CA3AF]">
-              Open the quick guide to see what every scoring button means with real examples.
+            <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
+                            Open the quick guide to see what every scoring button means with real examples.
+
             </div>
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-[#D1D5DB]" />
+        <ChevronRight className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC] group-hover:translate-x-1 transition-transform" />
       </button>
 
       <footer className="mt-8 border-t border-slate-800/50 py-6 text-center text-xs text-slate-500">
-        <p>© 2026 Dugout Pulse (Trevor Fourie). All rights reserved.</p>
+        <p>© 2026 Dugout Pulse . All rights reserved.</p>
         <p className="mt-1 opacity-75">Offline Scorekeeper • Build {__BUILD_ID__}</p>
       </footer>
     </div>
