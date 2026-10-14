@@ -212,7 +212,7 @@ export const ContextModal: React.FC = () => {
             
             <div className="p-3 rounded-md bg-slate-100 dark:bg-[#252D38]/50">
               <p className="text-xs text-slate-600 dark:text-[#9CA3AF] text-center">
-                💡 Non-expert friendly: Choose what happened on the play
+                <Lightbulb className="inline w-4 h-4 mr-1.5 align-[-2px]" /> Non-expert friendly: Choose what happened on the play
               </p>
             </div>
           </div>
