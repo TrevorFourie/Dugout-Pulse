@@ -19,6 +19,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
+import { MilestoneTracker } from './MilestoneTracker';
 
 interface DashboardTabProps {
   onNavigateToScore: () => void;
@@ -232,6 +233,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Batting, pitching and fielding milestones */}
+      <MilestoneTracker
+        games={filteredGames.filter((game) => !liveGame || game.id !== liveGame.id)}
+        onViewStats={onNavigateToStats}
+      />
 
       {/* Interactive Filters Bar */}
       <div className="bg-white dark:bg-[#252D38] rounded-2xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-3">
