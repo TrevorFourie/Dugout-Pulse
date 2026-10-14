@@ -8,7 +8,6 @@ import {
   FileText,
   Loader2,
   Settings,
-  Compass,
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
@@ -53,7 +52,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       {/* Top App Header */}
       <header
         className={`sticky top-0 z-30 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-[#354050] px-4 ${activeTab === 'score' ? 'py-1' : 'py-2.5'}`}
-        style={{ paddingTop: activeTab === 'score' ? 'max(0.25rem, env(safe-area-inset-top))' : 'max(0.625rem, env(safe-area-inset-top))' }}
+        style={{ paddingTop: activeTab === 'score' ? 'max(0.35rem, env(safe-area-inset-top))' : 'max(0.625rem, env(safe-area-inset-top))' }}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div
@@ -98,7 +97,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Bottom Sticky Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050] pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-6 p-1.5 gap-1">
+        <div className="max-w-md mx-auto grid grid-cols-5 p-1.5 gap-1">
           {/* Dashboard Tab */}
           <button
             type="button"
@@ -162,20 +161,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               <History className="w-5 h-5 mb-0.5" />
             </div>
             <span className="text-[11px] font-semibold">Games</span>
-          </button>
-
-          {/* Crazy Plays Guide Tab */}
-          <button
-            type="button"
-            onClick={() => onSelectTab('crazyPlays')}
-            className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all ${
-              activeTab === 'crazyPlays'
-                ? 'bg-[#E6FBF8] dark:bg-[#252D38] text-[#006B5D] dark:text-[#00D7BC] border border-[#00BFA5]/40 dark:border-[#00D7BC]/40 shadow-none'
-                : 'text-slate-500 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
-            }`}
-          >
-            <Compass className="w-5 h-5 mb-0.5" />
-            <span className="text-[11px] font-semibold">Plays</span>
           </button>
 
           {/* PDF report */}

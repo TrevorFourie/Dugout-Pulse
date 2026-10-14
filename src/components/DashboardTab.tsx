@@ -160,26 +160,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               )}
             </div>
 
-            <div className="space-y-1">
-              <div>
-                <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
-                  GAME DAY SCORING
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
+            <div className="py-0">
+              <span className="py-0 text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">GAME DAY SCORING</span>
+              <h1 className="text-2xl sm:text-4xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
                 {playerNameDisplay}
               </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-[#9CA3AF] flex items-center gap-1.5 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB]">
+              <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-[#9CA3AF] flex items-center flex-wrap">
+                <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB]">
                   {teamNameDisplay}
                 </span>
-                {activeProfile.jerseyNumber && (
-                  <span className="font-mono text-xs">#{activeProfile.jerseyNumber}</span>
-                )}
-                {activeProfile.defaultLineupSpot && (
-                  <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-extrabold text-xs">
-                    Batting #{activeProfile.defaultLineupSpot}
-                  </span>
+                {activeProfile.defaultAgeGroup && (
+                  <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB] px-0.5"> · {activeProfile.defaultAgeGroup}</span>
                 )}
               </p>
             </div>

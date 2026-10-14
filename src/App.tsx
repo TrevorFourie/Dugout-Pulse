@@ -7,7 +7,6 @@ import { GamesTab } from './components/GamesTab';
 import { Navigation, TabId } from './components/Navigation';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
-import { CrazyPlaysGuide } from './components/CrazyPlaysGuide';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 
@@ -70,7 +69,6 @@ const MainApp: React.FC = () => {
         {activeTab === 'games' && (
           <GamesTab onNavigateToScore={() => setActiveTab('score')} />
         )}
-        {activeTab === 'crazyPlays' && <CrazyPlaysGuide />}
       </main>
 
       <HelpModal

@@ -2758,9 +2758,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       )}
 
       {/* Sticky mode tabs */}
-      <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 pt-0 pb-2 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md">
+      <div className="sticky top-0 z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 pt-0 pb-2">
         {/* Mode tabs: sentence case, weight only on the active one */}
-        <div className="flex rounded-sm bg-slate-200/80 dark:bg-[#1A2028] border border-slate-300/80 dark:border-[#354050] p-1 gap-1">
+        <div className="flex rounded-sm bg-slate-200/80 dark:bg-[#1A2028] border border-slate-300/40 dark:border-[#354050] p-1 gap-1">
           {(['batting', 'pitching', 'fielding'] as PlayMode[]).map((mode) => {
             const playsInThisModeAndInning = liveGame.plays.filter((p) => p.mode === mode && p.inning === currentInning).length;
             const isActive = activeMode === mode;
@@ -3078,8 +3078,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           <button
             type="button"
             onClick={isBenchedCurrentInning ? () => setInning(currentInning + 1) : () => handleNextInning()}
-            className="w-full min-h-[92px] rounded-md p-2 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00BFA5]/90 dark:hover:bg-[#00D7BC]/90 ring-2 ring-inset ring-[#efefef] dark:ring-[#354050]"
-          >
+            className="w-full min-h-[92px] shadow-sm rounded-md p-2 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00BFA5]/90 dark:hover:bg-[#00D7BC]/90"          >
             {isBenchedCurrentInning ? (
               <>
                 <span className="font-semibold text-xl text-white">Start Next Inning</span>
