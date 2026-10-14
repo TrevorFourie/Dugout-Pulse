@@ -8,7 +8,8 @@ import {
 } from '../utils/sprayChart';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
 import { SprayChart } from './SprayChart';
-import { Check, X, Crosshair } from 'lucide-react';
+import { Check, X, Crosshair, Star } from 'lucide-react';
+import { BaseballBallIcon } from './BaseballIcons';
 
 interface HitLocationModalProps {
   isOpen: boolean;
@@ -126,7 +127,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                   {getPlayShortLabel(currentCode)}
                 </span>
                 <span className={`text-xs font-semibold px-1.5 py-0.2 rounded ${isHitPlay(currentCode) ? 'bg-slate-100 dark:bg-[#252D38] text-[#18212D] dark:text-[#D1D5DB]' : 'bg-slate-200 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB]'}`}>
-                  {isHitPlay(currentCode) ? '⚾ BASE HIT' : '✕ OUT'}
+                  {isHitPlay(currentCode) ? <span className="inline-flex items-center gap-1"><BaseballBallIcon size={12} /> BASE HIT</span> : '✕ OUT'}
                 </span>
               </div>
             </div>
@@ -202,7 +203,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-950 font-semibold text-xs inline-flex items-center justify-center">
-                  ★
+                  <Star className="w-3 h-3 fill-current" />
                 </span>
                 <div>
                   <span className="text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB] block">
@@ -217,7 +218,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
               </div>
               {rbiCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#252D38]/60 text-[#18212D] dark:text-[#D1D5DB] text-xs font-semibold shrink-0">
-                  ★ {rbiCount} {rbiCount === 1 ? 'RBI' : 'RBIs'}
+                  <Star className="w-3 h-3 inline fill-current" /> {rbiCount} {rbiCount === 1 ? 'RBI' : 'RBIs'}
                 </span>
               )}
             </div>
