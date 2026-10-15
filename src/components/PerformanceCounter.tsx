@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ShieldCheck, Target } from 'lucide-react';
 import type { Game } from '../types/baseball';
+import { ThemedDropdown } from './ThemedDropdown';
 import { calculateSeasonStats, formatRate, formatEraWhip } from '../utils/stats';
 
 type Period = 'week' | 'month' | 'season' | 'all';
@@ -21,11 +22,74 @@ const METRICS: { value: MetricKey; label: string; group: 'batting' | 'pitching' 
   { value: 'fpct', label: 'Fielding Percentage', group: 'fielding', max: 1, format: formatRate },
 ];
 
+const PERIODS: { value: Period; label: string }[] = [
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+  { value: 'season', label: 'This Season' },
+  { value: 'all', label: 'All Time' },
+];
+
 function startOfWeek(date: Date) {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   start.setHours(0, 0, 0, 0);
   return start;
+}
+
+// ── Gauge geometry (viewBox 280 x 160) ─────────────────────────────────────
+const CX = 140;
+const CY = 112;
+const RADIUS = 100;
+const STROKE = 14;
+const START_DEG = 160; // lower-left
+const SWEEP_DEG = 220; // clockwise over the top to lower-right
+const TICK_COUNT = 45;
+
+function polar(deg: number, r: number) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+}
+
+function arcPath(sweepDeg: number) {
+  const start = polar(START_DEG, RADIUS);
+  const end = polar(START_DEG + sweepDeg, RADIUS);
+  return `M ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${RADIUS} ${RADIUS} 0 ${sweepDeg > 180 ? 1 : 0} 1 ${end.x.toFixed(3)} ${end.y.toFixed(3)}`;
+}
+
+const TRACK_PATH = arcPath(SWEEP_DEG);
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/**
+ * Tweens a number toward `target` on every animation frame, always starting from
+ * wherever it currently is, so a new target animates forwards OR backwards from
+ * the current position and never restarts from zero. When `snapKey` changes
+ * (e.g. the number's units change) the value jumps straight to the new target.
+ */
+function useAnimatedNumber(target: number, snapKey = '', duration = 900) {
+  const [shown, setShown] = useState(0);
+  const current = useRef({ key: snapKey, value: 0 });
+
+  useEffect(() => {
+    const from = current.current.key === snapKey ? current.current.value : target;
+    const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion || from === target) {
+      current.current = { key: snapKey, value: target };
+      setShown(target);
+      return;
+    }
+    let frame = 0;
+    const startedAt = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startedAt) / duration);
+      current.current = { key: snapKey, value: from + (target - from) * easeInOutCubic(t) };
+      setShown(current.current.value);
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target, snapKey, duration]);
+
+  return shown;
 }
 
 function getMetricValue(stats: ReturnType<typeof calculateSeasonStats>, key: MetricKey): number | null {
@@ -70,9 +134,11 @@ export const PerformanceCounter: React.FC<PerformanceCounterProps> = ({
   const metric = METRICS.find((item) => item.value === metricKey) || METRICS[0];
   const value = getMetricValue(stats, metricKey);
   const hasMetricData = value !== null && Number.isFinite(value);
-  const progress = hasMetricData ? Math.max(0, Math.min(1, value! / metric.max)) : 0;
-  const circumference = Math.PI * 104;
-  const dashOffset = circumference * (1 - progress);
+  const targetProgress = hasMetricData ? Math.max(0, Math.min(1, value! / metric.max)) : 0;
+  const progress = useAnimatedNumber(targetProgress);
+  const animatedValue = useAnimatedNumber(hasMetricData ? value! : 0, metricKey);
+  const sweep = SWEEP_DEG * progress;
+  const thumb = polar(START_DEG + sweep, RADIUS);
 
   const periodLabel = period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : period === 'season' ? 'This Season' : 'All Time';
   const battingSummary = stats.batting;
@@ -80,62 +146,86 @@ export const PerformanceCounter: React.FC<PerformanceCounterProps> = ({
   const fieldingSummary = stats.fielding;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-[#354050] dark:bg-[#252D38] sm:p-5">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">Performance Counter</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Your player's recorded performance</p>
-        </div>
-        <select
-          aria-label="Performance time period"
+    <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-[#354050] dark:bg-[#252D38] sm:p-5">
+      <div className="mb-3 flex items-center gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-[#AEB8C6]">Player Performance</p>
+        <div className="h-px flex-1 bg-slate-200 dark:bg-[#354050]" />
+        <ThemedDropdown<Period>
+          ariaLabel="Performance time period"
           value={period}
-          onChange={(event) => setPeriod(event.target.value as Period)}
-          className="max-w-[140px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold text-[#18212D] outline-none focus:border-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
-        >
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-          <option value="season">This Season</option>
-          <option value="all">All Time</option>
-        </select>
+          placeholder="This Season"
+          allowClear={false}
+          onChange={(next) => next && setPeriod(next)}
+          options={PERIODS}
+          className="w-[130px] shrink-0"
+          menuClassName="left-auto right-0 w-[150px]"
+        />
       </div>
 
       <div className="mx-auto w-full max-w-[420px]">
         <div className="relative">
-          <svg viewBox="0 0 240 142" role="img" aria-label={hasMetricData ? `${metric.label}: ${metric.format(value)}` : `${metric.label}: not enough data yet`} className="block w-full overflow-visible">
+          <svg viewBox="0 0 280 160" role="img" aria-label={hasMetricData ? `${metric.label}: ${metric.format(value)}` : `${metric.label}: not enough data yet`} className="block w-full overflow-visible">
             <defs>
               <linearGradient id="performance-counter-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#00D7BC" />
+                <stop offset="0%" stopColor="#00D1D6" />
                 <stop offset="100%" stopColor="#3478FF" />
               </linearGradient>
+              <filter id="performance-counter-thumb-shadow" x="-60%" y="-60%" width="220%" height="220%">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#3478FF" floodOpacity="0.55" />
+              </filter>
             </defs>
-            <path d="M 16 124 A 104 104 0 0 1 224 124" fill="none" stroke="currentColor" className="text-slate-200 dark:text-[#354050]" strokeWidth="14" strokeLinecap="round" pathLength="100" />
-            {hasMetricData && <path d="M 16 124 A 104 104 0 0 1 224 124" fill="none" stroke="url(#performance-counter-gradient)" strokeWidth="14" strokeLinecap="round" pathLength="100" strokeDasharray={`${progress * 100} 100`} />}
-            {hasMetricData && <circle cx={120 - 104 * Math.cos(Math.PI * progress)} cy={124 - 104 * Math.sin(Math.PI * progress)} r="5.5" fill="#FAFAFA" stroke="#3478FF" strokeWidth="3" />}
-            {Array.from({ length: 17 }, (_, index) => {
-              const angle = Math.PI + (Math.PI * index) / 16;
-              const x1 = 120 + 91 * Math.cos(angle);
-              const y1 = 124 + 91 * Math.sin(angle);
-              const x2 = 120 + 99 * Math.cos(angle);
-              const y2 = 124 + 99 * Math.sin(angle);
-              return <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" className="text-slate-400 dark:text-[#6B7280]" strokeWidth="1.5" />;
+
+            {/* Unfilled track: radial tick marks that fade out as the gauge fills past them */}
+            {Array.from({ length: TICK_COUNT }, (_, index) => {
+              const fraction = index / (TICK_COUNT - 1);
+              const deg = START_DEG + SWEEP_DEG * fraction;
+              const inner = polar(deg, RADIUS - STROKE / 2);
+              const outer = polar(deg, RADIUS + STROKE / 2);
+              const opacity = progress <= 0.001 ? 1 : Math.max(0, Math.min(1, (fraction - progress) / 0.03));
+              return (
+                <line
+                  key={index}
+                  x1={inner.x}
+                  y1={inner.y}
+                  x2={outer.x}
+                  y2={outer.y}
+                  stroke="currentColor"
+                  className="text-slate-300 dark:text-[#3E495A]"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  opacity={opacity}
+                />
+              );
             })}
+
+            {/* Filled progress arc */}
+            {progress > 0.001 && (
+              <path d={arcPath(sweep)} fill="none" stroke="url(#performance-counter-gradient)" strokeWidth={STROKE} strokeLinecap="round" />
+            )}
+
+            {/* Thumb */}
+            {hasMetricData && (
+              <circle cx={thumb.x} cy={thumb.y} r="7" fill="#FFFFFF" stroke="#3478FF" strokeWidth="3.5" filter="url(#performance-counter-thumb-shadow)" />
+            )}
           </svg>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center text-center">
-            <span className="text-3xl font-bold tracking-tight text-[#18212D] dark:text-[#FAFAFA] sm:text-4xl">
-              {hasMetricData ? metric.format(value) : '—'}
+
+          <div className="pointer-events-none absolute inset-x-0 flex flex-col items-center text-center" style={{ top: '46%' }}>
+            <span className="text-5xl font-bold leading-none tracking-tight text-[#18212D] tabular-nums dark:text-[#FAFAFA] sm:text-6xl">
+              {hasMetricData ? metric.format(animatedValue) : '—'}
             </span>
-            <span className="mt-1 text-xs font-medium text-slate-500 dark:text-[#9CA3AF]">{metric.label}</span>
+            <span className="mt-2 text-[13px] font-medium tracking-wide text-slate-500 dark:text-[#9CA3AF]">{metric.label}</span>
           </div>
         </div>
-        <div className="mt-2 flex justify-center">
-          <select
-            aria-label="Performance metric"
+        <div className="mt-3 flex justify-center">
+          <ThemedDropdown<MetricKey>
+            ariaLabel="Performance metric"
             value={metricKey}
-            onChange={(event) => setMetricKey(event.target.value as MetricKey)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-[#18212D] outline-none focus:border-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
-          >
-            {METRICS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
+            placeholder="Batting Average"
+            allowClear={false}
+            onChange={(next) => next && setMetricKey(next)}
+            options={METRICS.map((item) => ({ value: item.value, label: item.label }))}
+            className="w-full max-w-[220px]"
+          />
         </div>
         <p className="mt-2 text-center text-[11px] text-slate-500 dark:text-[#9CA3AF]">
           Gauge fills against a reference scale for the selected statistic; it updates as scored plays change.
@@ -172,4 +262,4 @@ export const PerformanceCounter: React.FC<PerformanceCounterProps> = ({
       )}
     </section>
   );
-};
+};  

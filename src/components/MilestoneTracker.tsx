@@ -387,6 +387,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   }, [games]);
 
   return (
+    <>
     <section className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <div>
@@ -479,7 +480,20 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
         </div>
       </div>
 
-      {/* Personal bests across batting, pitching and fielding */}
+    </section>
+
+    {/* Personal bests: standalone category, separate from progress milestones */}
+    <section className="space-y-3">
+      <div className="px-1">
+        <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+          Personal Bests
+        </h2>
+        <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">
+          Best single-game performances and current hitting streak.
+        </p>
+      </div>
+
+      {/* Best single-game totals across batting, pitching and fielding */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]">
           <Zap className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
@@ -540,5 +554,6 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
         <Activity className="h-5 w-5 text-slate-300 dark:text-[#6B7280]" />
       </div>
     </section>
+    </>
   );
 };
