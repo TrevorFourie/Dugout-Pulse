@@ -57,7 +57,11 @@ const MainApp: React.FC = () => {
             onOpenSettings={() => handleOpenSettings()}
           />
         )}
-        {activeTab === 'score' && (
+        <div
+          className="flex-1 min-h-0 min-w-0 flex-col"
+          style={{ display: activeTab === 'score' ? 'flex' : 'none' }}
+          aria-hidden={activeTab !== 'score'}
+        >
           <ScoreTab
             onOpenHelp={(mode) => handleOpenHelp(mode)}
             onOpenSettings={() => handleOpenSettings()}
@@ -65,7 +69,7 @@ const MainApp: React.FC = () => {
             view={scoreView}
             onChangeView={setScoreView}
           />
-        )}
+        </div>
         {activeTab === 'games' && (
           <GamesTab onNavigateToScore={() => setActiveTab('score')} />
         )}
