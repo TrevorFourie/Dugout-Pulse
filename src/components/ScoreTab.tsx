@@ -3517,6 +3517,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             {renderPlaysWithInningDividers(filteredPlays)}
           </div>
         )}
+        </div>
 
           <div className="shrink-0 p-3 border-t border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] flex justify-end">
             <button
@@ -3528,6 +3529,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             </button>
           </div>
         </div>
+      </div>
       </div>
       )}
 
