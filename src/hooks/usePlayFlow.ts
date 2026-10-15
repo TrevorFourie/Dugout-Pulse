@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BattingPlayCode,
   DefensivePosition,
@@ -57,14 +57,42 @@ export function usePlayFlow({
   const [strikes, setStrikes] = useState(0);
   const [pitchCount, setPitchCount] = useState(initialPitchCount);
 
+  type FlowSnapshot = {
+    battingState: 'IDLE_AT_BAT' | 'ON_BASE' | 'PA_COMPLETE';
+    runnerOnBase: boolean;
+    pitchingState: 'PITCHING_ACTIVE' | 'BATTER_RESOLVED';
+    balls: number;
+    strikes: number;
+    pitchCount: number;
+  };
+  const flowSnapshots = useRef(new Map<string, FlowSnapshot>());
+  const activeFlowKey = flowKey ?? '__default__';
+
+  // Save the previous inning's flow state when switching innings. This lets historical
+  // scoring start with a fresh flow without destroying the live inning's batter/count state.
   useEffect(() => {
-    setBattingState('IDLE_AT_BAT');
-    setRunnerOnBase(false);
-    setPitchingState('PITCHING_ACTIVE');
-    setBalls(0);
-    setStrikes(0);
-    setPitchCount(initialPitchCount);
-  }, [flowKey]);
+    const key = activeFlowKey;
+    return () => {
+      flowSnapshots.current.set(key, {
+        battingState,
+        runnerOnBase,
+        pitchingState,
+        balls,
+        strikes,
+        pitchCount,
+      });
+    };
+  }, [activeFlowKey, battingState, runnerOnBase, pitchingState, balls, strikes, pitchCount]);
+
+  useEffect(() => {
+    const snapshot = flowSnapshots.current.get(activeFlowKey);
+    setBattingState(snapshot?.battingState ?? 'IDLE_AT_BAT');
+    setRunnerOnBase(snapshot?.runnerOnBase ?? false);
+    setPitchingState(snapshot?.pitchingState ?? 'PITCHING_ACTIVE');
+    setBalls(snapshot?.balls ?? 0);
+    setStrikes(snapshot?.strikes ?? 0);
+    setPitchCount(snapshot?.pitchCount ?? initialPitchCount);
+  }, [activeFlowKey, initialPitchCount]);
 
   const isPrimaryEventDisabled = battingState !== 'IDLE_AT_BAT';
   const isHitDisabled = isPrimaryEventDisabled;
