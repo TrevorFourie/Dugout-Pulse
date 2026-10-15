@@ -2762,7 +2762,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         {/* Mode tabs: sentence case, weight only on the active one */}
         <div className="flex rounded-sm bg-slate-200/80 dark:bg-[#1A2028] border border-slate-300/40 dark:border-[#354050] p-1 gap-1">
           {(['batting', 'pitching', 'fielding'] as PlayMode[]).map((mode) => {
-            const playsInThisModeAndInning = liveGame.plays.filter((p) => p.mode === mode && p.inning === currentInning).length;
+            const playsInThisModeAndInning = liveGame.plays.filter((p) => p.mode === mode).length;
             const isActive = activeMode === mode;
             return (
               <button
