@@ -1520,7 +1520,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               {/* Plays newest first, with position changes slotted in where they happened */}
               {(() => {
                 const changes = (liveGame.positionChanges || [])
-                  .filter((c) => c.inning === inning)
+                  .filter((c) => {
+                    if (c.inning !== inning) return false;
+
+                    // Position changes never belong in Batting.
+                    if (playFeedFilter === 'batting') return false;
+
+                    // Fielding shows every defensive position change.
+                    if (playFeedFilter === 'fielding') return true;
+
+                    // Pitching only also shows transitions into or out of Pitcher (P).
+                    return playFeedFilter === 'pitching' && (c.from === 'P' || c.to === 'P');
+                  })
                   .sort((a, b) => b.timestamp - a.timestamp);
                 const items: React.ReactNode[] = [];
                 let next = 0;
