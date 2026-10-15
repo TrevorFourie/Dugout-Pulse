@@ -305,10 +305,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [runnerSession, setRunnerSession] = useState<RunnerLifecycleState | null>(null);
   const [runnerHistory, setRunnerHistory] = useState<Array<{ state: RunnerLifecycleState; playIds: string[] }>>([]);
   const [activeRunnerChip, setActiveRunnerChip] = useState<{ base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string } | null>(null);
-  const [primaryTooltip, setPrimaryTooltip] = useState<string | null>(null);
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
-  const primaryHoldTimerRef = useRef<number | null>(null);
 
   // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
   // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
@@ -2900,7 +2898,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         ) : (
           <div className="grid grid-cols-4 gap-2 pb-1">
             {PRIMARY_BATTING_CODES.map((code) => {
-              const def = PLAY_DEFINITIONS[code];
               const labels: Record<string, [string, string]> = {
                 single: ['1B', 'Single'],
                 double: ['2B', 'Double'],
@@ -2912,7 +2909,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 reachedOnError: ['ROE', 'Error'],
               };
               const [label, subtitle] = labels[code];
-              const tooltip = def?.description || subtitle;
 
               // Neutral scoring cards keep the action grid calm; the code carries the brand accent.
               const buttonColor = 'min-h-[92px] rounded-lg p-3 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
@@ -2922,23 +2918,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 <div key={code} className="relative">
                   <button
                     type="button"
-                    onPointerDown={() => {
-                      if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current);
-                      primaryHoldTimerRef.current = window.setTimeout(() => setPrimaryTooltip(code), 500);
-                    }}
-                    onPointerUp={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
-                    onPointerCancel={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
-                    onPointerLeave={() => { if (primaryHoldTimerRef.current !== null) window.clearTimeout(primaryHoldTimerRef.current); }}
-                    onClick={() => { setPrimaryTooltip(null); handleScoringPlay(code); }}
+                    onClick={() => handleScoringPlay(code)}
                     disabled={playFlow.isPrimaryEventDisabled}
                     className={`w-full min-h-[92px] rounded-md p-2 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer ${buttonColor}`}
                   >
                     <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
                     <span className="mt-1.5 text-[13px] font-medium text-slate-600 dark:text-[#D1D5DB] truncate max-w-full">{subtitle}</span>
                   </button>
-                  {primaryTooltip === code && (
-                    <div className="absolute z-40 bottom-full left-0 right-0 mb-2 rounded-md bg-slate-950 text-white px-3 py-2 text-[13px] font-semibold shadow-xl">{tooltip}</div>
-                  )}
                 </div>
               );
             })}
