@@ -330,7 +330,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           pitcherHand,
           lineupSpot: liveGame?.lineupSpot,
           hitLocation: preselectedLoc,
-          targetInning: currentInning,
+          targetInning: viewedInning,
           extraOuts: scoringMeta?.extraOuts,
           scoringContext: scoringMeta?.scoringContext,
         });
@@ -346,12 +346,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           ? liveGame.fieldingPositions?.[liveGame.innings] ||
             (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
           : undefined;
-        addPlay('fielding', code, { defensivePosition: inningPosition, targetInning: currentInning });
+        addPlay('fielding', code, { defensivePosition: inningPosition, targetInning: viewedInning });
       } else {
         addPlay('pitching', code, {
           autoOutcome: eventOptions?.autoOutcome,
           isExtraOut: eventOptions?.isExtraOut,
-          targetInning: currentInning,
+          targetInning: viewedInning,
         });
       }
     },
