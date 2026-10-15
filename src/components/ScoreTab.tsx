@@ -2771,7 +2771,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 ]
               : [
                   { label: 'Position', value: currentInningPosition },
-                  { label: 'Outs', value: `${getDefenseOutCount(currentInning)}/3` },
+                  { label: 'Outs', value: `${getDefenseOutCount(currentInning)}` },
                   {
                     label: 'Plays',
                     value: liveGame.plays.filter((p) => p.inning === currentInning && p.mode === 'fielding').length,
@@ -2915,9 +2915,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               className="w-full rounded-lg border border-[#00BFA5]/70 dark:border-[#00D7BC]/60 bg-white dark:bg-[#252D38] p-3.5 text-left shadow-sm hover:border-[#00BFA5] dark:hover:border-[#00D7BC] hover:shadow-md transition-all active:scale-[0.99] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB]">
+                <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB] bg-[#00BFA5]/20  dark:bg-[#00D7BC]/40 py-1.5 px-3 rounded-xl">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#00BFA5] dark:bg-[#00D7BC]" />
-                  <span>Runner on Base</span>
+                  <span className="font-medium flex">Play in Progress</span>
                 </div>
                 <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] px-3 py-2 text-xs font-bold text-[#18212D] dark:text-[#101419] shadow-sm">
                   <Footprints className="h-4 w-4" />
