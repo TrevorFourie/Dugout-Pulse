@@ -156,15 +156,6 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
                 <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-[#252D38]">
                   <button
                     type="button"
-                    onClick={() => switchToInsert(false)}
-                    className={`py-2 text-xs font-semibold rounded-md transition-colors ${
-                      !insertMode ? 'bg-white dark:bg-[#354050] text-[#18212D] dark:text-[#FAFAFA] shadow-xs' : 'text-slate-600 dark:text-[#9CA3AF]'
-                    }`}
-                  >
-                    Edit this play
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => switchToInsert(true)}
                     className={`py-2 text-xs font-semibold rounded-md transition-colors ${
                       insertMode ? 'bg-white dark:bg-[#354050] text-[#18212D] dark:text-[#FAFAFA] shadow-xs' : 'text-slate-600 dark:text-[#9CA3AF]'
@@ -203,44 +194,22 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
             </div>
           )}
 
-          {/* Mode Switcher */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-[#9CA3AF] mb-1.5">
-              Category / Mode
-            </label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-[#252D38]">
-              {(['batting', 'pitching', 'fielding'] as PlayMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => handleModeChange(m)}
-                  className={`py-2 text-xs font-semibold capitalize rounded-md transition-colors ${
-                    mode === m
-                      ? 'bg-white dark:bg-[#354050] text-[#18212D] dark:text-[#FAFAFA] shadow-xs'
-                      : 'text-slate-600 dark:text-[#9CA3AF]'
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Play code selection grid */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-[#9CA3AF] mb-1.5">
               Select Action
             </label>
-            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 gap-1.5 max-h-40 overflow-y-auto pr-1">
               {availablePlays.map((def) => (
                 <button
                   key={def.code}
                   type="button"
                   onClick={() => setCode(def.code)}
-                  className={`p-2 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                  className={`p-2 rounded-lg  text-left flex items-center gap-2 transition-all ${
                     code === def.code
-                      ? 'border-[#00BFA5] bg-teal-50 dark:bg-[#00D7BC]/15 text-slate-900 dark:text-[#FAFAFA] ring-1 ring-[#00BFA5]'
-                      : 'border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/60 text-slate-700 dark:text-[#D1D5DB]'
+                      ? 'bg-teal-50 dark:bg-[#00D7BC]/15 text-slate-900 dark:text-[#FAFAFA]'
+                      : 'dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/60 text-slate-700 dark:text-[#D1D5DB]'
                   }`}
                 >
                   <span className="font-extrabold text-[11px] px-1.5 py-0.5 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]">
@@ -251,27 +220,6 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
               ))}
             </div>
           </div>
-
-          {/* Batting Position / Lineup Spot for batting plays */}
-          {mode === 'batting' && (
-            <div className="pt-2 border-t border-slate-200 dark:border-[#354050] space-y-1.5">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-[#9CA3AF]">
-                Batting Position (Lineup Spot)
-              </label>
-              <select
-                value={lineupSpot ?? ''}
-                onChange={(e) => setLineupSpot(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-              >
-                <option value="">Not assigned</option>
-                {LINEUP_SPOTS.map((s) => (
-                  <option key={s.spot} value={s.spot}>
-                    #{s.spot} · {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* RBIs for hits / batted-ball results */}
           {showRbi && (
