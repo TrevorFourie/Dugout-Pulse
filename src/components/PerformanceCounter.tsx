@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, CircleDot, ShieldCheck, Target, TrendingUp } from 'lucide-react';
+import { Activity, ShieldCheck, Target } from 'lucide-react';
 import type { Game } from '../types/baseball';
 import { calculateSeasonStats, formatRate, formatEraWhip } from '../utils/stats';
 
