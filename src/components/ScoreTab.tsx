@@ -310,40 +310,41 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
   type RunnerHistoryEntry = { state: RunnerLifecycleState; playIds: string[] };
   type ActiveRunnerChip = { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string };
-  const [runnerSessions, setRunnerSessions] = useState<Record<number, RunnerLifecycleState | null>>({});
-  const [runnerHistories, setRunnerHistories] = useState<Record<number, RunnerHistoryEntry[]>>({});
-  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<number, ActiveRunnerChip>>({});
+  const [runnerSessions, setRunnerSessions] = useState<Record<string, RunnerLifecycleState | null>>({});
+  const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>({});
+  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>({});
 
   // All transient runner workflow state is scoped to the inning being viewed. Ending or
   // correcting one inning must not clear the runner workflow for another inning.
   const setRunnerSession = (next: RunnerLifecycleState | null | ((current: RunnerLifecycleState | null) => RunnerLifecycleState | null)) => {
     setRunnerSessions((previous) => {
-      const current = previous[viewedInning] ?? null;
+      const current = previous[`${liveGame?.id ?? '__no-game__'}:${viewedInning}`] ?? null;
       const resolved = typeof next === 'function' ? next(current) : next;
       if (resolved === current) return previous;
-      return { ...previous, [viewedInning]: resolved };
+      return { ...previous, [`${liveGame?.id ?? '__no-game__'}:${viewedInning}`]: resolved };
     });
   };
   const setRunnerHistory = (next: RunnerHistoryEntry[] | ((current: RunnerHistoryEntry[]) => RunnerHistoryEntry[])) => {
     setRunnerHistories((previous) => {
-      const current = previous[viewedInning] ?? [];
+      const current = previous[`${liveGame?.id ?? '__no-game__'}:${viewedInning}`] ?? [];
       const resolved = typeof next === 'function' ? next(current) : next;
       if (resolved === current) return previous;
-      return { ...previous, [viewedInning]: resolved };
+      return { ...previous, [`${liveGame?.id ?? '__no-game__'}:${viewedInning}`]: resolved };
     });
   };
   const setActiveRunnerChip = (next: ActiveRunnerChip | null | ((current: ActiveRunnerChip | null) => ActiveRunnerChip | null)) => {
     setActiveRunnerChips((previous) => {
-      const current = previous[viewedInning] ?? null;
+      const current = previous[`${liveGame?.id ?? '__no-game__'}:${viewedInning}`] ?? null;
       const resolved = typeof next === 'function' ? next(current) : next;
       if (resolved === current) return previous;
       if (resolved === null) {
-        if (!(viewedInning in previous)) return previous;
+        const key = `${liveGame?.id ?? '__no-game__'}:${viewedInning}`;
+        if (!(key in previous)) return previous;
         const updated = { ...previous };
-        delete updated[viewedInning];
+        delete updated[key];
         return updated;
       }
-      return { ...previous, [viewedInning]: { ...resolved, inning: viewedInning } };
+      return { ...previous, [`${liveGame?.id ?? '__no-game__'}:${viewedInning}`]: { ...resolved, inning: viewedInning } };
     });
   };
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
@@ -871,9 +872,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // Active Live Game View
   const isEditing = Boolean(editingGameId);
   const currentInning = viewedInning;
-  const runnerSession = runnerSessions[currentInning] ?? null;
-  const runnerHistory = runnerHistories[currentInning] ?? [];
-  const activeRunnerChip = activeRunnerChips[currentInning] ?? null;
+  const runnerStateKey = `${liveGame.id}:${currentInning}`;
+  const runnerSession = runnerSessions[runnerStateKey] ?? null;
+  const runnerHistory = runnerHistories[runnerStateKey] ?? [];
+  const activeRunnerChip = activeRunnerChips[runnerStateKey] ?? null;
   const currentInningPosition: DefensivePosition =
     liveGame.fieldingPositions?.[currentInning] || (liveGame.benchInnings.includes(currentInning) ? 'BENCH' : 'CF');
 
