@@ -66,6 +66,7 @@ export function usePlayFlow({
     pitchCount: number;
   };
   const flowSnapshots = useRef(new Map<string, FlowSnapshot>());
+  const skipSnapshotSave = useRef(false);
   const activeFlowKey = flowKey ?? '__default__';
 
   // Save the previous inning's flow state when switching innings. This lets historical
@@ -73,6 +74,12 @@ export function usePlayFlow({
   useEffect(() => {
     const key = activeFlowKey;
     return () => {
+      // The first cleanup after changing keys belongs to the previous key and must be saved.
+      // Skip the following cleanup, which can otherwise write the old state over the restored key.
+      if (skipSnapshotSave.current) {
+        skipSnapshotSave.current = false;
+        return;
+      }
       flowSnapshots.current.set(key, {
         battingState,
         runnerOnBase,
@@ -86,6 +93,7 @@ export function usePlayFlow({
 
   useEffect(() => {
     const snapshot = flowSnapshots.current.get(activeFlowKey);
+    skipSnapshotSave.current = true;
     setBattingState(snapshot?.battingState ?? 'IDLE_AT_BAT');
     setRunnerOnBase(snapshot?.runnerOnBase ?? false);
     setPitchingState(snapshot?.pitchingState ?? 'PITCHING_ACTIVE');
