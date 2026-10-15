@@ -61,7 +61,8 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
   onClose,
 }) => {
 
-  const [inning, setInning] = useState<number>(play.inning);
+  // Plays stay in their original inning; ordering changes are handled by the Plays in the Game list.
+  const inning = play.inning;
   const [mode, setMode] = useState<PlayMode>(play.mode);
   const [code, setCode] = useState<PlayCode>(play.code);
   const [lineupSpot, setLineupSpot] = useState<number | undefined>(play.lineupSpot);
@@ -84,7 +85,6 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
     } else {
       setHitLocation(play.hitLocation);
       setShowLocationPicker(Boolean(play.hitLocation));
-      setInning(play.inning);
       setMode(play.mode);
       setCode(play.code);
       setLineupSpot(play.lineupSpot);
@@ -129,7 +129,7 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div
         className="w-full max-w-md max-h-[92vh] flex flex-col bg-white dark:bg-[#1A2028] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden"
         role="dialog"
@@ -202,32 +202,6 @@ const EditPlayModalDialog: React.FC<EditPlayDialogProps> = ({
               )}
             </div>
           )}
-
-          {/* Inning selector */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-[#9CA3AF] mb-1.5">
-              Inning
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setInning((prev) => Math.max(1, prev - 1))}
-                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252D38] font-semibold text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] active:scale-95"
-              >
-                -
-              </button>
-              <span className="flex-1 text-center font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
-                Inning {inning}
-              </span>
-              <button
-                type="button"
-                onClick={() => setInning((prev) => prev + 1)}
-                className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252D38] font-semibold text-slate-700 dark:text-[#D1D5DB] border border-slate-200 dark:border-[#354050] active:scale-95"
-              >
-                +
-              </button>
-            </div>
-          </div>
 
           {/* Mode Switcher */}
           <div>
