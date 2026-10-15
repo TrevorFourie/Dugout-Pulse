@@ -357,9 +357,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Hold a play and drag it to reorder. The feed lists the newest play first, so dropping a play
   // above another one places it later in the game.
-  const { getDragProps } = usePlayDragReorder((dragId, targetId, placement) =>
-    movePlayTo(dragId, targetId, placement === 'above' ? 'after' : 'before')
-  );
+  const { getDragProps } = usePlayDragReorder((dragId, targetId, placement) => {
+    // Reordering is allowed only within the same inning.
+    const draggedPlay = liveGame?.plays.find((play) => play.id === dragId);
+    const targetPlay = liveGame?.plays.find((play) => play.id === targetId);
+    if (!draggedPlay || !targetPlay || draggedPlay.inning !== targetPlay.inning) return;
+    movePlayTo(dragId, targetId, placement === 'above' ? 'after' : 'before');
+  });
 
   // Plays feed & grouped inning derivations (unconditionally declared before early returns to satisfy React Hook rules)
   const liveGamePlays = liveGame?.plays;
@@ -2309,11 +2313,15 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     const plays = liveGame.plays;
     const i = plays.findIndex((p) => p.id === playId);
     if (i === -1) return false;
+    const inning = plays[i].inning;
     let j = i + step;
-    if (sameCategoryFeed) {
-      while (j >= 0 && j < plays.length && plays[j].mode !== plays[i].mode) j += step;
+    while (j >= 0 && j < plays.length) {
+      // Never offer a move that would cross an inning boundary.
+      if (plays[j].inning !== inning) return false;
+      if (!sameCategoryFeed || plays[j].mode === plays[i].mode) return true;
+      j += step;
     }
-    return j >= 0 && j < plays.length;
+    return false;
   };
 
 
