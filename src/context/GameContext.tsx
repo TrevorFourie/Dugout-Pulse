@@ -26,6 +26,8 @@ interface GameContextType {
   activeProfile: PlayerProfile;
   settings: AppSettings;
   isLoading: boolean;
+  resumePromptPending: boolean;
+  dismissResumePrompt: () => void;
 
   // Actions
   startLiveGame: (details: {
@@ -318,6 +320,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hiddenAgeGroups, setHiddenAgeGroups] = useState<string[]>([]);
   const [hiddenSeasons, setHiddenSeasons] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [resumePromptPending, setResumePromptPending] = useState(false);
+  const dismissResumePrompt = useCallback(() => setResumePromptPending(false), []);
 
   // First time user detection: true if setup has not been completed and no profile is filled out
   const [isFirstTimeUser, setIsFirstTimeUser] = useState<boolean>(() => {
@@ -355,7 +359,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const storedLiveGame = localStorage.getItem(STORAGE_KEYS.LIVE_GAME);
       if (storedLiveGame) {
-        setLiveGame(JSON.parse(storedLiveGame));
+        const restoredGame = JSON.parse(storedLiveGame) as Game;
+        if (restoredGame && typeof restoredGame.id === 'string') {
+          setLiveGame(restoredGame);
+          setResumePromptPending(true);
+        }
       }
 
       const storedEditingId = localStorage.getItem(STORAGE_KEYS.EDITING_GAME_ID);
@@ -2061,6 +2069,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeProfile,
         settings,
         isLoading,
+        resumePromptPending,
+        dismissResumePrompt,
         savedOpponents,
         allOpponents,
         recentOpponents,
