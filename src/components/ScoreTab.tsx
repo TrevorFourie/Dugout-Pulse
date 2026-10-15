@@ -2863,37 +2863,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               </div>
             </button>
 
-            {/* Option to End Inning while Runner is on Base */}
-            <button
-              type="button"
-              onClick={() => {
-                addPlay('batting', 'leftOnBase', {
-                  lineupSpot: currentInningLineupSpot,
-                  runnerFromBase: activeRunnerChip.base,
-                  runnerAdvanceCause: activeRunnerChip.cause,
-                });
-                setActiveRunnerChip(null);
-                setRunnerSession(null);
-                setRunnerHistory([]);
-                handleThirdOut('batting');
-              }}
-              className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100 hover:bg-slate-100 dark:bg-[#252D38]/30 dark:hover:bg-[#252D38]/50 p-3 text-left transition-all active:scale-[0.99] cursor-pointer"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold text-sm text-[#18212D] dark:text-[#D1D5DB]">
-                  3rd Out Made Elsewhere ({canAdvanceToNextInning('batting') ? 'End Inning' : 'End Batting Half'})
-                </span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#252D38]/80 text-[#18212D] dark:text-[#D1D5DB] shrink-0">
-                  Left on Base (LOB)
-                </span>
-              </div>
-              <div className="text-[13px] font-semibold text-[#18212D] dark:text-[#D1D5DB] mt-0.5">
-                Teammate made 3rd out · Record LOB ·{' '}
-                {canAdvanceToNextInning('batting')
-                  ? `Go to Inning ${currentInning + 1}`
-                  : `Remain on Inning ${currentInning} (switch to defense)`}
-              </div>
-            </button>
+
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-2 pb-1">
@@ -3026,20 +2996,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         )
       )}
 
-      {/* Next PA prompt if PA complete in batting */}
-      {activeMode === 'batting' &&
-        !isBenchedCurrentInning &&
-        !runnerSession &&
-        playFlow.battingState === 'PA_COMPLETE' && (
-          <button
-            type="button"
-            onClick={playFlow.nextPlateAppearance}
-            className="w-full rounded-lg bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] py-3 text-[#18212D] dark:text-[#101419] font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
-          >
-            NEXT AT BAT
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        )}
 
       {/* End of Inning / End Half Button (two lines: action, then what happens next) */}
       {canRemoveExtraInning && (
