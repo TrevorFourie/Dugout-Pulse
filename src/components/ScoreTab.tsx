@@ -379,8 +379,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         }
       } else if (mode === 'fielding') {
         const inningPosition = liveGame
-          ? liveGame.fieldingPositions?.[liveGame.innings] ||
-            (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
+          ? liveGame.fieldingPositions?.[viewedInning] ||
+            (liveGame.benchInnings.includes(viewedInning) ? 'BENCH' : 'CF')
           : undefined;
         addPlay('fielding', code, { defensivePosition: inningPosition, targetInning: viewedInning });
       } else {
@@ -392,8 +392,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       }
     },
     activePosition: liveGame
-      ? liveGame.fieldingPositions?.[liveGame.innings] ||
-        (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
+      ? liveGame.fieldingPositions?.[viewedInning] ||
+        (liveGame.benchInnings.includes(viewedInning) ? 'BENCH' : 'CF')
       : undefined,
     flowKey: liveGame ? `${liveGame.id}:inning-${viewedInning}` : null,
     homeRunAddsRunAndRbi: !settings.homeRunAddsRunAndRbi,
@@ -908,15 +908,15 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Pitching flow: the count, pitch totals, batters faced, outs and earned-run context are all
   // derived from the plays, so Undo / delete / edit always leave the board consistent.
-  const pitchFlowState = derivePitchingFlowState(liveGame.plays, liveGame.innings);
+  const pitchFlowState = derivePitchingFlowState(liveGame.plays, viewedInning);
   const lastPitchingPlayThisInning = [...liveGame.plays]
     .reverse()
-    .find((p) => p.mode === 'pitching' && p.inning === liveGame.innings);
+    .find((p) => p.mode === 'pitching' && p.inning === viewedInning);
   const inningEndedOnRunnerOut = pitchFlowState.outs >= 3 && Boolean(lastPitchingPlayThisInning?.pickoffKind);
 
   const handlePitchingAction = (action: PitchingAction) => {
     const result = reducePitchingAction(pitchFlowState, action);
-    if (result.seeds.length > 0) addPlays(result.seeds);
+    if (result.seeds.length > 0) addPlays(result.seeds, viewedInning);
   };
 
   // Dynamic positional button array based on the active "Fielding Position" selection:
@@ -1955,7 +1955,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     if (!fieldingChain) return;
     const endsHalfInning = fieldingChain.endsHalfInning;
     for (const action of dpActions) {
-      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', { partOfMultiOutPlay: true });
+      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', { partOfMultiOutPlay: true, targetInning: viewedInning });
     }
     setFieldingChain(null);
     setDpActions([]);
@@ -2199,11 +2199,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       addPlay('pitching', 'pitchOut', { isExtraOut: true });
     }
 
-    if (fielding === 'putout') addPlay('fielding', 'putout', { defensivePosition: 'P' });
-    if (fielding === 'assist') addPlay('fielding', 'assist', { defensivePosition: 'P' });
+    if (fielding === 'putout') addPlay('fielding', 'putout', { defensivePosition: 'P', targetInning: viewedInning });
+    if (fielding === 'assist') addPlay('fielding', 'assist', { defensivePosition: 'P', targetInning: viewedInning });
 
-    if (extra === 'doublePlay') addPlay('fielding', 'doublePlay', { defensivePosition: 'P' });
-    if (extra === 'triplePlay') addPlay('fielding', 'triplePlay', { defensivePosition: 'P' });
+    if (extra === 'doublePlay') addPlay('fielding', 'doublePlay', { defensivePosition: 'P', targetInning: viewedInning });
+    if (extra === 'triplePlay') addPlay('fielding', 'triplePlay', { defensivePosition: 'P', targetInning: viewedInning });
   };
 
   const handleNextInning = (opts?: { allowExtraInning?: boolean }) => {
