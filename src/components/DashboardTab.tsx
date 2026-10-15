@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { MilestoneTracker } from './MilestoneTracker';
+import { PerformanceCounter } from './PerformanceCounter';
 
 interface DashboardTabProps {
   onNavigateToScore: () => void;
@@ -158,6 +159,14 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Adaptive single-player Performance Counter */}
+      <PerformanceCounter
+        games={playerGames}
+        liveGame={liveGame}
+        inningsPerGame={settings.inningsPerGame}
+        defaultSeason={activeProfile.defaultSeason}
+      />
 
       {/* Batting, pitching and fielding milestones */}
       <MilestoneTracker
