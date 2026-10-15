@@ -304,7 +304,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
   const [runnerSession, setRunnerSession] = useState<RunnerLifecycleState | null>(null);
   const [runnerHistory, setRunnerHistory] = useState<Array<{ state: RunnerLifecycleState; playIds: string[] }>>([]);
-  const [activeRunnerChip, setActiveRunnerChip] = useState<{ base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string } | null>(null);
+  const [activeRunnerChip, setActiveRunnerChip] = useState<{ inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string } | null>(null);
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
 
@@ -2071,6 +2071,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const handleHoldRunnerOnBase = () => {
     if (!runnerSession) return;
     setActiveRunnerChip({
+      inning: currentInning,
       base: runnerSession.base,
       sb: runnerSession.sb,
       cause: runnerSession.advanceCause,
@@ -2145,7 +2146,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   };
 
   const handleNextInning = (opts?: { allowExtraInning?: boolean }) => {
-    if (activeRunnerChip) {
+    if (activeRunnerChip?.inning === currentInning) {
       addPlay('batting', 'leftOnBase', {
         lineupSpot: currentInningLineupSpot,
         runnerFromBase: activeRunnerChip.base,
@@ -2831,7 +2832,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               Back in Game
             </button>
           </div>
-        ) : activeRunnerChip ? (
+        ) : activeRunnerChip?.inning === currentInning ? (
           <div className="space-y-2">
             <button
               type="button"
