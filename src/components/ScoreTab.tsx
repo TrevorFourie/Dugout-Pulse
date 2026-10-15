@@ -2181,6 +2181,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       runnerFromBase: runnerSession.base,
     });
     setActiveRunnerChip({
+      inning: currentInning,
       base: runnerSession.base,
       sb: runnerSession.sb,
       cause: runnerSession.advanceCause,
