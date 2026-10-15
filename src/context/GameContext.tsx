@@ -57,6 +57,8 @@ interface GameContextType {
       runnerOutReason?: RunnerOutReason;
       extraOuts?: number;
       scoringContext?: PlayScoringContext;
+      /** Explicit inning for historical corrections; defaults to the live inning. */
+      targetInning?: number;
     }
   ) => Play | undefined;
   /** Append several plays produced by one button press as a single undoable group. */
@@ -1069,6 +1071,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         runnerSubNumber?: string;
         extraOuts?: number;
         scoringContext?: PlayScoringContext;
+      /** Explicit inning for historical corrections; defaults to the live inning. */
+      targetInning?: number;
       }
     ): Play | undefined => {
       if (!liveGame) return undefined;
@@ -1078,9 +1082,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if code is homeRun and homeRunAddsRunAndRbi setting is enabled
       const newPlays: Play[] = [];
       const now = Date.now();
-      const currentPos = options?.defensivePosition || liveGame.fieldingPositions?.[liveGame.innings];
+      const targetInning = options?.targetInning ?? liveGame.innings;
+      const currentPos = options?.defensivePosition || liveGame.fieldingPositions?.[targetInning];
       const currentInningSpot =
-        liveGame.inningLineupSpots?.[liveGame.innings] ?? liveGame.lineupSpot;
+        liveGame.inningLineupSpots?.[targetInning] ?? liveGame.lineupSpot;
       const currentLineupSpot =
         mode === 'batting'
           ? (options?.lineupSpot !== undefined ? options.lineupSpot : currentInningSpot)
@@ -1089,7 +1094,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (mode === 'batting' && code === 'homeRun' && settings.homeRunAddsRunAndRbi) {
         newPlays.push({
           id: 'play_' + now + '_hr',
-          inning: liveGame.innings,
+          inning: targetInning,
           mode: 'batting',
           code: 'homeRun',
           timestamp: now,
@@ -1099,7 +1104,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         newPlays.push({
           id: 'play_' + (now + 1) + '_rbi',
-          inning: liveGame.innings,
+          inning: targetInning,
           mode: 'batting',
           code: 'rbi',
           timestamp: now + 1,
@@ -1108,7 +1113,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         newPlays.push({
           id: 'play_' + (now + 2) + '_run',
-          inning: liveGame.innings,
+          inning: targetInning,
           mode: 'batting',
           code: 'run',
           timestamp: now + 2,
@@ -1118,7 +1123,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         newPlays.push({
           id: 'play_' + now + '_' + Math.random().toString(36).substring(2, 6),
-          inning: liveGame.innings,
+          inning: targetInning,
           mode,
           code,
           timestamp: now,
