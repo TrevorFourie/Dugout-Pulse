@@ -62,7 +62,7 @@ interface GameContextType {
     }
   ) => Play | undefined;
   /** Append several plays produced by one button press as a single undoable group. */
-  addPlays: (seeds: PlaySeed[]) => Play[];
+  addPlays: (seeds: PlaySeed[], targetInning?: number) => Play[];
   undoLastPlay: () => void;
   deletePlay: (playId: string) => void;
   editPlay: (
@@ -1167,15 +1167,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Append several plays from one action (e.g. pitch + auto-walk + run) as one undoable group.
   const addPlays = useCallback(
-    (seeds: PlaySeed[]): Play[] => {
+    (seeds: PlaySeed[], targetInning?: number): Play[] => {
       if (!liveGame || seeds.length === 0) return [];
       triggerHaptic();
       const now = Date.now();
       const groupId = seeds.length > 1 ? 'grp_' + now + '_' + Math.random().toString(36).substring(2, 6) : undefined;
+      const inningForPlays = targetInning ?? liveGame.innings;
       const newPlays: Play[] = seeds.map((seed, index) => ({
         ...seed,
         id: 'play_' + (now + index) + '_' + Math.random().toString(36).substring(2, 6),
-        inning: liveGame.innings,
+        inning: inningForPlays,
         timestamp: now + index,
         ...(groupId ? { groupId } : {}),
       }));
