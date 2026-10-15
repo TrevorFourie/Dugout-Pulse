@@ -465,8 +465,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     playsInInning.forEach((play) => deletePlay(play.id));
 
     // 2. Bench/rest is independent from the defensive position.
-    if (inningToBench === liveGame.innings && !liveGame.benchInnings.includes(inningToBench)) {
-      toggleBenchCurrentInning();
+    if (!liveGame.benchInnings.includes(inningToBench)) {
+      setInningBench(inningToBench, true);
     }
 
     // 3. Stay on this inning. The scorer moves on with "Start Next Inning" when ready.
@@ -2890,7 +2890,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={() => {
-                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+                if (liveGame.benchInnings.includes(currentInning)) setInningBench(currentInning, false);
               }}
               className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
             >
@@ -2983,7 +2983,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={() => {
-                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+                if (liveGame.benchInnings.includes(currentInning)) setInningBench(currentInning, false);
               }}
               className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
             >
@@ -3035,7 +3035,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={() => {
-                if (liveGame.benchInnings.includes(currentInning)) toggleBenchCurrentInning();
+                if (liveGame.benchInnings.includes(currentInning)) setInningBench(currentInning, false);
               }}
               className="inline-flex items-center justify-center px-4 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-95 text-[#18212D] dark:text-[#101419] text-xs font-semibold transition-all shadow-xs cursor-pointer"
             >
@@ -3307,7 +3307,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           } else {
             const heldPosition = liveGame.fieldingPositions?.[currentInning];
             if (liveGame.benchInnings.includes(currentInning)) {
-              toggleBenchCurrentInning();
+              setInningBench(currentInning, false);
               setInningPosition(currentInning, val);
               // Only exception to staying on Fielding: becoming the Pitcher opens the Pitching tab.
               if (val === 'P') setActiveMode('pitching');
