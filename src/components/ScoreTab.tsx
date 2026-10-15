@@ -359,7 +359,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       ? liveGame.fieldingPositions?.[liveGame.innings] ||
         (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
       : undefined,
-    flowKey: liveGame?.id,
+    flowKey: liveGame ? `${liveGame.id}:inning-${viewedInning}` : null,
     homeRunAddsRunAndRbi: !settings.homeRunAddsRunAndRbi,
   });
 
