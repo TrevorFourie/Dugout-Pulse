@@ -308,11 +308,30 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [benchConfirmInning, setBenchConfirmInning] = useState<number | null>(null);
   // Position change awaiting the scorer's confirmation (mid-inning switch vs. correcting a mistake)
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
-  const [runnerSession, setRunnerSession] = useState<RunnerLifecycleState | null>(null);
-  const [runnerHistory, setRunnerHistory] = useState<Array<{ state: RunnerLifecycleState; playIds: string[] }>>([]);
+  type RunnerHistoryEntry = { state: RunnerLifecycleState; playIds: string[] };
   type ActiveRunnerChip = { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string };
+  const [runnerSessions, setRunnerSessions] = useState<Record<number, RunnerLifecycleState | null>>({});
+  const [runnerHistories, setRunnerHistories] = useState<Record<number, RunnerHistoryEntry[]>>({});
   const [activeRunnerChips, setActiveRunnerChips] = useState<Record<number, ActiveRunnerChip>>({});
-  // Runner chips belong to an inning. Updating/clearing the viewed inning must not erase another inning's runner.
+
+  // All transient runner workflow state is scoped to the inning being viewed. Ending or
+  // correcting one inning must not clear the runner workflow for another inning.
+  const setRunnerSession = (next: RunnerLifecycleState | null | ((current: RunnerLifecycleState | null) => RunnerLifecycleState | null)) => {
+    setRunnerSessions((previous) => {
+      const current = previous[viewedInning] ?? null;
+      const resolved = typeof next === 'function' ? next(current) : next;
+      if (resolved === current) return previous;
+      return { ...previous, [viewedInning]: resolved };
+    });
+  };
+  const setRunnerHistory = (next: RunnerHistoryEntry[] | ((current: RunnerHistoryEntry[]) => RunnerHistoryEntry[])) => {
+    setRunnerHistories((previous) => {
+      const current = previous[viewedInning] ?? [];
+      const resolved = typeof next === 'function' ? next(current) : next;
+      if (resolved === current) return previous;
+      return { ...previous, [viewedInning]: resolved };
+    });
+  };
   const setActiveRunnerChip = (next: ActiveRunnerChip | null | ((current: ActiveRunnerChip | null) => ActiveRunnerChip | null)) => {
     setActiveRunnerChips((previous) => {
       const current = previous[viewedInning] ?? null;
@@ -852,6 +871,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // Active Live Game View
   const isEditing = Boolean(editingGameId);
   const currentInning = viewedInning;
+  const runnerSession = runnerSessions[currentInning] ?? null;
+  const runnerHistory = runnerHistories[currentInning] ?? [];
   const activeRunnerChip = activeRunnerChips[currentInning] ?? null;
   const currentInningPosition: DefensivePosition =
     liveGame.fieldingPositions?.[currentInning] || (liveGame.benchInnings.includes(currentInning) ? 'BENCH' : 'CF');
