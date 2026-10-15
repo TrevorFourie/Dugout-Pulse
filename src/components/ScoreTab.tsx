@@ -277,6 +277,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [selectedPlayForEdit, setSelectedPlayForEdit] = useState<Play | null>(null);
   const [showEditDetails, setShowEditDetails] = useState(false);
   const [playFeedFilter, setPlayFeedFilter] = useState<'all' | 'batting' | 'pitching' | 'fielding'>('batting');
+  const [isPlaysModalOpen, setIsPlaysModalOpen] = useState(false);
 
   // Hit Direction Tapper and Spray Chart states
   const [hitTapperEnabled, setHitTapperEnabled] = useState<boolean>(() => settings.trackHitLocation ?? true);
@@ -3338,7 +3339,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
           <button
             type="button"
-            onClick={() => onChangeView?.('plays')}
+            onClick={() => setIsPlaysModalOpen(true)}
             className="h-12 px-2 rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] text-slate-700 dark:text-[#D1D5DB] text-sm font-semibold flex items-center justify-center gap-1.5 shadow-2xs active:bg-slate-100 dark:active:bg-[#252D38] transition-colors cursor-pointer"
           >
             <span>Plays</span>
@@ -3365,16 +3366,30 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       </div>
       </>
       )}
-      {view === 'plays' && (
-      <>
-      <button
-        type="button"
-        onClick={() => onChangeView?.('score')}
-        className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] py-2.5 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer shadow-2xs"
+      {isPlaysModalOpen && (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-5 backdrop-blur-xs animate-in fade-in duration-150"
+        onClick={() => setIsPlaysModalOpen(false)}
       >
-        ← Back to Scoring
-      </button>
-
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="plays-modal-title"
+          onClick={(event) => event.stopPropagation()}
+          className="w-full max-w-3xl max-h-[90dvh] flex flex-col overflow-hidden rounded-xl border border-slate-200 dark:border-[#354050] bg-[#F4F6F8] dark:bg-[#101419] shadow-2xl"
+        >
+          <div className="shrink-0 flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028]">
+            <h2 id="plays-modal-title" className="text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">Plays</h2>
+            <button
+              type="button"
+              onClick={() => setIsPlaysModalOpen(false)}
+              aria-label="Close plays"
+              className="p-2 rounded-md text-slate-500 hover:bg-slate-100 hover:text-[#18212D] dark:text-[#9CA3AF] dark:hover:bg-[#252D38] dark:hover:text-[#FAFAFA]"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
       {/* Recent Plays Feed */}
       <div className="bg-white dark:bg-[#252D38] rounded-md p-4 sm:p-5 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-4">
         {/* Section Header */}
@@ -3503,8 +3518,17 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </div>
         )}
 
+          <div className="shrink-0 p-3 border-t border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsPlaysModalOpen(false)}
+              className="px-5 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-sm font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB]"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       </div>
-      </>
       )}
 
       {/* Confirmation Modals */}
