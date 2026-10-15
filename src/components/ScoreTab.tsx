@@ -258,6 +258,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   });
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  // The inning being viewed is separate from the authoritative live inning.
+  const [viewedInning, setViewedInning] = useState(() => liveGame?.innings ?? 1);
+  useEffect(() => {
+    if (liveGame) setViewedInning(liveGame.innings);
+  }, [liveGame?.id, liveGame?.innings]);
+
   // Inning / half-inning change notice banner
   const [inningNotice, setInningNotice] = useState<{
     id: number;
@@ -324,6 +330,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           pitcherHand,
           lineupSpot: liveGame?.lineupSpot,
           hitLocation: preselectedLoc,
+          targetInning: viewedInning,
           extraOuts: scoringMeta?.extraOuts,
           scoringContext: scoringMeta?.scoringContext,
         });
@@ -339,11 +346,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           ? liveGame.fieldingPositions?.[liveGame.innings] ||
             (liveGame.benchInnings.includes(liveGame.innings) ? 'BENCH' : 'CF')
           : undefined;
-        addPlay('fielding', code, { defensivePosition: inningPosition });
+        addPlay('fielding', code, { defensivePosition: inningPosition, targetInning: viewedInning });
       } else {
         addPlay('pitching', code, {
           autoOutcome: eventOptions?.autoOutcome,
           isExtraOut: eventOptions?.isExtraOut,
+          targetInning: viewedInning,
         });
       }
     },
@@ -827,7 +835,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Active Live Game View
   const isEditing = Boolean(editingGameId);
-  const currentInning = liveGame.innings;
+  const currentInning = viewedInning;
   const currentInningPosition: DefensivePosition =
     liveGame.fieldingPositions?.[currentInning] || (liveGame.benchInnings.includes(currentInning) ? 'BENCH' : 'CF');
 
@@ -2725,7 +2733,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               <div className="flex items-center shrink-0 pl-1  bg-[#18212D] dark:bg-[#252D38] ">
                 <button
                   type="button"
-                  onClick={prevInning}
+                  onClick={() => setViewedInning((inning) => Math.max(1, inning - 1))}
                   disabled={currentInning <= 1}
                   aria-label="Previous inning"
                   className="w-10 h-11 flex items-center justify-center text-white disabled:text-white/25 active:bg-white/10 rounded-md"
@@ -2735,7 +2743,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 <span className="text-[16px] font-semibold tracking-tight whitespace-nowrap">Inning {currentInning} of {Math.max(settings.inningsPerGame, currentInning)}</span>
                 <button
                   type="button"
-                  onClick={() => setInning(currentInning + 1)}
+                  onClick={() => setViewedInning((inning) => Math.min(reachedInning, inning + 1))}
                   disabled={currentInning >= reachedInning}
                   aria-label="Next inning"
                   className="w-10 h-11 flex items-center justify-center text-white disabled:text-white/25 active:bg-white/10 rounded-md"
