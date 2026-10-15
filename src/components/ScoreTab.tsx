@@ -122,6 +122,23 @@ const POSITION_NAMES: Record<string, string> = {
   HOME: 'Home plate',
 };
 const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
+
+const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
+const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
+type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
+type PersistedRunnerWorkflow = {
+  runnerSessions: Record<string, RunnerLifecycleState | null>;
+  runnerHistories: Record<string, { state: RunnerLifecycleState; playIds: string[] }[]>;
+  activeRunnerChips: Record<string, { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string }>;
+};
+const readLocalJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? ({ ...fallback as object, ...JSON.parse(raw) } as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 const ordinal = (n: number): string => {
   const mod100 = n % 100;
   if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
@@ -188,6 +205,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     cancelEditing,
     updateLiveGameDetails,
     settings,
+    resumePromptPending,
+    dismissResumePrompt,
   } = useGame();
 
   // Normalize list of teams for the active player profile
@@ -239,6 +258,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Active scoring mode
   const [activeMode, setActiveMode] = useState<PlayMode>(() => {
+    const savedMode = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.activeMode : undefined;
+    if (savedMode) return savedMode;
     if (!liveGame) return 'batting';
     const isHome = liveGame.isHome !== false;
     const curInn = liveGame.innings || 1;
@@ -259,10 +280,29 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // The inning being viewed is separate from the authoritative live inning.
-  const [viewedInning, setViewedInning] = useState(() => liveGame?.innings ?? 1);
+  const [viewedInning, setViewedInning] = useState(() => {
+    const savedInning = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.viewedInning : undefined;
+    return savedInning && savedInning > 0 ? savedInning : liveGame?.innings ?? 1;
+  });
+  const previousLiveInningRef = useRef(liveGame?.innings);
   useEffect(() => {
-    if (liveGame) setViewedInning(liveGame.innings);
+    if (liveGame && previousLiveInningRef.current !== liveGame.innings) {
+      setViewedInning(liveGame.innings);
+    }
+    previousLiveInningRef.current = liveGame?.innings;
   }, [liveGame?.id, liveGame?.innings]);
+  useEffect(() => {
+    if (!liveGame) return;
+    try {
+      const stored = readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {});
+      localStorage.setItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
+        ...stored,
+        [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
+      }));
+    } catch (error) {
+      console.error('Failed to persist scoring screen state:', error);
+    }
+  }, [liveGame?.id, viewedInning, activeMode, pitcherHand]);
 
   // Inning / half-inning change notice banner
   const [inningNotice, setInningNotice] = useState<{
@@ -272,7 +312,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   } | null>(null);
 
   // Pitcher Handedness Split toggle ('R' or 'L')
-  const [pitcherHand, setPitcherHand] = useState<PitcherHand>('R');
+  const [pitcherHand, setPitcherHand] = useState<PitcherHand>(() => {
+    const savedHand = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.pitcherHand : undefined;
+    return savedHand === 'L' || savedHand === 'R' ? savedHand : 'R';
+  });
 
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -310,9 +353,16 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
   type RunnerHistoryEntry = { state: RunnerLifecycleState; playIds: string[] };
   type ActiveRunnerChip = { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string };
-  const [runnerSessions, setRunnerSessions] = useState<Record<string, RunnerLifecycleState | null>>({});
-  const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>({});
-  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>({});
+  const [runnerSessions, setRunnerSessions] = useState<Record<string, RunnerLifecycleState | null>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).runnerSessions);
+  const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).runnerHistories);
+  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).activeRunnerChips);
+  useEffect(() => {
+    try {
+      localStorage.setItem(RUNNER_WORKFLOW_STORAGE_KEY, JSON.stringify({ runnerSessions, runnerHistories, activeRunnerChips }));
+    } catch (error) {
+      console.error('Failed to persist runner workflow state:', error);
+    }
+  }, [runnerSessions, runnerHistories, activeRunnerChips]);
 
   // All transient runner workflow state is scoped to the inning being viewed. Ending or
   // correcting one inning must not clear the runner workflow for another inning.
