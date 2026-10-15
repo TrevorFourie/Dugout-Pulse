@@ -310,7 +310,23 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
   const [runnerSession, setRunnerSession] = useState<RunnerLifecycleState | null>(null);
   const [runnerHistory, setRunnerHistory] = useState<Array<{ state: RunnerLifecycleState; playIds: string[] }>>([]);
-  const [activeRunnerChip, setActiveRunnerChip] = useState<{ inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string } | null>(null);
+  type ActiveRunnerChip = { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string };
+  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<number, ActiveRunnerChip>>({});
+  // Runner chips belong to an inning. Updating/clearing the viewed inning must not erase another inning's runner.
+  const setActiveRunnerChip = (next: ActiveRunnerChip | null | ((current: ActiveRunnerChip | null) => ActiveRunnerChip | null)) => {
+    setActiveRunnerChips((previous) => {
+      const current = previous[viewedInning] ?? null;
+      const resolved = typeof next === 'function' ? next(current) : next;
+      if (resolved === current) return previous;
+      if (resolved === null) {
+        if (!(viewedInning in previous)) return previous;
+        const updated = { ...previous };
+        delete updated[viewedInning];
+        return updated;
+      }
+      return { ...previous, [viewedInning]: { ...resolved, inning: viewedInning } };
+    });
+  };
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
 
@@ -836,6 +852,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // Active Live Game View
   const isEditing = Boolean(editingGameId);
   const currentInning = viewedInning;
+  const activeRunnerChip = activeRunnerChips[currentInning] ?? null;
   const currentInningPosition: DefensivePosition =
     liveGame.fieldingPositions?.[currentInning] || (liveGame.benchInnings.includes(currentInning) ? 'BENCH' : 'CF');
 
