@@ -1697,7 +1697,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       // Clear any pending runner session, active runner chip, and hit tapper
       setRunnerSession(null);
       setRunnerHistory([]);
-      setActiveRunnerChip(null);
+      // Ending a historical inning must not erase a runner saved for the live inning.
+      setActiveRunnerChip((runner) => (runner?.inning === currentInning ? null : runner));
       setPendingHitPlay(null);
       pendingRunnerPrimaryPlayIdRef.current = null;
       pendingRunnerAfterHitRef.current = null;
@@ -1738,9 +1739,16 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           `Inning ${currentInning} complete`,
           'All scheduled innings are done. Choose End Game or Add Another Inning.'
         );
+      } else if (bothConditionsMet && currentInning !== liveGame.innings) {
+        // Correcting a historical inning must never advance the authoritative live inning.
+        updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
+        showInningNotice(
+          `Inning ${currentInning} updated`,
+          `Historical inning complete. Live scoring remains on Inning ${liveGame.innings}.`
+        );
       } else if (bothConditionsMet) {
-        // Both fielded and batted are complete for this inning!
-        // Move on to the next innings ONLY now!
+        // Both fielded and batted are complete for the live inning.
+        // Move on to the next inning ONLY now!
         updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
         nextInning(); // changes liveGame.innings to currentInning + 1
 
@@ -1797,6 +1805,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       liveGame.benchInnings,
       liveGame.fieldingPositions,
       liveGame.halfInningStatus,
+      liveGame.innings,
       nextInning,
       playFlow,
       settings.inningsPerGame,
