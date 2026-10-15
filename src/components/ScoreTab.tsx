@@ -291,18 +291,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
     previousLiveInningRef.current = liveGame?.innings;
   }, [liveGame?.id, liveGame?.innings]);
-  useEffect(() => {
-    if (!liveGame) return;
-    try {
-      const stored = readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {});
-      localStorage.setItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
-        ...stored,
-        [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
-      }));
-    } catch (error) {
-      console.error('Failed to persist scoring screen state:', error);
-    }
-  }, [liveGame?.id, viewedInning, activeMode, pitcherHand]);
 
   // Inning / half-inning change notice banner
   const [inningNotice, setInningNotice] = useState<{
@@ -316,6 +304,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     const savedHand = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.pitcherHand : undefined;
     return savedHand === 'L' || savedHand === 'R' ? savedHand : 'R';
   });
+  useEffect(() => {
+    if (!liveGame) return;
+    try {
+      const stored = readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {});
+      localStorage.setItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
+        ...stored,
+        [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
+      }));
+    } catch (error) {
+      console.error('Failed to persist scoring screen state:', error);
+    }
+  }, [liveGame?.id, viewedInning, activeMode, pitcherHand]);
 
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -2500,6 +2500,45 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         touchStartRef.current = null;
       }}
     >
+      {resumePromptPending && liveGame && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resume-game-title"
+            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+          >
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#00BFA5]/15 text-[#008F7C] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">
+              <PlayIcon className="h-6 w-6" />
+            </div>
+            <h2 id="resume-game-title" className="text-center text-xl font-bold text-slate-900 dark:text-[#FAFAFA]">
+              Continue Where you left off
+            </h2>
+            <p className="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
+              You have a game in progress{liveGame.opponent ? ` against ${liveGame.opponent}` : ''}. Your saved plays and scoring state are ready to resume.
+            </p>
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-[#354050] dark:bg-[#252D38]">
+              <p className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{liveGame.teamName || 'Your team'}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Inning {viewedInning} of {liveGame.innings}</p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissResumePrompt}
+              className="mt-5 w-full rounded-lg bg-[#00BFA5] px-4 py-3 text-sm font-bold text-[#18212D] shadow-sm transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"
+            >
+              Continue Game
+            </button>
+            <button
+              type="button"
+              onClick={dismissResumePrompt}
+              className="mt-2 w-full rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
+            >
+              Not now
+            </button>
+          </section>
+        </div>
+      )}
+
       {lineupSpotPromptOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
           <section
