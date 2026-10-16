@@ -153,9 +153,9 @@ export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
 type DoublePlayAction = 'catch' | 'step' | 'throw';
 
 const DOUBLE_PLAY_ACTIONS: { action: DoublePlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Fly ball, line drive or throw for an out (Putout)' },
-  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Doubled off a runner who left early, or a force or tag (Putout)' },
-  { action: 'throw', title: 'Threw to a base', description: 'Throw that helped complete the double play (Assist)' },
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
+  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
 ];
 
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
@@ -402,7 +402,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
   // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
-  const [fieldingChain, setFieldingChain] = useState<{ endsHalfInning: boolean } | null>(null);
+  const [fieldingChain, setFieldingChain] = useState<{ endsHalfInning: boolean; playType: 'doublePlay' | 'triplePlay' } | null>(null);
   const [dpActions, setDpActions] = useState<DoublePlayAction[]>([]);
 
   const playFlow = usePlayFlow({
@@ -1978,9 +1978,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       // A Double Play asks what the player did on it (catch / step on base / throw) in a modal. When the
       // play ends the half-inning, the third-out handling waits until that modal is confirmed or skipped.
       const endsHalfInning = playOuts > 0 && outsBefore + playOuts >= 3;
-      if (code === 'doublePlay') {
+      if (code === 'doublePlay' || code === 'triplePlay') {
         setDpActions([]);
-        setFieldingChain({ endsHalfInning });
+        setFieldingChain({ endsHalfInning, playType: code });
       } else if (endsHalfInning) {
         handleThirdOut('fielding');
       }
@@ -2005,7 +2005,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     if (!fieldingChain) return;
     const endsHalfInning = fieldingChain.endsHalfInning;
     for (const action of dpActions) {
-      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', { partOfMultiOutPlay: true, targetInning: viewedInning });
+      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', {
+        defensivePosition: currentInningPosition,
+        partOfMultiOutPlay: true,
+        targetInning: viewedInning,
+      });
     }
     setFieldingChain(null);
     setDpActions([]);
@@ -3836,15 +3840,15 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             className="w-full max-w-md bg-white dark:bg-[#1A2028] rounded-md shadow-2xl border border-slate-200 dark:border-[#354050] p-6"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="double-play-title"
+            aria-labelledby="multi-out-play-title"
           >
             <div className="flex items-start gap-2">
               <div className="p-3 rounded-md shrink-0 bg-teal-100 text-[#00BFA5] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">
                 <Zap className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 id="double-play-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                  Double Play: what did {activeProfile.playerName || 'the player'} do?
+                <h3 id="multi-out-play-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
+                  {fieldingChain.playType === 'triplePlay' ? 'Triple Play' : 'Double Play'}: what did {activeProfile.playerName || 'the player'} do?
                 </h3>
                 <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB] leading-relaxed">
                   Select everything that applies.
