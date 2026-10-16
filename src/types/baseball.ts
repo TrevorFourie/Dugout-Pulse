@@ -161,6 +161,8 @@ export interface Play {
   scoringContext?: PlayScoringContext; // Situation the smart-scoring engine used to validate this play
   partOfMultiOutPlay?: boolean; // Player's putout/assist on a double play; its outs are already counted by the doublePlay play
   isExtraOut?: boolean; // For double/triple plays, marks secondary out so it doesn't count as an extra pitch
+  multiOutPlayType?: 'doublePlay' | 'triplePlay'; // Identifies whether secondary outs belong to a DP or TP
+  multiOutNumber?: 2 | 3; // The ordinal of this out within a multi-out play
   autoOutcome?: boolean; // For strikeout/walk auto-triggered by reaching 3 strikes / 4 balls
   runnerFromBase?: 1 | 2 | 3;
   runnerToBase?: 1 | 2 | 3 | 4;
