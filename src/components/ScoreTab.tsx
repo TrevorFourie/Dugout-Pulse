@@ -2005,8 +2005,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  const toggleDpAction = (action: MultiOutPlayAction) => {
-    setDpActions((prev) => (prev.includes(action) ? prev.filter((a) => a !== action) : [...prev, action]));
+  // Each selection is a separate fielding contribution. Duplicate actions are intentional:
+  // a player may record multiple putouts or assists during the same multi-out play.
+  const addDpAction = (action: MultiOutPlayAction) => {
+    setDpActions((prev) => [...prev, action]);
+  };
+
+  const removeDpAction = (action: MultiOutPlayAction) => {
+    setDpActions((prev) => {
+      const index = prev.lastIndexOf(action);
+      if (index === -1) return prev;
+      return prev.filter((_, itemIndex) => itemIndex !== index);
+    });
   };
 
   // Confirm the double play follow-up: log the player's putout(s) / assist, then end the half-inning if needed.
@@ -3867,23 +3877,50 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
             <div className="mt-5 space-y-2.5">
               {(fieldingChain.playType === 'triplePlay' ? TRIPLE_PLAY_ACTIONS : DOUBLE_PLAY_ACTIONS).map((opt) => {
-                const selected = dpActions.includes(opt.action);
+                const count = dpActions.filter((action) => action === opt.action).length;
                 return (
-                  <button
+                  <div
                     key={opt.action}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={selected}
-                    onClick={() => toggleDpAction(opt.action)}
-                    className={`w-full rounded-md px-4 py-3 text-left active:scale-[0.99] transition-all cursor-pointer ${
-                      selected
-                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-md'
-                        : 'border border-slate-300 dark:border-[#354050] text-slate-800 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38]'
+                    className={`w-full rounded-md border px-3 py-3 transition-all ${
+                      count > 0
+                        ? 'border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5]/10 dark:bg-[#00D7BC]/10'
+                        : 'border-slate-300 dark:border-[#354050]'
                     }`}
                   >
-                    <span className="block text-sm font-semibold">{opt.title}</span>
-                    <span className="block text-xs font-normal opacity-80">{opt.description}</span>
-                  </button>
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{opt.title}</span>
+                        <span className="block text-xs text-slate-600 dark:text-[#D1D5DB]">{opt.description}</span>
+                        {count > 0 && (
+                          <span className="mt-1 block text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">
+                            Selected {count} {count === 1 ? 'time' : 'times'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => removeDpAction(opt.action)}
+                          disabled={count === 0}
+                          aria-label={`Remove one: ${opt.title}`}
+                          className="h-9 w-9 rounded-md border border-slate-300 dark:border-[#465160] text-lg font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center text-sm font-bold tabular-nums text-slate-900 dark:text-[#FAFAFA]" aria-label={`${count} selected`}>
+                          {count}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => addDpAction(opt.action)}
+                          aria-label={`Add one: ${opt.title}`}
+                          className="h-9 w-9 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-lg font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB]"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
               <button
