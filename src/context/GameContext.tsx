@@ -1150,6 +1150,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           runnerSubNumber: options?.runnerSubNumber,
           extraOuts: options?.extraOuts || undefined,
           scoringContext: mode === 'batting' ? options?.scoringContext : undefined,
+          errorType: mode === 'batting' ? options?.errorType : undefined,
         });
       }
 
