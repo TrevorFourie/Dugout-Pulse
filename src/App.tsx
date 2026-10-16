@@ -11,7 +11,7 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 
 const MainApp: React.FC = () => {
-  const { isFirstTimeUser, setIsFirstTimeUser } = useGame();
+  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [scoreView, setScoreView] = useState<'score' | 'plays'>('score');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -66,6 +66,7 @@ const MainApp: React.FC = () => {
             onOpenHelp={(mode) => handleOpenHelp(mode)}
             onOpenSettings={() => handleOpenSettings()}
             onGameClosed={() => { setScoreView('score'); setActiveTab('dashboard'); }}
+            onCancelResume={() => { dismissResumePrompt(); setScoreView('score'); setActiveTab('dashboard'); }}
             view={scoreView}
             onChangeView={setScoreView}
           />
