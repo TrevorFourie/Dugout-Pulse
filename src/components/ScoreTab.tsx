@@ -153,9 +153,9 @@ export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
 type DoublePlayAction = 'catch' | 'step' | 'throw';
 
 const DOUBLE_PLAY_ACTIONS: { action: DoublePlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Fly ball, line drive or throw for an out (Putout)' },
-  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Doubled off a runner who left early, or a force or tag (Putout)' },
-  { action: 'throw', title: 'Threw to a base', description: 'Throw that helped complete the double play (Assist)' },
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
+  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
 ];
 
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
@@ -2005,7 +2005,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     if (!fieldingChain) return;
     const endsHalfInning = fieldingChain.endsHalfInning;
     for (const action of dpActions) {
-      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', { partOfMultiOutPlay: true, targetInning: viewedInning });
+      addPlay('fielding', action === 'throw' ? 'assist' : 'putout', {
+        defensivePosition: currentInningPosition,
+        partOfMultiOutPlay: true,
+        targetInning: viewedInning,
+      });
     }
     setFieldingChain(null);
     setDpActions([]);
