@@ -103,7 +103,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   const isHomeRun = currentCode === 'homeRun';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-80 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div
         className="w-full max-w-md max-h-[95vh] flex flex-col bg-white dark:bg-[#1A2028] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden"
         role="dialog"
