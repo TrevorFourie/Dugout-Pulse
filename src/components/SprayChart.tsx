@@ -576,7 +576,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
                     e.stopPropagation();
                     setActiveTooltipPlay(play);
                   }}
-                  className="cursor-pointer transition-transform hover:scale-125"
+                  className="cursor-pointer"
                 >
                   {/* Glowing teal halo for hits/plays that drove in runs (RBI) */}
                   {isRbiHit && (
