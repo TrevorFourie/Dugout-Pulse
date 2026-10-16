@@ -185,7 +185,7 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
             <>
               <button
                 type="button"
-                onClick={() => setOutcome('out')}
+                onClick={() => { setOutcome('out'); setMultiOutActions([]); setAction(null); }}
                 className={`${CARD} ${outcome === 'out' ? CARD_ON : CARD_OFF}`}
               >
                 <span className="block text-sm font-semibold">Out Recorded</span>
@@ -204,7 +204,7 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
                     <button
                       key={value}
                       type="button"
-                      onClick={() => setExtraOuts(value)}
+                      onClick={() => { setExtraOuts(value); setMultiOutActions([]); }}
                       className={`${CHIP} ${extraOuts === value ? CHIP_ON : CHIP_OFF}`}
                     >
                       {label}
