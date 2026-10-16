@@ -1720,6 +1720,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     'hbp',
     'out',
     'reachedOnError',
+    'catchersInterference',
   ];
 
   const showInningNotice = useCallback((title: string, subtitle: string) => {
