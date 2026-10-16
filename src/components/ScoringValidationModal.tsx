@@ -256,6 +256,7 @@ interface ScoringValidationModalProps {
   /** Outs before this plate appearance, from the game log. The user can still correct it. */
   initialOuts: number;
   onConfirm: (resolution: ScoringResolution) => void;
+  onBatterRunnerInterference: () => void;
   onCancel: () => void;
 }
 
@@ -263,6 +264,7 @@ export const ScoringValidationModal: React.FC<ScoringValidationModalProps> = ({
   playerName,
   initialOuts,
   onConfirm,
+  onBatterRunnerInterference,
   onCancel,
 }) => {
   const [state, dispatch] = useReducer(reducer, undefined, (): State => ({
@@ -336,6 +338,14 @@ export const ScoringValidationModal: React.FC<ScoringValidationModalProps> = ({
                     <div className="text-xs font-medium text-slate-500 dark:text-[#9CA3AF] mt-0.5">{a.hint}</div>
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={onBatterRunnerInterference}
+                  className="col-span-2 rounded-2xl border border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38] p-3.5 text-left hover:bg-slate-100 dark:hover:bg-[#354050]/70 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <div className="font-semibold text-sm text-slate-950 dark:text-[#FAFAFA]">Batter-runner interference</div>
+                  <div className="text-xs font-medium text-slate-500 dark:text-[#9CA3AF] mt-0.5">The batter-runner interfered with a fielder — record the batter as out.</div>
+                </button>
               </div>
             </>
           )}
