@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { SprayChart } from './SprayChart';
+import { ThemedDropdown } from './ThemedDropdown';
 import { isHitPlay } from '../utils/sprayChart';
 
 interface StatsTabProps {
@@ -210,51 +211,67 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Team</label>
-            <select
+            <ThemedDropdown<string>
+              ariaLabel="Filter stats by team"
               value={selectedTeam}
-              onChange={(e) => setSelectedTeam(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-medium text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-            >
-              <option value="ALL">All Teams ({availableTeams.length || 1})</option>
-              {availableTeams.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+              placeholder="All Teams"
+              allowClear={false}
+              onChange={(next) => next && setSelectedTeam(next)}
+              options={[
+                { value: 'ALL', label: `All Teams (${availableTeams.length || 1})` },
+                ...availableTeams.map((team) => ({ value: team, label: team })),
+              ]}
+              className="w-full"
+            />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Season</label>
-            <select
+            <ThemedDropdown<string>
+              ariaLabel="Filter stats by season"
               value={selectedSeason}
-              onChange={(e) => setSelectedSeason(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-medium text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-            >
-              <option value="ALL">All Seasons</option>
-              {availableSeasons.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              placeholder="All Seasons"
+              allowClear={false}
+              onChange={(next) => next && setSelectedSeason(next)}
+              options={[
+                { value: 'ALL', label: 'All Seasons' },
+                ...availableSeasons.map((season) => ({ value: season, label: season })),
+              ]}
+              className="w-full"
+            />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Age Group</label>
-            <select
+            <ThemedDropdown<string>
+              ariaLabel="Filter stats by age group"
               value={selectedAgeGroup}
-              onChange={(e) => setSelectedAgeGroup(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-medium text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-            >
-              <option value="ALL">All Age Groups</option>
-              {availableAgeGroups.map((ag) => <option key={ag} value={ag}>{ag}</option>)}
-            </select>
+              placeholder="All Age Groups"
+              allowClear={false}
+              onChange={(next) => next && setSelectedAgeGroup(next)}
+              options={[
+                { value: 'ALL', label: 'All Age Groups' },
+                ...availableAgeGroups.map((ageGroup) => ({ value: ageGroup, label: ageGroup })),
+              ]}
+              className="w-full"
+            />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Tournament</label>
-            <select
+            <ThemedDropdown<string>
+              ariaLabel="Filter stats by tournament"
               value={selectedTournament}
-              onChange={(e) => setSelectedTournament(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-medium text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-            >
-              <option value="ALL">All Games</option>
-              <option value="__TOURNAMENTS_ONLY__">Tournaments Only</option>
-              <option value="__LEAGUE_ONLY__">Regular League Only</option>
-              {availableTournaments.map((tourney) => <option key={tourney} value={tourney}>{tourney}</option>)}
-            </select>
+              placeholder="All Games"
+              allowClear={false}
+              onChange={(next) => next && setSelectedTournament(next)}
+              options={[
+                { value: 'ALL', label: 'All Games' },
+                { value: '__TOURNAMENTS_ONLY__', label: 'Tournaments Only' },
+                { value: '__LEAGUE_ONLY__', label: 'Regular League Only' },
+                ...availableTournaments.map((tournament) => ({ value: tournament, label: tournament })),
+              ]}
+              className="w-full"
+            />
           </div>
         </div>
       </div>
