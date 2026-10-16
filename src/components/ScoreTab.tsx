@@ -2631,7 +2631,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               onClick={() => setIsAbandonResumeModalOpen(true)}
               className="mt-3 w-full rounded-xl border-2 border-[#FF5252] bg-[#FF5252] px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
-              Discard Game
+              {isEditing ? 'Discard Edits' : 'Discard Game'}
             </button>
           </section>
         </div>
@@ -4057,10 +4057,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
       <ConfirmationModal
         isOpen={isAbandonResumeModalOpen}
-        title="Abandon This Game?"
-        message="Are you sure you want to abandon this game? All unsaved plays and scoring progress for this game will be permanently discarded."
-        confirmLabel="Yes, Abandon Game"
-        cancelLabel="Keep Playing"
+        title={isEditing ? 'Discard Edits?' : 'Discard This Game?'}
+        message={
+          isEditing
+            ? 'Are you sure you want to discard these edits? Your original saved game will remain unchanged.'
+            : 'Are you sure you want to discard this game? All recorded plays and scoring progress from this session will be permanently deleted.'
+        }
+        confirmLabel={isEditing ? 'Yes, Discard Edits' : 'Yes, Discard Game'}
+        cancelLabel={isEditing ? 'Keep Editing' : 'Keep Playing'}
         variant="danger"
         onConfirm={() => {
           setPendingHitPlay(null);
@@ -4069,10 +4073,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           setRunnerSession(null);
           setRunnerHistory([]);
           setActiveRunnerChip(null);
-          discardLiveGame();
+          if (isEditing) {
+            cancelEditing();
+          } else {
+            discardLiveGame();
+            onGameClosed?.();
+          }
           dismissResumePrompt();
           setIsAbandonResumeModalOpen(false);
-          onGameClosed?.();
         }}
         onCancel={() => setIsAbandonResumeModalOpen(false)}
       />
