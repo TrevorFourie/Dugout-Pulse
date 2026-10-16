@@ -57,6 +57,7 @@ interface GameContextType {
       runnerToBase?: 1 | 2 | 3 | 4;
       runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
       runnerOutReason?: RunnerOutReason;
+      outReason?: Play['outReason'];
       extraOuts?: number;
       scoringContext?: PlayScoringContext;
       /** Explicit inning for historical corrections; defaults to the live inning. */
@@ -1076,6 +1077,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         runnerToBase?: 1 | 2 | 3 | 4;
         runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
         runnerOutReason?: RunnerOutReason;
+      outReason?: Play['outReason'];
         runnerSubNumber?: string;
         extraOuts?: number;
         scoringContext?: PlayScoringContext;
@@ -1147,6 +1149,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           runnerToBase: options?.runnerToBase,
           runnerAdvanceCause: options?.runnerAdvanceCause,
           runnerOutReason: options?.runnerOutReason,
+          outReason: mode === 'batting' ? options?.outReason : undefined,
           runnerSubNumber: options?.runnerSubNumber,
           extraOuts: options?.extraOuts || undefined,
           scoringContext: mode === 'batting' ? options?.scoringContext : undefined,
