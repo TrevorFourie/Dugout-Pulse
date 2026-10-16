@@ -2612,7 +2612,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={dismissResumePrompt}
-              className="mt-5 w-full rounded-lg bg-[#00BFA5] px-4 py-3 text-sm font-bold text-[#18212D] shadow-sm transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"
+              className="mt-5 w-full rounded-xl bg-[#00BFA5] px-5 py-3 text-sm font-semibold text-[#18212D] shadow-md transition-all hover:bg-[#00A892] active:scale-[0.99] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA5] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
               Continue Game
             </button>
@@ -2622,14 +2622,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 dismissResumePrompt();
                 onCancelResume?.();
               }}
-              className="mt-2 w-full rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
+              className="mt-2 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
               Not now
             </button>
             <button
               type="button"
               onClick={() => setIsAbandonResumeModalOpen(true)}
-              className="mt-3 w-full rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:border-[#86252D] dark:bg-[#86252D]/20 dark:text-[#FF8A93] dark:hover:bg-[#86252D]/35"
+              className="mt-3 w-full rounded-xl bg-[#FF5252] px-5 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
               Discard Game
             </button>
