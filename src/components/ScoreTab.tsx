@@ -1955,6 +1955,20 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         setOutResolutionOpen(true);
         return;
       }
+      if (code === 'reachedOnError' && !pendingRoeErrorTypeRef.current) {
+        setRoeModalOpen(true);
+        return;
+      }
+      if (code === 'catchersInterference') {
+        const ciPlay = addPlay('batting', 'catchersInterference', {
+          pitcherHand,
+          lineupSpot: currentInningLineupSpot,
+          targetInning: viewedInning,
+        });
+        if (ciPlay) pendingRunnerPrimaryPlayIdRef.current = ciPlay.id;
+        startRunnerSession('walk');
+        return;
+      }
       if (getRunnerBaseForPrimary(code)) {
         playFlow.handlePrimaryBattingEvent(code as Parameters<typeof playFlow.handlePrimaryBattingEvent>[0]);
         // If the field tapper is enabled, the runner lockdown is deliberately deferred
