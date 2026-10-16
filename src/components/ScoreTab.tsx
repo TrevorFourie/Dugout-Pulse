@@ -2629,7 +2629,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={() => setIsAbandonResumeModalOpen(true)}
-              className="mt-3 w-full rounded-xl border-2 border-red-700 bg-red-700 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-red-800 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
+              className="mt-3 w-full rounded-xl border-2 border-[#FF5252] bg-[#FF5252] px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
               Discard Game
             </button>
@@ -2706,7 +2706,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 setIsDiscardModalOpen(true);
               }}
               aria-label="Cancel editing this game"
-              className="min-h-10 px-3 py-2 rounded-md border-2 border-red-700 bg-red-700 hover:bg-red-800 text-white text-sm font-bold inline-flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+              className="min-h-10 px-3 py-2 rounded-md border-2 border-[#FF5252] bg-[#FF5252] hover:bg-[#A82E38] text-white text-sm font-bold inline-flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2"
             >
               <X className="w-4 h-4" />
               Cancel Edit
@@ -2898,7 +2898,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                   setShowEditDetails(false);
                   setIsDiscardModalOpen(true);
                 }}
-                className="w-full h-11 rounded-md border-2 border-red-700 bg-red-700 hover:bg-red-800 text-white text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+                className="w-full h-11 rounded-md border-2 border-[#FF5252] bg-[#FF5252] hover:bg-[#A82E38] text-white text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{isEditing ? 'Cancel edit' : 'Discard this game'}</span>
