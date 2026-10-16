@@ -171,6 +171,7 @@ export interface Play {
   runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
   runnerSubNumber?: string;
   runnerOutReason?: RunnerOutReason; // How a baserunner was retired (runnerOut plays)
+  outReason?: 'batterRunnerInterference'; // Why the scored batter was recorded out
   // --- Pitching flow metadata (all optional so older saved games stay valid) ---
   groupId?: string; // plays created by one button press share a groupId so Undo removes them together
   pitchCounted?: boolean; // wild pitch / passed ball that already counts +1 pitch and +1 ball itself
