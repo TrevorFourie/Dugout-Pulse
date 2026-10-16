@@ -330,6 +330,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
+  const [isAbandonResumeModalOpen, setIsAbandonResumeModalOpen] = useState(false);
   const [isPitcherOutModalOpen, setIsPitcherOutModalOpen] = useState(false);
   const [isNextBatterModalOpen, setIsNextBatterModalOpen] = useState(false);
   const promptedTerminalPlayIdsRef = useRef<Set<string>>(new Set());
@@ -2588,7 +2589,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       }}
     >
       {resumePromptPending && liveGame && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div className={`fixed inset-0 ${isAbandonResumeModalOpen ? "z-40" : "z-[200]"} flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm`}>
           <section
             role="dialog"
             aria-modal="true"
@@ -2624,6 +2625,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               className="mt-2 w-full rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
             >
               Not now
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAbandonResumeModalOpen(true)}
+              className="mt-3 w-full rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:border-[#86252D] dark:bg-[#86252D]/20 dark:text-[#FF8A93] dark:hover:bg-[#86252D]/35"
+            >
+              Discard Game
             </button>
           </section>
         </div>
@@ -4046,6 +4054,28 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isAbandonResumeModalOpen}
+        title="Abandon This Game?"
+        message="Are you sure you want to abandon this game? All unsaved plays and scoring progress for this game will be permanently discarded."
+        confirmLabel="Yes, Abandon Game"
+        cancelLabel="Keep Playing"
+        variant="danger"
+        onConfirm={() => {
+          setPendingHitPlay(null);
+          pendingRunnerAfterHitRef.current = null;
+          pendingRunnerPrimaryPlayIdRef.current = null;
+          setRunnerSession(null);
+          setRunnerHistory([]);
+          setActiveRunnerChip(null);
+          discardLiveGame();
+          dismissResumePrompt();
+          setIsAbandonResumeModalOpen(false);
+          onGameClosed?.();
+        }}
+        onCancel={() => setIsAbandonResumeModalOpen(false)}
+      />
 
       <ConfirmationModal
         isOpen={isDiscardModalOpen}
