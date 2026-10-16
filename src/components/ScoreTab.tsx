@@ -150,12 +150,21 @@ export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
   return <ScoreTabInner key={liveGame ? `game-${liveGame.id}` : 'no-game'} {...props} />;
 };
 
-type DoublePlayAction = 'catch' | 'step' | 'throw';
+type MultiOutPlayAction = 'catch' | 'tag' | 'step' | 'throw';
 
-const DOUBLE_PLAY_ACTIONS: { action: DoublePlayAction; title: string; description: string }[] = [
+const DOUBLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
   { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
   { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
   { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
+];
+
+// Keep actions general rather than naming bases or runner destinations, so this covers
+// different triple-play sequences without assuming a specific starting situation.
+const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'tag', title: 'Tagged a runner', description: 'Recorded an out by tagging a runner (Putout)' },
+  { action: 'step', title: 'Stepped on a base', description: 'Recorded an out by touching a base, including a force or appeal play (Putout)' },
+  { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
 ];
 
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
@@ -403,7 +412,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
   // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
   const [fieldingChain, setFieldingChain] = useState<{ endsHalfInning: boolean; playType: 'doublePlay' | 'triplePlay' } | null>(null);
-  const [dpActions, setDpActions] = useState<DoublePlayAction[]>([]);
+  const [dpActions, setDpActions] = useState<MultiOutPlayAction[]>([]);
 
   const playFlow = usePlayFlow({
     onEvent: (mode, code, eventOptions) => {
@@ -1996,7 +2005,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  const toggleDpAction = (action: DoublePlayAction) => {
+  const toggleDpAction = (action: MultiOutPlayAction) => {
     setDpActions((prev) => (prev.includes(action) ? prev.filter((a) => a !== action) : [...prev, action]));
   };
 
@@ -3857,7 +3866,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             </div>
 
             <div className="mt-5 space-y-2.5">
-              {DOUBLE_PLAY_ACTIONS.map((opt) => {
+              {(fieldingChain.playType === 'triplePlay' ? TRIPLE_PLAY_ACTIONS : DOUBLE_PLAY_ACTIONS).map((opt) => {
                 const selected = dpActions.includes(opt.action);
                 return (
                   <button
