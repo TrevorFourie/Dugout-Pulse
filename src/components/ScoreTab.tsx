@@ -342,6 +342,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingHitPlay, setPendingHitPlay] = useState<{ playId: string; code: PlayCode } | null>(null);
   const [isGameSprayModalOpen, setIsGameSprayModalOpen] = useState(false);
   const [isDirectTapperOpen, setIsDirectTapperOpen] = useState(false);
+  const [isFoulTapperOpen, setIsFoulTapperOpen] = useState(false);
   const pendingHitLocationRef = useRef<HitLocation | null>(null);
   // Smart-scoring metadata (extra outs, validated context) waiting to be attached to the next primary batting play.
   const pendingScoringMetaRef = useRef<{
@@ -3091,6 +3092,16 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 </div>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setIsFoulTapperOpen(true)}
+              disabled={playFlow.isPrimaryEventDisabled}
+              className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              title="Record a foul ball and map where it went without ending the plate appearance"
+            >
+              <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">FOUL</span>
+              <span className="mt-1.5 text-[13px] font-medium text-slate-600 dark:text-[#D1D5DB]">Foul ball</span>
+            </button>
           </div>
         )
       ) : activeMode === 'pitching' ? (
@@ -4054,6 +4065,25 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             setPendingHitPlay(null);
             if (runnerCode) startRunnerSession(runnerCode);
           }}
+        />
+      )}
+
+      {/* Foul-ball location: records the contact location without ending the plate appearance */}
+      {isFoulTapperOpen && (
+        <HitLocationModal
+          isOpen={isFoulTapperOpen}
+          playCode="pitchFoul"
+          allowPlayChange={false}
+          onSave={(loc) => {
+            addPlay('batting', 'pitchFoul', {
+              lineupSpot: liveGame?.lineupSpot,
+              hitLocation: loc,
+              targetInning: viewedInning,
+            });
+            setIsFoulTapperOpen(false);
+          }}
+          onSkip={() => setIsFoulTapperOpen(false)}
+          onClose={() => setIsFoulTapperOpen(false)}
         />
       )}
 
