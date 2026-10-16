@@ -11,7 +11,7 @@ $WorkDir = "$PublishBase\.work"
 $OutDir = "$PublishBase\Android-Package"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " Dugout Pulse - Isolated Android Build   " -ForegroundColor Cyan
+Write-Host " Dugout Pulse - Isolated Android Bundle  " -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 if (-not (Test-Path $OutDir)) {
@@ -112,27 +112,26 @@ foreach ($stale in @("android\app\build\intermediates\compressed_assets", "andro
     }
 }
 
-Write-Host "Compiling Android package with Gradle..." -ForegroundColor Cyan
+Write-Host "Building Android App Bundle (AAB) with Gradle..." -ForegroundColor Cyan
 Push-Location android
 try {
     if ($Release) {
         .\gradlew.bat bundleRelease
         if ($LASTEXITCODE -ne 0) { throw "Gradle release bundle build failed with exit code $LASTEXITCODE." }
         $packageSource = "app\build\outputs\bundle\release\app-release.aab"
-        $packageExtension = "aab"
+        $buildType = "release"
     } else {
-        .\gradlew.bat assembleDebug
-        if ($LASTEXITCODE -ne 0) { throw "Gradle debug APK build failed with exit code $LASTEXITCODE." }
-        $packageSource = "app\build\outputs\apk\debug\app-debug.apk"
-        $packageExtension = "apk"
+        .\gradlew.bat bundleDebug
+        if ($LASTEXITCODE -ne 0) { throw "Gradle debug bundle build failed with exit code $LASTEXITCODE." }
+        $packageSource = "app\build\outputs\bundle\debug\app-debug.aab"
+        $buildType = "debug"
     }
 } finally {
     Pop-Location
 }
 
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
-$buildType = if ($Release) { "release" } else { "debug" }
-$outputPackageName = "dugout-pulse-$buildType-$timestamp.$packageExtension"
+$outputPackageName = "dugout-pulse-$buildType-$timestamp.aab"
 
 $src = "android\$packageSource"
 $dest = "$OutDir\$outputPackageName"
@@ -141,19 +140,14 @@ if (Test-Path $src) {
     Copy-Item $src $dest -Force
     $fileSize = (Get-Item $dest).Length / 1MB
     Write-Host "`nBUILD SUCCESSFUL!" -ForegroundColor Green
-    Write-Host "$($packageExtension.ToUpperInvariant()) Location: $dest ($([math]::Round($fileSize, 2)) MB)" -ForegroundColor Green
+    Write-Host "AAB Location: $dest ($([math]::Round($fileSize, 2)) MB)" -ForegroundColor Green
 } else {
     Write-Host "`nBuild output not found at $src" -ForegroundColor Red
     exit 1
 }
 
 if ($Install) {
-    if ($Release) {
-        Write-Host "Install skipped: Android App Bundles (.aab) cannot be installed directly with adb. Run without -Release to build and install the debug APK." -ForegroundColor Yellow
-    } else {
-        adb install -r $dest
-        if ($LASTEXITCODE -ne 0) { throw "ADB installation failed with exit code $LASTEXITCODE." }
-    }
+    Write-Host "Install skipped: Android App Bundles (.aab) cannot be installed directly with adb. The AAB has been built successfully; use Google Play internal testing or bundletool to install/test it." -ForegroundColor Yellow
 }
 
 Set-Location $RepoRoot
