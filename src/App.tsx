@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -11,8 +11,16 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 
 const MainApp: React.FC = () => {
-  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt } = useGame();
+  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+
+  // A recovered in-progress game must be shown immediately on app startup.
+  useEffect(() => {
+    if (resumePromptPending && liveGame) {
+      setScoreView('score');
+      setActiveTab('score');
+    }
+  }, [resumePromptPending, liveGame]);
   const [scoreView, setScoreView] = useState<'score' | 'plays'>('score');
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [helpInitialMode, setHelpInitialMode] = useState<PlayMode>('batting');
