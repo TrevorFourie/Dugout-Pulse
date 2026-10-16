@@ -3094,6 +3094,34 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             })}
             <button
               type="button"
+              onClick={() => addPlay('batting', 'pitchStrike', {
+                pitcherHand,
+                lineupSpot: currentInningLineupSpot,
+                targetInning: viewedInning,
+              })}
+              disabled={playFlow.isPrimaryEventDisabled}
+              className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              title="Record a strike seen by the batter; does not affect pitching or fielding statistics"
+            >
+              <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">STRIKE</span>
+              <span className="mt-1.5 text-[13px] font-medium text-slate-600 dark:text-[#D1D5DB]">Pitch received</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => addPlay('batting', 'pitchBall', {
+                pitcherHand,
+                lineupSpot: currentInningLineupSpot,
+                targetInning: viewedInning,
+              })}
+              disabled={playFlow.isPrimaryEventDisabled}
+              className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              title="Record a ball received by the batter; does not affect pitching or fielding statistics"
+            >
+              <span className="text-[20px] font-semibold leading-none tracking-tight text-[#18212D] dark:text-[#FAFAFA]">BALL</span>
+              <span className="mt-1.5 text-[13px] font-medium text-slate-600 dark:text-[#D1D5DB]">Pitch received</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setIsFoulTapperOpen(true)}
               disabled={playFlow.isPrimaryEventDisabled}
               className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
