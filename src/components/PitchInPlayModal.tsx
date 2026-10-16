@@ -26,6 +26,14 @@ interface PitchInPlayModalProps {
 }
 
 type Step = 'outcome' | 'involvement' | 'action';
+type PitcherMultiOutAction = 'catch' | 'tag' | 'step' | 'throw';
+
+const MULTI_OUT_ACTIONS: { action: PitcherMultiOutAction; title: string; description: string }[] = [
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'tag', title: 'Tagged a runner', description: 'Recorded an out by tagging a runner (Putout)' },
+  { action: 'step', title: 'Stepped on a base', description: 'Recorded an out by touching a base, including a force or appeal play (Putout)' },
+  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
+];
 
 const HIT_OPTIONS: { bases: 1 | 2 | 3 | 4; label: string }[] = [
   { bases: 1, label: 'Single' },
@@ -65,6 +73,7 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
   const [action, setAction] = useState<PitcherFieldingAction | null>(null);
   const [throwTo, setThrowTo] = useState<ThrowTarget>('1B');
   const [assistFrom, setAssistFrom] = useState<DefensivePosition>('1B');
+  const [multiOutActions, setMultiOutActions] = useState<PitcherMultiOutAction[]>([]);
 
   const reset = () => {
     setStep('outcome');
@@ -76,6 +85,7 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
     setAction(null);
     setThrowTo('1B');
     setAssistFrom('1B');
+    setMultiOutActions([]);
   };
 
   useEffect(() => {
@@ -88,6 +98,19 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
   const minRuns = isHomeRun ? 1 : 0;
   const effectiveRuns = Math.max(runs, minRuns);
   const needsFieldingSteps = outcome === 'out' || outcome === 'fieldersChoice' || outcome === 'error';
+  const isMultiOut = outcome === 'out' && extraOuts !== 'none';
+  const maxMultiOutActions = extraOuts === 'triplePlay' ? 3 : 2;
+
+  const addMultiOutAction = (action: PitcherMultiOutAction) => {
+    setMultiOutActions((previous) => previous.length >= maxMultiOutActions ? previous : [...previous, action]);
+  };
+
+  const removeMultiOutAction = (action: PitcherMultiOutAction) => {
+    setMultiOutActions((previous) => {
+      const index = previous.lastIndexOf(action);
+      return index < 0 ? previous : previous.filter((_, itemIndex) => itemIndex !== index);
+    });
+  };
 
   const cancel = () => {
     reset();
@@ -325,7 +348,35 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
           )}
 
           {/* ------------------------------ Step 3 ------------------------------ */}
-          {step === 'action' && (
+          {step === 'action' && isMultiOut && (
+            <div className="space-y-2.5">
+              <p className="text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">
+                Select what the pitcher did on this {extraOuts === 'triplePlay' ? 'triple play' : 'double play'}.
+              </p>
+              {MULTI_OUT_ACTIONS.filter((option) => extraOuts === 'triplePlay' || option.action !== 'tag').map((option) => {
+                const count = multiOutActions.filter((selected) => selected === option.action).length;
+                return (
+                  <div key={option.action} className={`w-full rounded-md border px-3 py-3 transition-all ${count > 0 ? 'border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5]/10 dark:bg-[#00D7BC]/10' : 'border-slate-300 dark:border-[#354050]'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{option.title}</span>
+                        <span className="block text-xs text-slate-600 dark:text-[#D1D5DB]">{option.description}</span>
+                        {count > 0 && <span className="mt-1 block text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">Selected {count} {count === 1 ? 'time' : 'times'}</span>}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button type="button" onClick={() => removeMultiOutAction(option.action)} disabled={count === 0} aria-label={`Remove one: ${option.title}`} className="h-9 w-9 rounded-md border border-slate-300 dark:border-[#465160] text-lg font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] disabled:opacity-30 disabled:cursor-not-allowed">−</button>
+                        <span className="w-5 text-center text-sm font-bold tabular-nums text-slate-900 dark:text-[#FAFAFA]">{count}</span>
+                        <button type="button" onClick={() => addMultiOutAction(option.action)} disabled={multiOutActions.length >= maxMultiOutActions} aria-label={`Add one: ${option.title}`} className="h-9 w-9 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-lg font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:opacity-30 disabled:cursor-not-allowed">+</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">Maximum {maxMultiOutActions} fielding contributions. Putouts and assists are credited to the pitcher.</p>
+            </div>
+          )}
+
+          {step === 'action' && !isMultiOut && (
             <>
               <button
                 type="button"
@@ -426,9 +477,12 @@ export const PitchInPlayModal: React.FC<PitchInPlayModalProps> = ({ isOpen, onCl
           {step === 'action' && (
             <button
               type="button"
-              disabled={!action}
+              disabled={isMultiOut ? multiOutActions.length === 0 : !action}
               onClick={() =>
-                finish({
+                finish(isMultiOut ? {
+                  pitcherInvolved: true,
+                  pitcherMultiOutActions: multiOutActions,
+                } : {
                   pitcherInvolved: true,
                   pitcherAction: action ?? undefined,
                   throwTo: action === 'fielded' ? throwTo : undefined,
