@@ -409,6 +409,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   };
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
+  const [roeModalOpen, setRoeModalOpen] = useState(false);
+  const pendingRoeErrorTypeRef = useRef<Play['errorType'] | null>(null);
 
   // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
   // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
