@@ -4117,6 +4117,35 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       )}
 
       {/* Foul-ball location: records the contact location without ending the plate appearance */}
+      {roeModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">Reached on Error</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">What type of error allowed the batter to reach base?</p>
+            </div>
+            <div className="grid gap-2">
+              {([
+                ['fielding', 'Fielding error', 'Bobble, mishandled grounder, or misplayed ball'],
+                ['throwing', 'Throwing error', 'An inaccurate throw allowed the batter to reach'],
+                ['droppedCatch', 'Dropped catch', 'A catchable ball was dropped'],
+                ['other', 'Other error', 'Another defensive misplay'],
+              ] as const).map(([value, label, description]) => (
+                <button key={value} type="button" onClick={() => {
+                  pendingRoeErrorTypeRef.current = value;
+                  setRoeModalOpen(false);
+                  handleScoringPlay('reachedOnError');
+                }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
+                  <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
+                  <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">{description}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setRoeModalOpen(false)} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Cancel</button>
+          </div>
+        </div>
+      )}
+
       {isFoulTapperOpen && (
         <HitLocationModal
           isOpen={isFoulTapperOpen}
