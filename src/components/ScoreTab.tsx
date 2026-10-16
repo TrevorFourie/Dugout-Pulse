@@ -433,6 +433,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           targetInning: viewedInning,
           extraOuts: scoringMeta?.extraOuts,
           scoringContext: scoringMeta?.scoringContext,
+          errorType,
         });
         if (createdPlay && getRunnerBaseForPrimary(code)) {
           pendingRunnerPrimaryPlayIdRef.current = createdPlay.id;
