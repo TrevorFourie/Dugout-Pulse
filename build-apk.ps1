@@ -166,7 +166,7 @@ if (-not $Release) {
         try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/google/bundletool/releases/latest" -Headers @{ "User-Agent" = "Dugout-Pulse-Build-Script" }
-            $asset = $releaseInfo.assets | Where-Object { $_.name -match '^bundletool-all-.*\.jar } | Select-Object -First 1
+            $asset = $releaseInfo.assets | Where-Object { $_.name -like 'bundletool-all-*.jar' } | Select-Object -First 1
             if (-not $asset) { throw "Could not find bundletool-all JAR in the latest GitHub release." }
             Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $bundletoolJar -UseBasicParsing
         } catch {
