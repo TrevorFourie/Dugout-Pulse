@@ -96,8 +96,10 @@ export interface InPlaySelection {
   extraOuts?: 'none' | 'doublePlay' | 'triplePlay';
   /** Step 2: was the pitcher directly involved in fielding / receiving the ball? */
   pitcherInvolved?: boolean;
-  /** Step 3 */
+  /** Step 3: one fielding contribution for a standard out. */
   pitcherAction?: PitcherFieldingAction;
+  /** Fielding contributions when the pitcher is involved in a double / triple play. */
+  pitcherMultiOutActions?: ('catch' | 'tag' | 'step' | 'throw')[];
   /** Step 3, 'fielded': where the pitcher threw (or 'unassisted' if he made the out himself). */
   throwTo?: ThrowTarget;
   /** Step 3, 'covered': the fielder who threw to the covering pitcher (default 1B for a 3-1 play). */
@@ -414,9 +416,22 @@ function runSeeds(
  *  - on an error, the pitcher is charged with the error instead of a putout / assist
  */
 export function pitcherFieldingSeeds(sel: InPlaySelection): PlaySeed[] {
-  if (!sel.pitcherInvolved || !sel.pitcherAction) return [];
+  if (!sel.pitcherInvolved) return [];
   if (sel.outcome !== 'out' && sel.outcome !== 'fieldersChoice' && sel.outcome !== 'error') return [];
 
+  // Multi-out plays use the same contribution-based scoring as the Fielding tab.
+  // Credit each selected putout / assist to the pitcher, then record the DP / TP stat once.
+  if (sel.outcome === 'out' && sel.extraOuts !== 'none' && sel.pitcherMultiOutActions?.length) {
+    const maxActions = sel.extraOuts === 'triplePlay' ? 3 : 2;
+    const out: PlaySeed[] = sel.pitcherMultiOutActions.slice(0, maxActions).map((action) =>
+      fielding(action === 'throw' ? 'assist' : 'putout')
+    );
+    if (sel.extraOuts === 'doublePlay') out.push(fielding('doublePlay'));
+    if (sel.extraOuts === 'triplePlay') out.push(fielding('triplePlay'));
+    return out;
+  }
+
+  if (!sel.pitcherAction) return [];
   if (sel.outcome === 'error') {
     return [fielding('error', { pitcherAction: sel.pitcherAction })];
   }
