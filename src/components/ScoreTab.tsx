@@ -1469,7 +1469,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         </div>
 
         {/* Second row: details & context */}
-        {(meta.whatHappenedDetail || play.pitcherHand || play.lineupSpot || play.defensivePosition || play.hitLocation) && (
+        {(meta.whatHappenedDetail || play.pitcherHand || play.lineupSpot || play.defensivePosition || play.hitLocation || play.errorType) && (
           <div className="flex items-center gap-2 flex-wrap text-[13px] text-slate-500 dark:text-[#9CA3AF] pl-0.5">
             {meta.whatHappenedDetail && (
               <span className="text-slate-600 dark:text-[#D1D5DB] font-medium">
