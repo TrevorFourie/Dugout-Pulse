@@ -1972,6 +1972,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           targetInning: viewedInning,
         });
         if (ciPlay) pendingRunnerPrimaryPlayIdRef.current = ciPlay.id;
+        playFlow.nextPlateAppearance();
         startRunnerSession('walk');
         return;
       }
