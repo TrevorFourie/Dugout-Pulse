@@ -2629,7 +2629,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <button
               type="button"
               onClick={() => setIsAbandonResumeModalOpen(true)}
-              className="mt-3 w-full rounded-xl bg-[#FF5252] px-5 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
+              className="mt-3 w-full rounded-xl bg-red-700 px-5 py-3 text-sm font-semibold text-white shadow-md transition-all hover:bg-red-800 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
               Discard Game
             </button>
