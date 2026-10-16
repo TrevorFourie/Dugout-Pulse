@@ -1070,9 +1070,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             } else {
               const traj = play.hitLocation?.trajectory;
               if (traj === 'grounder') title = 'Groundout';
-            else if (traj === 'flyBall') title = 'Flyout';
-            else if (traj === 'popUp') title = 'Pop Out';
-            else if (traj === 'lineDrive') title = 'Lineout';
+              else if (traj === 'flyBall') title = 'Flyout';
+              else if (traj === 'popUp') title = 'Pop Out';
+              else if (traj === 'lineDrive') title = 'Lineout';
               else if (traj === 'bunt') title = 'Bunt Out';
               else title = 'Out';
             }
