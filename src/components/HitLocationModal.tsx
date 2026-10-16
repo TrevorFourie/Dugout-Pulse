@@ -132,7 +132,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                   {getPlayShortLabel(currentCode)}
                 </span>
                 <span className={`text-xs font-semibold px-1.5 py-0.2 rounded ${isHitPlay(currentCode) ? 'bg-slate-100 dark:bg-[#252D38] text-[#18212D] dark:text-[#D1D5DB]' : 'bg-slate-200 dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB]'}`}>
-                  {isHitPlay(currentCode) ? <span className="inline-flex items-center gap-1"><BaseballBallIcon size={12} /> BASE HIT</span> : '✕ OUT'}
+                  {currentCode === 'pitchFoul' ? 'FOUL BALL' : isHitPlay(currentCode) ? <span className="inline-flex items-center gap-1"><BaseballBallIcon size={12} /> BASE HIT</span> : '✕ OUT'}
                 </span>
               </div>
             </div>
@@ -319,7 +319,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                 interactive
                 selectedLocation={location}
                 onSelectLocation={handleFieldSelect}
-                isHit={isHitPlay(currentCode)}
+                isHit={isHitPlay(currentCode) || currentCode === 'pitchFoul'}
                 showFilters={false}
                 showLegend={false}
                 showSelectionPill={false}
