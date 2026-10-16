@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { PlayCode, HitLocation, HitTrajectory } from '../types/baseball';
 import {
   getDefaultTrajectoryForPlay,
@@ -8,8 +8,11 @@ import {
 } from '../utils/sprayChart';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
 import { SprayChart } from './SprayChart';
-import { Check, X, Crosshair, Star } from 'lucide-react';
+import { Check, X, Crosshair, Star, Box, MapPin } from 'lucide-react';
 import { BaseballBallIcon } from './BaseballIcons';
+
+// The 3D replay pulls in three.js, so it is only downloaded the first time someone opens that tab.
+const HitField3D = lazy(() => import('./HitField3D'));
 
 interface HitLocationModalProps {
   isOpen: boolean;
@@ -65,6 +68,8 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const [location, setLocation] = useState<HitLocation>(defaultInitialLoc);
+  // 'place' = tap the 2D field; '3d' = view-only 3D replay of the same hit
+  const [fieldView, setFieldView] = useState<'place' | '3d'>('place');
 
   const trajectories: { id: HitTrajectory; label: string }[] = [
     { id: 'lineDrive', label: 'Line Drive' },
@@ -272,27 +277,64 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
             )}
           </div>
 
+          {/* Field view switch: tap to place (2D) or watch the hit in 3D */}
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-[#354050] dark:bg-[#252D38]/60" role="tablist" aria-label="Field view">
+            {([
+              { id: 'place', label: 'Place hit', Icon: MapPin },
+              { id: '3d', label: '3D replay', Icon: Box },
+            ] as const).map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={fieldView === id}
+                onClick={() => setFieldView(id)}
+                className={`flex min-h-[40px] cursor-pointer items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  fieldView === id
+                    ? 'bg-white text-[#18212D] shadow-xs dark:bg-[#354050] dark:text-[#FAFAFA]'
+                    : 'text-slate-500 dark:text-[#9CA3AF]'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Instruction banner */}
           <div className="flex items-center justify-between text-xs px-0.5">
             <span className="font-semibold text-slate-700 dark:text-[#D1D5DB] flex items-center gap-1.5">
               <Crosshair className="w-3.5 h-3.5 text-[#007A6A] dark:text-[#00D7BC]" />
-              Tap the field where the ball landed:
+              {fieldView === 'place' ? 'Tap the field where the ball landed:' : 'Replay of the hit you placed:'}
             </span>
             <span className="text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">
               {location.zone ? `${getZoneLabel(resolveZone(location))} (${resolveZone(location)})` : 'Tap to place'}
             </span>
           </div>
 
-          {/* Interactive Baseball Field */}
+          {/* Baseball field: interactive 2D, or the 3D replay */}
           <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-[#354050]">
-            <SprayChart
-              interactive
-              selectedLocation={location}
-              onSelectLocation={handleFieldSelect}
-              showFilters={false}
-              showLegend={false}
-              showSelectionPill={false}
-            />
+            {fieldView === 'place' ? (
+              <SprayChart
+                interactive
+                selectedLocation={location}
+                onSelectLocation={handleFieldSelect}
+                isHit={isHitPlay(currentCode)}
+                showFilters={false}
+                showLegend={false}
+                showSelectionPill={false}
+              />
+            ) : (
+              <Suspense
+                fallback={
+                  <div className="flex aspect-[1/0.95] w-full items-center justify-center bg-[#1b3325] text-xs font-semibold text-white/70">
+                    Loading 3D field…
+                  </div>
+                }
+              >
+                <HitField3D location={location} isHit={isHitPlay(currentCode)} onUnsupported={() => setFieldView('place')} />
+              </Suspense>
+            )}
           </div>
 
           {/* Hit Trajectory Selector */}

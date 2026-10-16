@@ -440,6 +440,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                     showLegend={true}
                     defaultView="zones"
                     showViewToggle={true}
+                    enable3DReplay={true}
                     title="Batting Spray Chart Analysis"
                   />
                 </div>

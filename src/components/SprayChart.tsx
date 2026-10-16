@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { HitFieldZone, HitLocation, Play, PlayCode } from '../types/baseball';
 import {
   calculateSprayStats,
   CENTER_HALF_ANGLE,
-  INFIELD_CENTER,
-  INFIELD_DIRT_RADIUS,
   infieldEdgeDistance,
   getDisplayZone,
   getPlayRunContext,
@@ -16,8 +15,12 @@ import {
   isHitPlay,
 } from '../utils/sprayChart';
 import { getPlayShortLabel } from '../utils/playDefinitions';
-import { Crosshair, Info, Star } from 'lucide-react';
+import { Box, Crosshair, Info, Star, X } from 'lucide-react';
 import { BaseballBallIcon } from './BaseballIcons';
+import { FieldArt, HitMarker, TrajectoryTrace } from './FieldArt';
+
+// three.js is only downloaded the first time someone opens a 3D replay.
+const HitField3D = lazy(() => import('./HitField3D'));
 
 // The field is drawn in a 300x300 coordinate space. hit x/y are stored as
 // percentages of that 300x300 space. The visible window (VIEW_BOX) is cropped
@@ -28,7 +31,6 @@ const VIEW_BOX = `${VB.x} ${VB.y} ${VB.w} ${VB.h}`;
 
 // Field geometry: home plate (150,260), foul poles (28,138) / (272,138) on true 45-degree lines,
 // and a smooth elliptical fence (centre field at y=26).
-const FENCE_PATH = 'M 28 138 A 122 112 0 0 1 272 138';
 const FIELD_PATH = 'M 150 260 L 28 138 A 122 112 0 0 1 272 138 Z';
 
 // Zone geometry mirrors getZoneFromCoordinates(): polar bins around home plate (150,260).
@@ -81,6 +83,11 @@ interface SprayChartProps {
   showStats?: boolean;
   showLegend?: boolean;
   showSelectionPill?: boolean;
+  // Interactive mode: colours the marker gold (base hit) or red (out), and draws the ball's trace from home plate.
+  isHit?: boolean;
+  showTrajectory?: boolean;
+  // Display mode: adds a "3D replay" button to the dot tooltip.
+  enable3DReplay?: boolean;
   // 'dots' plots every ball; 'zones' shades field zones by how often balls land there.
   defaultView?: 'dots' | 'zones';
   showViewToggle?: boolean;
@@ -99,6 +106,9 @@ export const SprayChart: React.FC<SprayChartProps> = ({
   showStats = false,
   showLegend = true,
   showSelectionPill = true,
+  isHit: selectedIsHit = true,
+  showTrajectory = true,
+  enable3DReplay = false,
   defaultView = 'dots',
   showViewToggle = false,
   title,
@@ -111,6 +121,14 @@ export const SprayChart: React.FC<SprayChartProps> = ({
   >('all');
   const [filterHand, setFilterHand] = useState<'all' | 'R' | 'L'>('all');
   const [activeTooltipPlay, setActiveTooltipPlay] = useState<Play | null>(null);
+  const [replayPlay, setReplayPlay] = useState<Play | null>(null);
+
+  useEffect(() => {
+    if (!replayPlay) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setReplayPlay(null);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [replayPlay]);
   const [showHitExplainer, setShowHitExplainer] = useState(false);
   const [view, setView] = useState<'dots' | 'zones'>(defaultView);
   const [activeZone, setActiveZone] = useState<HitFieldZone | null>(null);
@@ -438,28 +456,13 @@ export const SprayChart: React.FC<SprayChartProps> = ({
           aria-label="Baseball spray chart diagram"
         >
           <defs>
-            <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1e5238" />
-              <stop offset="100%" stopColor="#153d29" />
-            </linearGradient>
-            <linearGradient id="dirtGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#bf8a59" />
-              <stop offset="100%" stopColor="#a36e3c" />
-            </linearGradient>
             <clipPath id="fieldClip">
               <path d={FIELD_PATH} />
             </clipPath>
           </defs>
 
-          {/* Fair territory */}
-          <path d={FIELD_PATH} fill="url(#grassGrad)" />
-
-          {/* Warning track (stroke along the fence, clipped to fair territory) */}
-          <g clipPath="url(#fieldClip)">
-            <path d={FENCE_PATH} fill="none" stroke="#8d633d" strokeOpacity="0.85" strokeWidth="18" />
-          </g>
-          {/* Outfield wall */}
-          <path d={FENCE_PATH} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
+          {/* Field art: mowed grass, infield dirt, warning track, wall, bases */}
+          <FieldArt dim={!interactive} />
 
           {/* Left / Center / Right dividing lines (same angles the zones use) */}
           {[-CENTER_HALF_ANGLE, CENTER_HALF_ANGLE].map((deg) => {
@@ -478,33 +481,6 @@ export const SprayChart: React.FC<SprayChartProps> = ({
               />
             );
           })}
-
-          {/* Infield dirt: circle around the mound plus the home plate area */}
-          <g clipPath="url(#fieldClip)">
-            <circle cx={INFIELD_CENTER.x} cy={INFIELD_CENTER.y} r={INFIELD_DIRT_RADIUS} fill="url(#dirtGrad)" />
-            <circle cx="150" cy="260" r="16" fill="url(#dirtGrad)" />
-          </g>
-
-          {/* Infield grass diamond */}
-          <polygon points="150,247 186,213 150,178 114,213" fill="#1b4d34" />
-
-          {/* Pitcher's mound + rubber */}
-          <circle cx="150" cy="215" r="9" fill="url(#dirtGrad)" />
-          <rect x="147" y="214" width="6" height="2" fill="#ffffff" />
-
-          {/* Foul lines */}
-          <line x1="150" y1="260" x2="28" y2="138" stroke="#ffffff" strokeWidth="2" />
-          <line x1="150" y1="260" x2="272" y2="138" stroke="#ffffff" strokeWidth="2" />
-
-          {/* Foul poles */}
-          <circle cx="28" cy="138" r="3" fill="#FFFFFF" />
-          <circle cx="272" cy="138" r="3" fill="#FFFFFF" />
-
-          {/* Bases */}
-          <rect x="190" y="210" width="7" height="7" fill="#ffffff" transform="rotate(45 193.5 213.5)" />
-          <rect x="146.5" y="166.5" width="7" height="7" fill="#ffffff" transform="rotate(45 150 170)" />
-          <rect x="103" y="210" width="7" height="7" fill="#ffffff" transform="rotate(45 106.5 213.5)" />
-          <polygon points="146,256 154,256 154,260 150,264 146,260" fill="#ffffff" />
 
           {/* Direction Sector Labels on Fence */}
           <text x="58" y="48" fill="rgba(255,255,255,0.4)" fontSize="9" fontWeight="800" textAnchor="middle">
@@ -656,37 +632,24 @@ export const SprayChart: React.FC<SprayChartProps> = ({
               );
             })}
 
-          {/* Interactive Mode Target / Marker */}
+          {/* Interactive mode: ball trace from home plate + landing marker (re-keyed so the draw-in replays on each tap) */}
           {interactive && selectedLocation && (
-            <g className="animate-in fade-in zoom-in-50 duration-150">
-              {/* Outer pulsing ring */}
-              <circle
-                cx={(selectedLocation.x / 100) * FIELD_SIZE}
-                cy={(selectedLocation.y / 100) * FIELD_SIZE}
-                r="11"
-                fill="#00BFA5"
-                fillOpacity="0.25"
-                stroke="#00BFA5"
-                strokeWidth="1.5"
-                strokeDasharray="2 2"
+            <>
+              {showTrajectory && (
+                <TrajectoryTrace
+                  key={`trace-${selectedLocation.x}-${selectedLocation.y}-${selectedLocation.trajectory}`}
+                  x={selectedLocation.x}
+                  y={selectedLocation.y}
+                  trajectory={selectedLocation.trajectory ?? 'lineDrive'}
+                />
+              )}
+              <HitMarker
+                key={`pin-${selectedLocation.x}-${selectedLocation.y}`}
+                x={selectedLocation.x}
+                y={selectedLocation.y}
+                isHit={selectedIsHit}
               />
-              {/* Center target circle */}
-              <circle
-                cx={(selectedLocation.x / 100) * FIELD_SIZE}
-                cy={(selectedLocation.y / 100) * FIELD_SIZE}
-                r="5.5"
-                fill="#00BFA5"
-                stroke="#ffffff"
-                strokeWidth="2"
-              />
-              {/* Center crosshair */}
-              <circle
-                cx={(selectedLocation.x / 100) * FIELD_SIZE}
-                cy={(selectedLocation.y / 100) * FIELD_SIZE}
-                r="1.5"
-                fill="#ffffff"
-              />
-            </g>
+            </>
           )}
         </svg>
 
@@ -745,16 +708,32 @@ export const SprayChart: React.FC<SprayChartProps> = ({
                     {getTrajectoryLabel(activeTooltipPlay.hitLocation.trajectory)}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTooltipPlay(null);
-                  }}
-                  className="text-slate-400 hover:text-white px-2 py-1 rounded bg-white/10 text-xs font-semibold"
-                >
-                  Dismiss
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {enable3DReplay && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReplayPlay(activeTooltipPlay);
+                        setActiveTooltipPlay(null);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#00D7BC] text-[#101419] text-xs font-semibold"
+                    >
+                      <Box className="w-3 h-3" />
+                      3D replay
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveTooltipPlay(null);
+                    }}
+                    className="text-slate-400 hover:text-white px-2 py-1 rounded bg-white/10 text-xs font-semibold"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
 
               {/* Run scoring / RBI impact indicator */}
@@ -902,6 +881,56 @@ export const SprayChart: React.FC<SprayChartProps> = ({
           </div>
         </div>
       )}
+
+      {/* 3D replay of a single tapped hit (view-only) */}
+      {replayPlay?.hitLocation &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs animate-in fade-in duration-150 sm:p-4"
+            onClick={() => setReplayPlay(null)}
+          >
+            <div
+              className="flex max-h-[95vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+              role="dialog"
+              aria-modal="true"
+              aria-label="3D replay of this hit"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-[#354050] dark:bg-[#252D38]/60">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">
+                    {getPlayShortLabel(replayPlay.code)} · {getZoneLabel(resolveZone(replayPlay.hitLocation))}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 dark:text-[#9CA3AF]">
+                    {getTrajectoryLabel(replayPlay.hitLocation.trajectory)} · Inning {replayPlay.inning}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplayPlay(null)}
+                  className="cursor-pointer rounded-xl p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB]"
+                  aria-label="Close 3D replay"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <Suspense
+                fallback={
+                  <div className="flex aspect-[1/0.95] w-full items-center justify-center bg-[#1b3325] text-xs font-semibold text-white/70">
+                    Loading 3D field…
+                  </div>
+                }
+              >
+                <HitField3D
+                  location={replayPlay.hitLocation}
+                  isHit={isHitPlay(replayPlay.code)}
+                  onUnsupported={() => setReplayPlay(null)}
+                />
+              </Suspense>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
