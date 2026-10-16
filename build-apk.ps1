@@ -146,8 +146,65 @@ if (Test-Path $src) {
     exit 1
 }
 
+# For debug builds, create a WhatsApp-installable APK FROM the AAB.
+# Gradle still builds the AAB; this APK is only a delivery/install artifact.
+if (-not $Release) {
+    Write-Host "`nPreparing WhatsApp install package from the debug AAB..." -ForegroundColor Cyan
+
+    if (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
+        throw "Java 17 was not found. Install/configure Java 17 before running bundletool."
+    }
+
+    $toolsDir = Join-Path $PublishBase "tools"
+    if (-not (Test-Path $toolsDir)) {
+        New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+    }
+
+    $bundletoolJar = Join-Path $toolsDir "bundletool-all.jar"
+    if (-not (Test-Path $bundletoolJar)) {
+        Write-Host "Downloading Google's bundletool..." -ForegroundColor Yellow
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/google/bundletool/releases/latest" -Headers @{ "User-Agent" = "Dugout-Pulse-Build-Script" }
+            $asset = $releaseInfo.assets | Where-Object { $_.name -match '^bundletool-all-.*\.jar } | Select-Object -First 1
+            if (-not $asset) { throw "Could not find bundletool-all JAR in the latest GitHub release." }
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $bundletoolJar -UseBasicParsing
+        } catch {
+            throw "Could not download bundletool. Check your internet connection and rerun. Details: $($_.Exception.Message)"
+        }
+    }
+
+    $debugKeystore = Join-Path $env:USERPROFILE ".android\debug.keystore"
+    if (-not (Test-Path $debugKeystore)) {
+        $androidUserDir = Split-Path $debugKeystore -Parent
+        New-Item -ItemType Directory -Path $androidUserDir -Force | Out-Null
+        $keytool = Join-Path $env:JAVA_HOME "bin\keytool.exe"
+        & $keytool -genkeypair -v -keystore $debugKeystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        if ($LASTEXITCODE -ne 0) { throw "Could not create the Android debug signing key." }
+    }
+
+    $apksArchive = Join-Path $WorkDir "debug-install.apks"
+    $extractDir = Join-Path $WorkDir "debug-install-apks"
+    if (Test-Path $apksArchive) { Remove-Item $apksArchive -Force }
+    if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
+
+    $java = Join-Path $env:JAVA_HOME "bin\java.exe"
+    & $java -jar $bundletoolJar build-apks "--bundle=$dest" "--output=$apksArchive" "--mode=universal" "--ks=$debugKeystore" "--ks-pass=pass:android" "--ks-key-alias=androiddebugkey" "--key-pass=pass:android"
+    if ($LASTEXITCODE -ne 0) { throw "bundletool failed to convert the debug AAB into an installable APK." }
+
+    Expand-Archive -LiteralPath $apksArchive -DestinationPath $extractDir -Force
+    $universalApk = Join-Path $extractDir "universal.apk"
+    if (-not (Test-Path $universalApk)) { throw "bundletool completed, but universal.apk was not found in the output archive." }
+
+    $whatsAppApk = Join-Path $OutDir "dugout-pulse-debug-$timestamp-whatsapp.apk"
+    Copy-Item $universalApk $whatsAppApk -Force
+    $apkSize = (Get-Item $whatsAppApk).Length / 1MB
+    Write-Host "WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+    Write-Host "Send the *whatsapp.apk file to your phone via WhatsApp, then tap it to install." -ForegroundColor Cyan
+}
+
 if ($Install) {
-    Write-Host "Install skipped: Android App Bundles (.aab) cannot be installed directly with adb. The AAB has been built successfully; use Google Play internal testing or bundletool to install/test it." -ForegroundColor Yellow
+    Write-Host "AABs cannot be installed directly with adb. For debug builds, use the generated WhatsApp APK shown above." -ForegroundColor Yellow
 }
 
 Set-Location $RepoRoot
