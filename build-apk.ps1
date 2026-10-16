@@ -202,6 +202,18 @@ if (-not $Release) {
 
     $whatsAppApk = Join-Path $OutDir "dugout-pulse-debug-$timestamp-whatsapp.apk"
     Copy-Item $universalApk $whatsAppApk -Force
+
+    # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
+    # Set the actual Windows file timestamps after copying the APK to the output folder.
+    $apkFile = Get-Item -LiteralPath $whatsAppApk -ErrorAction Stop
+    $buildTime = Get-Date
+    $apkFile.LastWriteTime = $buildTime
+    $apkFile.CreationTime = $buildTime
+    $apkFile.LastAccessTime = $buildTime
+
+    # Read back the filesystem timestamp so the build log confirms the applied value.
+    $apkFile.Refresh()
+    Write-Host "APK file modified: $($apkFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Cyan
     $apkSize = (Get-Item $whatsAppApk).Length / 1MB
     Write-Host "WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
     Write-Host "Send the *whatsapp.apk file to your phone via WhatsApp, then tap it to install." -ForegroundColor Cyan
