@@ -23,6 +23,8 @@ export type PlaySeed = Pick<Play, 'mode' | 'code'> &
     Pick<
       Play,
       | 'isExtraOut'
+      | 'multiOutPlayType'
+      | 'multiOutNumber'
       | 'autoOutcome'
       | 'defensivePosition'
       | 'pitchCounted'
