@@ -330,6 +330,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
   const [isPitcherOutModalOpen, setIsPitcherOutModalOpen] = useState(false);
+  const [isNextBatterModalOpen, setIsNextBatterModalOpen] = useState(false);
+  const promptedTerminalPlayIdRef = useRef<string | null>(null);
   const [teamFinalScore, setTeamFinalScore] = useState('');
   const [opponentFinalScore, setOpponentFinalScore] = useState('');
   const [selectedPlayForEdit, setSelectedPlayForEdit] = useState<Play | null>(null);
@@ -978,6 +980,24 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     .reverse()
     .find((p) => p.mode === 'pitching' && p.inning === viewedInning);
   const inningEndedOnRunnerOut = pitchFlowState.outs >= 3 && Boolean(lastPitchingPlayThisInning?.pickoffKind);
+
+  // Prompt once when a pitching event completes the current batter's plate appearance.
+  // This also restores the prompt when reopening a game that was left on a completed batter.
+  useEffect(() => {
+    const terminalPlay = lastPitchingPlayThisInning && PITCHING_TERMINAL_CODES.has(lastPitchingPlayThisInning.code)
+      ? lastPitchingPlayThisInning
+      : null;
+
+    if (!terminalPlay) {
+      setIsNextBatterModalOpen(false);
+      return;
+    }
+
+    if (activeMode === 'pitching' && promptedTerminalPlayIdRef.current !== terminalPlay.id) {
+      promptedTerminalPlayIdRef.current = terminalPlay.id;
+      setIsNextBatterModalOpen(true);
+    }
+  }, [activeMode, lastPitchingPlayThisInning?.id, lastPitchingPlayThisInning?.code]);
 
   const handlePitchingAction = (action: PitchingAction) => {
     const result = reducePitchingAction(pitchFlowState, action);
@@ -3187,24 +3207,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </div>
         ) : (
           <>
-            {Boolean(
-              lastPitchingPlayThisInning &&
-              PITCHING_TERMINAL_CODES.has(lastPitchingPlayThisInning.code)
-            ) && (
-              <div className="rounded-md border border-slate-300 bg-slate-100 dark:bg-[#252D38]/40 dark:border-[#354050] px-3.5 py-2.5 shadow-xs flex items-center gap-1.5">
-                <div className="w-8 h-8 rounded-md bg-slate-200 dark:bg-[#354050] text-slate-950 dark:text-[#FAFAFA] flex items-center justify-center text-base font-semibold shrink-0">
-                  <Zap className="w-4 h-4 text-[#18212D] dark:text-[#FAFAFA]" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB]">
-                    Next Batter Up
-                  </div>
-                  <div className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]">
-                    Start the new batter's pitch count.
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             <PitchingBoard
               state={pitchFlowState}
@@ -4153,6 +4156,42 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               ))}
             </div>
             <button type="button" onClick={() => setRoeModalOpen(false)} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {isNextBatterModalOpen && activeMode === 'pitching' && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="next-batter-title"
+            aria-describedby="next-batter-description"
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="px-5 pt-6 pb-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-[#252D38]">
+                <Zap className="h-6 w-6 text-[#246BFD] dark:text-[#3478FF]" />
+              </div>
+              <h3 id="next-batter-title" className="text-lg font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+                Next Batter Up
+              </h3>
+              <p id="next-batter-description" className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB]">
+                Start the new batter's pitch count.
+              </p>
+            </div>
+            <div className="border-t border-slate-200 dark:border-[#354050] p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  playFlow.nextPitcherBatter();
+                  setIsNextBatterModalOpen(false);
+                }}
+                className="w-full rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-3 text-sm font-semibold text-[#18212D] dark:text-[#101419] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] active:scale-[0.98] transition-all"
+              >
+                Start New Batter's Pitch Count
+              </button>
+            </div>
           </div>
         </div>
       )}
