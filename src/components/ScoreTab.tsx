@@ -2005,10 +2005,17 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  // Each selection is a separate fielding contribution. Duplicate actions are intentional:
-  // a player may record multiple putouts or assists during the same multi-out play.
+  // A multi-out play can never contain more putouts than the play itself.
+  // Assists are contributions, but do not count as outs.
+  const maxMultiOutPutouts = fieldingChain?.playType === 'triplePlay' ? 3 : 2;
+  const selectedPutoutCount = dpActions.filter((action) => action !== 'throw').length;
+
   const addDpAction = (action: MultiOutPlayAction) => {
-    setDpActions((prev) => [...prev, action]);
+    setDpActions((prev) => {
+      const putoutCount = prev.filter((selected) => selected !== 'throw').length;
+      if (action !== 'throw' && putoutCount >= maxMultiOutPutouts) return prev;
+      return [...prev, action];
+    });
   };
 
   const removeDpAction = (action: MultiOutPlayAction) => {
@@ -2023,7 +2030,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const handleConfirmDoublePlay = () => {
     if (!fieldingChain) return;
     const endsHalfInning = fieldingChain.endsHalfInning;
-    for (const action of dpActions) {
+    // Keep a final guard here as well as on the + controls so stale or unexpected state
+    // can never record more putouts than this play allows.
+    const boundedActions = dpActions.filter((action, index, actions) =>
+      action === 'throw' ||
+      actions.slice(0, index).filter((selected) => selected !== 'throw').length < maxMultiOutPutouts
+    );
+    for (const action of boundedActions) {
       addPlay('fielding', action === 'throw' ? 'assist' : 'putout', {
         defensivePosition: currentInningPosition,
         partOfMultiOutPlay: true,
@@ -3913,8 +3926,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                         <button
                           type="button"
                           onClick={() => addDpAction(opt.action)}
+                          disabled={opt.action !== 'throw' && selectedPutoutCount >= maxMultiOutPutouts}
                           aria-label={`Add one: ${opt.title}`}
-                          className="h-9 w-9 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-lg font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB]"
+                          className="h-9 w-9 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-lg font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           +
                         </button>
