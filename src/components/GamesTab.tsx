@@ -20,6 +20,7 @@ import {
   Plane,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
+import { ThemedDropdown } from './ThemedDropdown';
 
 interface GameHistoryRowProps {
   game: Game;
@@ -346,57 +347,57 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <select
+          <ThemedDropdown<string>
+            ariaLabel="Filter games by team"
             value={filterTeam}
-            onChange={(e) => setFilterTeam(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden"
-          >
-            <option value="ALL">All Teams ({availableTeams.length || 1})</option>
-            {availableTeams.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+            placeholder="All Teams"
+            allowClear={false}
+            onChange={(next) => next && setFilterTeam(next)}
+            options={[
+              { value: 'ALL', label: `All Teams (${availableTeams.length || 1})` },
+              ...availableTeams.map((team) => ({ value: team, label: team })),
+            ]}
+            className="w-full"
+          />
 
-          <select
+          <ThemedDropdown<string>
+            ariaLabel="Filter games by season"
             value={filterSeason}
-            onChange={(e) => setFilterSeason(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden"
-          >
-            <option value="ALL">All Seasons</option>
-            {availableSeasons.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            placeholder="All Seasons"
+            allowClear={false}
+            onChange={(next) => next && setFilterSeason(next)}
+            options={[
+              { value: 'ALL', label: 'All Seasons' },
+              ...availableSeasons.map((season) => ({ value: season, label: season })),
+            ]}
+            className="w-full"
+          />
 
-          <select
+          <ThemedDropdown<string>
+            ariaLabel="Filter games by age group"
             value={filterAgeGroup}
-            onChange={(e) => setFilterAgeGroup(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden"
-          >
-            <option value="ALL">All Age Groups</option>
-            {availableAgeGroups.map((ag) => (
-              <option key={ag} value={ag}>
-                {ag}
-              </option>
-            ))}
-          </select>
+            placeholder="All Age Groups"
+            allowClear={false}
+            onChange={(next) => next && setFilterAgeGroup(next)}
+            options={[
+              { value: 'ALL', label: 'All Age Groups' },
+              ...availableAgeGroups.map((ageGroup) => ({ value: ageGroup, label: ageGroup })),
+            ]}
+            className="w-full"
+          />
 
-          <select
+          <ThemedDropdown<string>
+            ariaLabel="Filter games by tournament"
             value={filterTournament}
-            onChange={(e) => setFilterTournament(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden"
-          >
-            <option value="ALL">All Games</option>
-            {availableTournaments.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+            placeholder="All Games"
+            allowClear={false}
+            onChange={(next) => next && setFilterTournament(next)}
+            options={[
+              { value: 'ALL', label: 'All Games' },
+              ...availableTournaments.map((tournament) => ({ value: tournament, label: tournament })),
+            ]}
+            className="w-full"
+          />
         </div>
       </div>
 
