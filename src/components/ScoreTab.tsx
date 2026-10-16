@@ -1065,13 +1065,17 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
         if (play.mode === 'batting') {
           if (play.code === 'out') {
-            const traj = play.hitLocation?.trajectory;
-            if (traj === 'grounder') title = 'Groundout';
+            if (play.outReason === 'batterRunnerInterference') {
+              title = 'Batter-runner interference';
+            } else {
+              const traj = play.hitLocation?.trajectory;
+              if (traj === 'grounder') title = 'Groundout';
             else if (traj === 'flyBall') title = 'Flyout';
             else if (traj === 'popUp') title = 'Pop Out';
             else if (traj === 'lineDrive') title = 'Lineout';
-            else if (traj === 'bunt') title = 'Bunt Out';
-            else title = 'Out';
+              else if (traj === 'bunt') title = 'Bunt Out';
+              else title = 'Out';
+            }
           } else if (play.code === 'strikeout') {
             title = 'Strikeout';
           } else if (play.code === 'single') {
@@ -4193,6 +4197,19 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           playerName={activeProfile.playerName || 'the batter'}
           initialOuts={getBattingOutCount(currentInning)}
           onConfirm={handleScoringResolution}
+          onBatterRunnerInterference={() => {
+            setOutResolutionOpen(false);
+            addPlay('batting', 'out', {
+              pitcherHand,
+              lineupSpot: currentInningLineupSpot,
+              outReason: 'batterRunnerInterference',
+            });
+            if (getBattingOutCount(currentInning) + 1 >= 3) {
+              handleThirdOut('batting');
+            } else {
+              playFlow.nextPlateAppearance();
+            }
+          }}
           onCancel={() => setOutResolutionOpen(false)}
         />
       )}
