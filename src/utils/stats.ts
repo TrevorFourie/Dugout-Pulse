@@ -194,8 +194,9 @@ export function calculateBattingStats(plays: Play[], gameCount: number = 1): Bat
   const tb = singles + 2 * doubles + 3 * triples + 4 * hr;
 
   const avg = ab > 0 ? h / ab : null;
-  const obpDenominator = ab + bb + hbp + sf + ci;
-  const obp = obpDenominator > 0 ? (h + bb + hbp + ci) / obpDenominator : null;
+  // Catcher's interference is a plate appearance, but is excluded from official OBP.
+  const obpDenominator = ab + bb + hbp + sf;
+  const obp = obpDenominator > 0 ? (h + bb + hbp) / obpDenominator : null;
   const slg = ab > 0 ? tb / ab : null;
   const ops = obp !== null && slg !== null ? obp + slg : null;
 
