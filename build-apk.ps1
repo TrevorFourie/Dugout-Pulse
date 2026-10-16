@@ -59,9 +59,10 @@ if (-not $env:ANDROID_HOME) {
     }
 }
 
-if (-not (Test-Path "node_modules")) {
-    Write-Host "Installing npm dependencies..." -ForegroundColor Yellow
-    npm install
+Write-Host "Checking and synchronising npm dependencies..." -ForegroundColor Yellow
+npm install
+if ($LASTEXITCODE -ne 0) {
+    throw "npm dependency installation failed with exit code $LASTEXITCODE."
 }
 
 Write-Host "Building web assets..." -ForegroundColor Cyan
