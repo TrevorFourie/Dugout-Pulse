@@ -1249,9 +1249,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             shortBadge = 'CS OUT';
             badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
           } else if (play.isExtraOut) {
-            whatHappened = 'Double play: second out';
-            whatHappenedDetail = 'A second out was recorded on the same play';
-            shortBadge = 'DP OUT';
+            const isTriplePlayOut = play.multiOutPlayType === 'triplePlay';
+            const outNumber = play.multiOutNumber ?? 2;
+            const playLabel = isTriplePlayOut ? 'Triple play' : 'Double play';
+            const ordinal = outNumber === 3 ? 'third' : 'second';
+            whatHappened = `${playLabel}: ${ordinal} out`;
+            whatHappenedDetail = `The ${ordinal} out was recorded as part of the same ${isTriplePlayOut ? 'triple' : 'double'} play`;
+            shortBadge = isTriplePlayOut ? 'TP OUT' : 'DP OUT';
             badgeStyle = 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border-slate-700 shadow-2xs';
           } else if (play.pitcherAction === 'caught') {
             whatHappened = 'Flyout caught by the pitcher';
