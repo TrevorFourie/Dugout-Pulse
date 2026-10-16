@@ -331,7 +331,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
   const [isPitcherOutModalOpen, setIsPitcherOutModalOpen] = useState(false);
   const [isNextBatterModalOpen, setIsNextBatterModalOpen] = useState(false);
-  const promptedTerminalPlayIdRef = useRef<string | null>(null);
+  const promptedTerminalPlayIdsRef = useRef<Set<string>>(new Set());
   const [teamFinalScore, setTeamFinalScore] = useState('');
   const [opponentFinalScore, setOpponentFinalScore] = useState('');
   const [selectedPlayForEdit, setSelectedPlayForEdit] = useState<Play | null>(null);
@@ -993,8 +993,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       return;
     }
 
-    if (activeMode === 'pitching' && promptedTerminalPlayIdRef.current !== terminalPlay.id) {
-      promptedTerminalPlayIdRef.current = terminalPlay.id;
+    if (activeMode === 'pitching' && !promptedTerminalPlayIdsRef.current.has(terminalPlay.id)) {
+      promptedTerminalPlayIdsRef.current.add(terminalPlay.id);
       setIsNextBatterModalOpen(true);
     }
   }, [activeMode, lastPitchingPlayThisInning?.id, lastPitchingPlayThisInning?.code]);
