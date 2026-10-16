@@ -2678,18 +2678,32 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       )}
 
       {isEditing && (
-        <div className="p-2.5 rounded-md bg-slate-200 text-slate-950 font-semibold text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
+        <div className="p-2.5 rounded-md bg-slate-200 text-slate-950 font-semibold text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse shrink-0" />
             <span className="truncate">EDITING PAST GAME ({liveGame.date})</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowEditDetails(true)}
-            className="px-2.5 py-1 rounded-md bg-slate-950 text-white text-[13px] font-semibold shrink-0"
-          >
-            Edit details
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEditDetails(true)}
+              className="min-h-10 px-3 py-2 rounded-md bg-slate-950 text-white text-sm font-semibold"
+            >
+              Edit details
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditDetails(false);
+                setIsDiscardModalOpen(true);
+              }}
+              aria-label="Cancel editing this game"
+              className="min-h-10 px-3 py-2 rounded-md border-2 border-red-700 bg-red-700 hover:bg-red-800 text-white text-sm font-bold inline-flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+            >
+              <X className="w-4 h-4" />
+              Cancel Edit
+            </button>
+          </div>
         </div>
       )}
 
