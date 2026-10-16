@@ -189,7 +189,8 @@ export function calculateBattingStats(plays: Play[], gameCount: number = 1): Bat
 
   const h = singles + doubles + triples + hr;
   const ab = h + so + out + roe + fc;
-  const pa = ab + bb + hbp + sf + sh;
+  const ci = battingPlays.filter((play) => play.code === 'catchersInterference').length;
+  const pa = ab + bb + hbp + sf + sh + ci;
   const tb = singles + 2 * doubles + 3 * triples + 4 * hr;
 
   const avg = ab > 0 ? h / ab : null;
