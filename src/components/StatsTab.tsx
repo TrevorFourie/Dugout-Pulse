@@ -215,10 +215,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
             >
-              <option value="ALL">All Teams ({availableTeams.length || 1})</option>
-              {availableTeams.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="ALL">All Teams ({availableTeams.length || 1})</option>
+              {availableTeams.map((t) => <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div>
@@ -226,10 +226,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <select
               value={selectedSeason}
               onChange={(e) => setSelectedSeason(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
             >
-              <option value="ALL">All Seasons</option>
-              {availableSeasons.map((s) => <option key={s} value={s}>{s}</option>)}
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="ALL">All Seasons</option>
+              {availableSeasons.map((s) => <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div>
@@ -237,10 +237,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <select
               value={selectedAgeGroup}
               onChange={(e) => setSelectedAgeGroup(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
             >
-              <option value="ALL">All Age Groups</option>
-              {availableAgeGroups.map((ag) => <option key={ag} value={ag}>{ag}</option>)}
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="ALL">All Age Groups</option>
+              {availableAgeGroups.map((ag) => <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" key={ag} value={ag}>{ag}</option>)}
             </select>
           </div>
           <div>
@@ -248,12 +248,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <select
               value={selectedTournament}
               onChange={(e) => setSelectedTournament(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]"
+              className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
             >
-              <option value="ALL">All Games</option>
-              <option value="__TOURNAMENTS_ONLY__">Tournaments Only</option>
-              <option value="__LEAGUE_ONLY__">Regular League Only</option>
-              {availableTournaments.map((tourney) => <option key={tourney} value={tourney}>{tourney}</option>)}
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="ALL">All Games</option>
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="__TOURNAMENTS_ONLY__">Tournaments Only</option>
+              <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" value="__LEAGUE_ONLY__">Regular League Only</option>
+              {availableTournaments.map((tourney) => <option className="bg-white dark:bg-[#252D38] text-slate-900 dark:text-[#FAFAFA]" key={tourney} value={tourney}>{tourney}</option>)}
             </select>
           </div>
         </div>
