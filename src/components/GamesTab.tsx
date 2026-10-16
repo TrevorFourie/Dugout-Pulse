@@ -67,29 +67,14 @@ const GameHistoryRow: React.FC<GameHistoryRowProps> = ({
           <span className="min-w-0 truncate text-[11px] font-semibold text-slate-900 dark:text-[#FAFAFA] sm:text-sm">
             {opponent}
           </span>
-          {game.isHome !== undefined && (
-            <span
-              className={`rounded px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider sm:text-[9px] ${
-                isHomeTeam
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                  : 'bg-teal-100 text-teal-800 dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]'
-              }`}
-            >
-              {isHomeTeam ? 'Home' : 'Away'}
-            </span>
-          )}
-          {game.lineupSpot && (
-            <span
-              title={`Batting Order Spot #${game.lineupSpot}`}
-              className="rounded bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider sm:text-[9px]"
-            >
-              #{game.lineupSpot} Spot
-            </span>
-          )}
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        <div className="flex shrink-0 items-center justify-end gap-0 sm:gap-1">
           {game.finalResult && (
             <span
               title={`Final result: ${game.finalResult}`}
-              className={`max-w-14 truncate rounded px-1 py-0.5 text-[8px] font-extrabold sm:max-w-none sm:text-[10px] ${
+              className={`max-w-16 truncate rounded px-1 py-0.5 text-[8px] font-extrabold sm:max-w-none sm:text-[10px] ${
                 game.finalResult.startsWith('W')
                   ? 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300'
                   : game.finalResult.startsWith('L')
@@ -102,10 +87,6 @@ const GameHistoryRow: React.FC<GameHistoryRowProps> = ({
               {game.finalResult}
             </span>
           )}
-          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-        </button>
-
-        <div className="flex shrink-0 items-center justify-end gap-0 sm:gap-1">
           <button type="button" onClick={onRecap} aria-label="Share game recap" title="Share game recap" className="rounded-md p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 sm:p-2">
             <Award className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
