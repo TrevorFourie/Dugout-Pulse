@@ -474,7 +474,13 @@ function inPlaySeeds(state: PitchingFlowState, sel: InPlaySelection): { seeds: P
         })
       );
       const extra = sel.extraOuts === 'triplePlay' ? 2 : sel.extraOuts === 'doublePlay' ? 1 : 0;
-      for (let i = 0; i < extra; i++) batted.push(pitching('pitchOut', { isExtraOut: true }));
+      for (let i = 0; i < extra; i++) {
+        batted.push(pitching('pitchOut', {
+          isExtraOut: true,
+          multiOutPlayType: sel.extraOuts === 'triplePlay' ? 'triplePlay' : 'doublePlay',
+          multiOutNumber: (i + 2) as 2 | 3,
+        }));
+      }
       break;
     }
     case 'hit': {
