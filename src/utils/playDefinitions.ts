@@ -480,6 +480,7 @@ export const BATTING_PLAY_CODES: PlayCode[] = [
   'sacFly',
   'sacBunt',
   'reachedOnError',
+  'catchersInterference',
   'fieldersChoice',
   'groundedIntoDoublePlay',
   'rbi',
