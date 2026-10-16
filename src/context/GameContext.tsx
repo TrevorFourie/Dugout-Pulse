@@ -58,6 +58,7 @@ interface GameContextType {
       runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
       runnerOutReason?: RunnerOutReason;
       outReason?: Play['outReason'];
+      errorType?: Play['errorType'];
       extraOuts?: number;
       scoringContext?: PlayScoringContext;
       /** Explicit inning for historical corrections; defaults to the live inning. */
