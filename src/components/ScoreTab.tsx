@@ -99,6 +99,7 @@ interface ScoreTabProps {
   onOpenHelp?: (mode: PlayMode) => void;
   onOpenSettings?: () => void;
   onGameClosed?: () => void;
+  onCancelResume?: () => void;
   view?: 'score' | 'plays';
   onChangeView?: (view: 'score' | 'plays') => void;
 }
@@ -167,7 +168,7 @@ const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; descript
   { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
 ];
 
-const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, view = 'score', onChangeView }) => {
+const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, onCancelResume, view = 'score', onChangeView }) => {
   const {
     games,
     liveGame,
@@ -2616,7 +2617,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             </button>
             <button
               type="button"
-              onClick={dismissResumePrompt}
+              onClick={() => {
+                dismissResumePrompt();
+                onCancelResume?.();
+              }}
               className="mt-2 w-full rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
             >
               Not now
