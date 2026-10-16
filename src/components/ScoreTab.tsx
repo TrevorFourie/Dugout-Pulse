@@ -2898,7 +2898,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                   setShowEditDetails(false);
                   setIsDiscardModalOpen(true);
                 }}
-                className="w-full h-11 rounded-md text-red-600 dark:text-[#D4626D] border border-red-200 dark:border-[#86252D] text-sm font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full h-11 rounded-md border-2 border-red-700 bg-red-700 hover:bg-red-800 text-white text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{isEditing ? 'Cancel edit' : 'Discard this game'}</span>
