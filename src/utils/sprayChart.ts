@@ -58,6 +58,7 @@ export const PRIMARY_BATTING_CODES: PlayCode[] = [
   'walk',
   'intentionalWalk',
   'hbp',
+  'catchersInterference',
   'strikeout',
   'out',
   'sacFly',
