@@ -1481,6 +1481,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 Facing a <strong className="text-slate-700 dark:text-[#D1D5DB]">{play.pitcherHand === 'L' ? 'left-handed' : 'right-handed'}</strong> pitcher
               </span>
             )}
+            {play.errorType && (
+              <span className="font-semibold inline-flex items-center gap-1">
+                • Error type: <strong className="text-slate-700 dark:text-[#D1D5DB]">{play.errorType === 'fielding' ? 'Fielding error' : play.errorType === 'throwing' ? 'Throwing error' : play.errorType === 'droppedCatch' ? 'Dropped catch' : 'Other error'}</strong>
+              </span>
+            )}
             {play.lineupSpot && (
               <span className="font-semibold inline-flex items-center gap-1 text-[#18212D] dark:text-[#D1D5DB]">
                 • Batting <strong className="text-[#18212D] dark:text-[#D1D5DB]">{ordinal(Number(play.lineupSpot))}</strong> in the lineup
