@@ -162,6 +162,9 @@ export function calculateBattingStats(plays: Play[], gameCount: number = 1): Bat
       case 'reachedOnError':
         roe++;
         break;
+      case 'catchersInterference':
+        // Catcher's interference awards first base but is not an at-bat or hit.
+        break;
       case 'fieldersChoice':
         fc++;
         break;
