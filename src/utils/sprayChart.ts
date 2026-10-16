@@ -47,6 +47,7 @@ export const BATTED_BALL_CODES: PlayCode[] = [
   'reachedOnError',
   'fieldersChoice',
   'groundedIntoDoublePlay',
+  'pitchFoul', // Foul contact recorded for hit-location mapping; not a plate-appearance result
 ];
 
 export const PRIMARY_BATTING_CODES: PlayCode[] = [
@@ -393,7 +394,7 @@ export function calculateSprayStats(plays: Play[]): SprayChartStats {
       } else {
         nonRbiHitsCount++;
       }
-    } else {
+    } else if (play.code !== 'pitchFoul') {
       outsCount++;
       if (runCtx.rbiCount > 0) {
         rbiOutsCount++;
