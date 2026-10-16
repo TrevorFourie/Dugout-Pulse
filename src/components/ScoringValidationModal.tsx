@@ -324,7 +324,7 @@ export const ScoringValidationModal: React.FC<ScoringValidationModalProps> = ({
           {step === 'PICK_ACTION' && (
             <>
               <p className="text-xs font-medium text-slate-500 dark:text-[#9CA3AF]">
-                Pick what the ball did. We'll work out the official stat from the situation, so you don't need to know the scoring rules.
+                Choose what happened to the batter. We'll work out the official stat from the situation, so you don't need to know the scoring rules.
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {ACTIONS.map((a) => (
