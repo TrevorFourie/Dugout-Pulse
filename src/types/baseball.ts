@@ -160,6 +160,7 @@ export interface Play {
   hitLocation?: HitLocation; // Spray chart hit location & trajectory for batting plays
   extraOuts?: number; // Outs recorded on this play beyond what its code implies (e.g. a teammate retired on a fielder's choice)
   scoringContext?: PlayScoringContext; // Situation the smart-scoring engine used to validate this play
+  errorType?: 'fielding' | 'throwing' | 'droppedCatch' | 'other'; // Detail for a reached-on-error batting play
   partOfMultiOutPlay?: boolean; // Player's putout/assist on a double play; its outs are already counted by the doublePlay play
   isExtraOut?: boolean; // For double/triple plays, marks secondary out so it doesn't count as an extra pitch
   multiOutPlayType?: 'doublePlay' | 'triplePlay'; // Identifies whether secondary outs belong to a DP or TP
