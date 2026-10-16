@@ -984,8 +984,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const inningEndedOnRunnerOut = pitchFlowState.outs >= 3 && Boolean(lastPitchingPlayThisInning?.pickoffKind);
 
   // Prompt once when a pitching event completes the current batter's plate appearance.
-  // This also restores the prompt when reopening a game that was left on a completed batter.
+  // Do not interrupt game-resume or saved-game edit flows with a new-batter prompt.
   useEffect(() => {
+    if (resumePromptPending || editingGameId) {
+      setIsNextBatterModalOpen(false);
+      return;
+    }
+
     const terminalPlay = lastPitchingPlayThisInning && PITCHING_TERMINAL_CODES.has(lastPitchingPlayThisInning.code)
       ? lastPitchingPlayThisInning
       : null;
@@ -999,7 +1004,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       promptedTerminalPlayIdsRef.current.add(terminalPlay.id);
       setIsNextBatterModalOpen(true);
     }
-  }, [activeMode, lastPitchingPlayThisInning?.id, lastPitchingPlayThisInning?.code]);
+  }, [activeMode, editingGameId, resumePromptPending, lastPitchingPlayThisInning?.id, lastPitchingPlayThisInning?.code]);
 
   const handlePitchingAction = (action: PitchingAction) => {
     const result = reducePitchingAction(pitchFlowState, action);
