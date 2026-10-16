@@ -3090,6 +3090,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 hbp: ['HBP', 'Hit by pitch'],
                 out: ['OUT', 'Out'],
                 reachedOnError: ['ROE', 'Error'],
+                catchersInterference: ['CI', 'Catcher interference'],
               };
               const [label, subtitle] = labels[code];
 
