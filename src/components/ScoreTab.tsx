@@ -1932,7 +1932,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   const handleScoringPlay = (code: PlayCode) => {
     if (activeMode === 'batting') {
-      const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError'].includes(code);
+      const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError', 'catchersInterference'].includes(code);
       if (requiresLineupSpot && !currentInningLineupSpot) {
         setLineupSpotPromptOpen(true);
         return;
