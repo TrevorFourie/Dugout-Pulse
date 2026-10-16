@@ -2690,36 +2690,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         </div>
       )}
 
-      {isEditing && (
-        <div className="p-2.5 rounded-md bg-slate-200 text-slate-950 font-semibold text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse shrink-0" />
-            <span className="truncate">EDITING PAST GAME ({liveGame.date})</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowEditDetails(true)}
-              className="min-h-10 px-3 py-2 rounded-md bg-slate-950 text-white text-sm font-semibold"
-            >
-              Edit details
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowEditDetails(false);
-                setIsDiscardModalOpen(true);
-              }}
-              aria-label="Cancel editing this game"
-              className="min-h-10 px-3 py-2 rounded-md border-2 border-[#FF5252] bg-[#FF5252] hover:bg-[#A82E38] text-white text-sm font-bold inline-flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2"
-            >
-              <X className="w-4 h-4" />
-              Cancel Edit
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Game & Lineup Details Modal Sheet (Opens cleanly without pushing live scoring down) */}
       {showEditDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -2947,9 +2917,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               setShowEditDetails(false);
               setIsDiscardModalOpen(true);
             }}
+            aria-label={isEditing ? 'Cancel editing this game' : 'Discard this game'}
+            title={isEditing ? 'Cancel Edit' : 'Discard Game'}
             className="shrink-0 w-10 h-10 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 flex items-center justify-center cursor-pointer transition-colors"
-            >
-            <Trash2 className="w-[18px] h-[18px] text-whit" />
+          >
+            {isEditing ? <X className="w-[18px] h-[18px] text-white" /> : <Trash2 className="w-[18px] h-[18px] text-white" />}
           </button>
         </div>
 
