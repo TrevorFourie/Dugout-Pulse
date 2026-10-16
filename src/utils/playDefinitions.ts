@@ -587,7 +587,18 @@ export function getFieldingPlaysForPosition(position?: DefensivePosition): PlayD
 
 export function getPlaysForMode(mode: PlayMode): PlayDefinition[] {
   if (mode === 'batting') {
-    return BATTING_PLAY_CODES.map((code) => PLAY_DEFINITIONS[code]);
+    return BATTING_PLAY_CODES.map((code) => {
+      if (code === 'catchersInterference') {
+        return {
+          ...PLAY_DEFINITIONS[code],
+          mode: 'batting' as const,
+          shortLabel: 'CI',
+          fullLabel: "Catcher's Interference",
+          description: "The batter is awarded first base after catcher interference; this is not an at-bat or hit.",
+        };
+      }
+      return PLAY_DEFINITIONS[code];
+    });
   }
   if (mode === 'pitching') {
     return PITCHING_PLAY_CODES.map((code) => {
