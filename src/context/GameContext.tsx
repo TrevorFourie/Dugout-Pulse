@@ -1079,6 +1079,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         runnerSubNumber?: string;
         extraOuts?: number;
         scoringContext?: PlayScoringContext;
+        errorType?: Play['errorType'];
       /** Explicit inning for historical corrections; defaults to the live inning. */
       targetInning?: number;
       }
