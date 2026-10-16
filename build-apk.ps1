@@ -192,7 +192,11 @@ if (-not $Release) {
     & $java -jar $bundletoolJar build-apks "--bundle=$dest" "--output=$apksArchive" "--mode=universal" "--ks=$debugKeystore" "--ks-pass=pass:android" "--ks-key-alias=androiddebugkey" "--key-pass=pass:android"
     if ($LASTEXITCODE -ne 0) { throw "bundletool failed to convert the debug AAB into an installable APK." }
 
-    Expand-Archive -LiteralPath $apksArchive -DestinationPath $extractDir -Force
+    # Windows PowerShell 5.1 Expand-Archive only accepts a .zip extension.
+    # A bundletool .apks file is ZIP-formatted, so copy it to a .zip name first.
+    $apksZip = Join-Path $WorkDir "debug-install.zip"
+    Copy-Item -LiteralPath $apksArchive -Destination $apksZip -Force
+    Expand-Archive -LiteralPath $apksZip -DestinationPath $extractDir -Force
     $universalApk = Join-Path $extractDir "universal.apk"
     if (-not (Test-Path $universalApk)) { throw "bundletool completed, but universal.apk was not found in the output archive." }
 
