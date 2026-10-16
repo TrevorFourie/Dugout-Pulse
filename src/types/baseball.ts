@@ -13,6 +13,7 @@ export type BattingPlayCode =
   | 'sacFly'
   | 'sacBunt'
   | 'reachedOnError'
+  | 'catchersInterference'
   | 'fieldersChoice'
   | 'groundedIntoDoublePlay'
   | 'rbi'
