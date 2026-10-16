@@ -424,6 +424,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         pendingHitLocationRef.current = null;
         const scoringMeta = pendingScoringMetaRef.current?.code === code ? pendingScoringMetaRef.current : null;
         if (scoringMeta) pendingScoringMetaRef.current = null;
+        const errorType = code === 'reachedOnError' ? pendingRoeErrorTypeRef.current ?? undefined : undefined;
+        if (code === 'reachedOnError') pendingRoeErrorTypeRef.current = null;
         const createdPlay = addPlay('batting', code, {
           pitcherHand,
           lineupSpot: liveGame?.lineupSpot,
