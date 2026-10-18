@@ -2190,7 +2190,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     // onEvent callback. Explicitly open Hit Location for batted-ball outs here as well, and
     // defer the batter/inning transition so it doesn't clear or cover the location modal.
     const locationTrackableOutCodes: PlayCode[] = ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'];
-    if (createdPlay && !preselectedLoc && !locationWasSkipped && hitTapperEnabled && locationTrackableOutCodes.includes(code)) {
+    // Hit Location is only relevant when the batter put the ball in play (groundout,
+    // flyout, or bunt). A strikeout is an OUT, but there is no batted-ball location.
+    const isBattedBallOut =
+      c.action === 'groundout' || c.action === 'flyout' || c.action === 'bunt';
+    if (createdPlay && isBattedBallOut && !preselectedLoc && !locationWasSkipped && hitTapperEnabled && locationTrackableOutCodes.includes(code)) {
       pendingRunnerAfterHitRef.current = null;
       pendingOutCompletionRef.current = res.inningEnds ? 'thirdOut' : 'nextBatter';
       setPendingHitPlay({ playId: createdPlay.id, code });
