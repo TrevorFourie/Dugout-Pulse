@@ -1688,10 +1688,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                       {status.text}
                     </span>
                   </div>
-                  {status.tone === 'none' &&
-                    inning === currentInning &&
+                  {inning === currentInning &&
                     inning > 1 &&
                     inning === reachedInning &&
+                    !isBenched &&
                     !allPlays.some((p) => p.inning === inning) && (
                       <button
                         type="button"
