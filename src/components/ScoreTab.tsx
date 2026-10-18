@@ -1996,12 +1996,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         return;
       }
       if (code === 'out') {
-        // Capture the batted-ball contact location before asking the scorer to resolve the out.
-        // The location is then attached to the final out outcome selected in the resolution flow.
-        if (hitTapperEnabled && !pendingHitLocationRef.current && !skipOutLocationPromptRef.current) {
-          setIsOutLocationFirstOpen(true);
-          return;
-        }
+        // Resolve the kind of out first. Strikeouts have no batted-ball location;
+        // the validated outcome flow requests Hit Location only for batted-ball outs
+        // (groundouts, flyouts, bunts, and double-play ground balls).
         setOutResolutionOpen(true);
         return;
       }
