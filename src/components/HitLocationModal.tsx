@@ -215,7 +215,8 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
             </div>
           )}
 
-          {/* Runs Batted In (RBI) Selector */}
+          {/* RBI selector is for base hits and sacrifice flies; ordinary outs do not become hits or earn an RBI. */}
+          {(isHitPlay(currentCode) || currentCode === 'sacFly') && (
           <div className="p-3 rounded-2xl border border-slate-300 dark:border-[#354050] bg-slate-100/70 dark:bg-[#252D38]/30 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
@@ -288,6 +289,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Field view switch: tap to place (2D) or watch the hit in 3D */}
           <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-[#354050] dark:bg-[#252D38]/60" role="tablist" aria-label="Field view">
