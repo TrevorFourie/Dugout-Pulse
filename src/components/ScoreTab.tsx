@@ -1908,7 +1908,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         const nextInn = currentInning + 1;
         const nextInnPosition =
           liveGame.fieldingPositions?.[nextInn] ||
-          (liveGame.benchInnings.includes(nextInn) ? 'BENCH' : 'CF');
+          (liveGame.benchInnings.includes(nextInn)
+            ? 'BENCH'
+            : liveGame.fieldingPositions?.[currentInning] || 'CF');
 
         // Based on Home or Away Team status:
         if (!isHomeTeam) {
