@@ -4,6 +4,7 @@ import {
   getDefaultTrajectoryForPlay,
   getZoneLabel,
   isHitPlay,
+  isValidHitLocationForPlay,
   resolveZone,
 } from '../utils/sprayChart';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
@@ -56,15 +57,18 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 
   // Initial location fallback based on play code
   const defaultInitialLoc = (): HitLocation => {
-    if (initialLocation) return initialLocation;
+    if (initialLocation && isValidHitLocationForPlay(initialLocation, initialPlayCode)) return initialLocation;
     const defaultTraj = getDefaultTrajectoryForPlay(initialPlayCode);
+    if (initialPlayCode === 'pitchFoul') {
+      return { x: 10, y: 60, zone: 'LF', trajectory: defaultTraj };
+    }
     if (initialPlayCode === 'homeRun') {
-      return { x: 50, y: 15, zone: 'CF', trajectory: defaultTraj };
+      return { x: 50, y: 5, zone: 'CF', trajectory: defaultTraj };
     }
     if (isHitPlay(initialPlayCode)) {
       return { x: 50, y: 35, zone: 'CF', trajectory: defaultTraj };
     }
-    return { x: 42, y: 62, zone: 'SS', trajectory: 'grounder' };
+    return initialLocation || { x: 42, y: 62, zone: 'SS', trajectory: 'grounder' };
   };
 
   const [location, setLocation] = useState<HitLocation>(defaultInitialLoc);
@@ -89,11 +93,19 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
       setRbiCount(1);
     }
     const suggestedTraj = getDefaultTrajectoryForPlay(newCode);
-    setLocation((prev) => ({
-      ...prev,
-      trajectory: suggestedTraj,
-      ...(newCode === 'homeRun' && prev.y > 25 ? { y: 15 } : {}),
-    }));
+    setLocation((prev) => {
+      if (newCode === 'pitchFoul') {
+        return { ...prev, x: 10, y: 60, zone: 'LF', trajectory: suggestedTraj };
+      }
+      if (newCode === 'homeRun') {
+        return { ...prev, x: 50, y: 5, zone: 'CF', trajectory: suggestedTraj };
+      }
+      if ((newCode === 'single' || newCode === 'double' || newCode === 'triple') &&
+          !isValidHitLocationForPlay(prev, newCode)) {
+        return { ...prev, x: 50, y: 35, zone: 'CF', trajectory: suggestedTraj };
+      }
+      return { ...prev, trajectory: suggestedTraj };
+    });
   };
 
   const handleSave = () => {
@@ -319,6 +331,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                 interactive
                 selectedLocation={location}
                 onSelectLocation={handleFieldSelect}
+                selectionCode={currentCode}
                 isHit={isHitPlay(currentCode) || currentCode === 'pitchFoul'}
                 showFilters={false}
                 showLegend={false}
