@@ -351,7 +351,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   const applyProgress = (t: number) => {
     if (!curve || !trail) return;
     trail.geometry.setDrawRange(0, Math.floor(t * TUBE_SEGMENTS) * TUBE_RADIAL * 6);
-    ball.position.copy(curve.getPoint(Math.min(1, t)));
+    ball.position.copy(curve.getPointAt(Math.min(1, t)));
     ball.rotation.x = t * 30;
     ball.rotation.z = t * 18;
   };
