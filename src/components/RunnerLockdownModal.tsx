@@ -16,6 +16,7 @@ export interface RunnerLockdownModalProps {
   onAdvance: (cause: RunnerAdvanceCause) => void;
   onOut: (reason: RunnerOutReason) => void;
   onScore: (cause?: RunnerAdvanceCause) => void;
+  onWalkHbp: () => void;
   onThirdOut: () => void;
   onUndo: () => void;
   onHoldOnBase?: () => void;
@@ -63,6 +64,7 @@ export const RunnerLockdownModal: React.FC<RunnerLockdownModalProps> = ({
   onAdvance,
   onOut,
   onScore,
+  onWalkHbp,
   onThirdOut,
   onUndo,
   onHoldOnBase,
@@ -112,7 +114,7 @@ export const RunnerLockdownModal: React.FC<RunnerLockdownModalProps> = ({
       onClick={onHoldOnBase}
     >
       <div
-        className={`w-full max-w-md flex flex-col ${choosingOutReason ? 'max-h-[85vh] h-[85vh]' : 'max-h-[50vh] h-[50vh]'} bg-white dark:bg-[#1A2028] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden`}
+        className={`w-full max-w-md flex flex-col ${choosingOutReason ? 'max-h-[85vh] h-[85vh]' : 'max-h-[62vh] h-[62vh]'} bg-white dark:bg-[#1A2028] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Compact Header: Pure text, no icons */}
@@ -185,6 +187,10 @@ export const RunnerLockdownModal: React.FC<RunnerLockdownModalProps> = ({
             <button type="button" onClick={onThirdOut} className={TILE_END}>
               <span className={TILE_LABEL}>{'Innings Ended'}</span>
               <span className={TILE_SUB}>3rd Out</span>
+            </button>
+            <button type="button" onClick={onWalkHbp} className={TILE_NAVY} title="Use when a walk or hit-by-pitch forces this runner to advance">
+              <span className={TILE_LABEL}>{isAtThird ? 'Score on Walk / HBP' : 'Advance on Walk / HBP'}</span>
+              <span className={TILE_SUB}>Forced · 0 SB</span>
             </button>
           </div>
           )}
