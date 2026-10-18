@@ -2385,7 +2385,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       return;
     }
 
-    if (activeRunnerChip?.inning !== currentInning) return;
+    if (!activeRunnerChip || activeRunnerChip.inning !== currentInning) return;
     const base = activeRunnerChip.base;
     if (base === 3) {
       addPlay('batting', 'run', {
@@ -2396,6 +2396,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         targetInning: currentInning,
       });
       setActiveRunnerChip(null);
+      playFlow.nextPlateAppearance();
       return;
     }
 
