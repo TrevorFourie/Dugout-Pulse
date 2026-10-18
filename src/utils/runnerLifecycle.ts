@@ -1,7 +1,7 @@
 import type { RunnerOutReason } from '../types/baseball';
 
 export type RunnerBase = 1 | 2 | 3;
-export type RunnerAdvanceCause = 'steal' | 'teammateHit' | 'balkPitchingError';
+export type RunnerAdvanceCause = 'steal' | 'teammateHit' | 'balkPitchingError' | 'walk' | 'deadBall';
 export type RunnerLifecycleStatus = 'ON_BASE' | 'CLEARED';
 
 /**
