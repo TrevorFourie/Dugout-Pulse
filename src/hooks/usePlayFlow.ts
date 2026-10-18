@@ -24,6 +24,7 @@ type PitchingTerminalCode =
 type PitchingIndependentCode = 'balk' | 'wildPitch' | 'earnedRun' | 'runAllowed' | 'pitchOther';
 type CatcherFieldingCode =
   | 'passedBall'
+  | 'catcherGloveDeadBall'
   | 'caughtStealing'
   | 'stealAllowed'
   | 'catchersInterference'
