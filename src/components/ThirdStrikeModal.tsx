@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface ThirdStrikeModalProps {
@@ -12,6 +12,12 @@ export const ThirdStrikeModal: React.FC<ThirdStrikeModalProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const [eligibleToAttemptFirst, setEligibleToAttemptFirst] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) setEligibleToAttemptFirst(false);
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -46,7 +52,7 @@ export const ThirdStrikeModal: React.FC<ThirdStrikeModalProps> = ({
               3rd Strike Result
             </h2>
             <p className="text-xs font-semibold text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-              Select whether the batter was retired or reached 1st safely.
+              An uncaught third strike allows an attempt at first only if first base is unoccupied or there are two outs.
             </p>
           </div>
           <button
@@ -83,11 +89,23 @@ export const ThirdStrikeModal: React.FC<ThirdStrikeModalProps> = ({
             </div>
           </button>
 
+          {/* Rule 5.05(a)(2): batter may attempt first only with first base unoccupied or two outs. */}
+          <label className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50/50 p-3 text-xs font-semibold text-slate-700 dark:border-blue-700/50 dark:bg-blue-950/10 dark:text-[#D1D5DB]">
+            <input
+              type="checkbox"
+              checked={eligibleToAttemptFirst}
+              onChange={(event) => setEligibleToAttemptFirst(event.target.checked)}
+              className="mt-0.5 accent-blue-600"
+            />
+            <span>Confirmed: first base is unoccupied, or there are already two outs.</span>
+          </label>
+
           {/* Option 2: Dropped by Catcher (Batter Safe at 1st) */}
           <button
             type="button"
             onClick={() => onConfirm('droppedSafe')}
-            className="w-full rounded-2xl border border-blue-300 bg-blue-50/60 p-3.5 text-left transition-all hover:border-blue-500 hover:bg-blue-100/60 dark:border-blue-600/60 dark:bg-blue-950/20 dark:hover:border-blue-500 dark:hover:bg-blue-950/30 active:scale-[0.99] cursor-pointer"
+            disabled={!eligibleToAttemptFirst}
+            className="w-full rounded-2xl border border-blue-300 bg-blue-50/60 p-3.5 text-left transition-all hover:border-blue-500 hover:bg-blue-100/60 dark:border-blue-600/60 dark:bg-blue-950/20 dark:hover:border-blue-500 dark:hover:bg-blue-950/30 active:scale-[0.99] cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
           >
             <div className="flex items-center justify-between">
               <span className="block text-sm font-semibold text-slate-950 dark:text-[#FAFAFA]">
