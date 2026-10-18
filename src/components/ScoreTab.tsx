@@ -2174,7 +2174,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
     if (res.batterReaches && !res.inningEnds) {
       // Batter is on base and the inning continues: use the normal primary-play flow so the
-      // runner modal / hit tapper behave exactly like a tapped 1B / ROE / FC.
+      // runner modal / hit tapper behave exactly like a tapped 1B / ROE / FC. Carry the
+      // location already captured before OUT resolution through that flow; otherwise its
+      // onEvent handler sees no location and opens the Hit Location modal a second time.
+      pendingHitLocationRef.current = preselectedLoc ?? null;
       pendingScoringMetaRef.current = { code, extraOuts: res.extraOuts, scoringContext };
       handleScoringPlay(code);
       addAutoRbis();
