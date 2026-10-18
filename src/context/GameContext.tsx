@@ -1445,10 +1445,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     triggerHaptic();
     setLiveGame((prev) => {
       if (!prev) return null;
+      const nextInningNumber = prev.innings + 1;
+      const previousPosition = prev.fieldingPositions?.[prev.innings];
+      // Carry the player's defensive position into the next inning unless a position
+      // has already been explicitly recorded there. Bench/rest remains inning-specific.
+      const fieldingPositions =
+        previousPosition && previousPosition !== 'BENCH' && !prev.fieldingPositions?.[nextInningNumber]
+          ? { ...(prev.fieldingPositions || {}), [nextInningNumber]: previousPosition }
+          : prev.fieldingPositions;
       const nextGame = {
         ...prev,
-        innings: prev.innings + 1,
-        maxInning: Math.max(prev.maxInning ?? prev.innings, prev.innings + 1),
+        innings: nextInningNumber,
+        maxInning: Math.max(prev.maxInning ?? prev.innings, nextInningNumber),
+        ...(fieldingPositions ? { fieldingPositions } : {}),
       };
       try {
         localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
