@@ -357,6 +357,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // When the hit-location prompt is active, the runner lockdown must wait until the
   // location is saved/skipped. Otherwise the z-[100] runner modal covers the hit-location modal.
   const pendingRunnerAfterHitRef = useRef<PlayCode | null>(null);
+  // Smart-scoring outs must finish their batter/inning transition only after Hit Location is saved or skipped.
+  const pendingOutCompletionRef = useRef<'thirdOut' | 'nextBatter' | null>(null);
   // The primary batting play that opened the runner lockdown. This is the play the
   // user must be able to undo while the lockdown modal is covering the scoring board.
   const pendingRunnerPrimaryPlayIdRef = useRef<string | null>(null);
@@ -2166,8 +2168,20 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       return;
     }
 
-    addPlay('batting', code, playOptions);
+    const createdPlay = addPlay('batting', code, playOptions);
     addAutoRbis();
+
+    // The smart-scoring OUT flow records plays directly rather than going through usePlayFlow's
+    // onEvent callback. Explicitly open Hit Location for batted-ball outs here as well, and
+    // defer the batter/inning transition so it doesn't clear or cover the location modal.
+    const locationTrackableOutCodes: PlayCode[] = ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'];
+    if (createdPlay && hitTapperEnabled && locationTrackableOutCodes.includes(code)) {
+      pendingRunnerAfterHitRef.current = null;
+      pendingOutCompletionRef.current = res.inningEnds ? 'thirdOut' : 'nextBatter';
+      setPendingHitPlay({ playId: createdPlay.id, code });
+      return;
+    }
+
     if (res.inningEnds) {
       handleThirdOut('batting');
     } else {
@@ -4151,19 +4165,31 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               recordHitRbis(pendingHitPlay.code, rbiEarned);
             }
             setPendingHitPlay(null);
-            if (runnerCode) startRunnerSession(runnerCode);
+            const outCompletion = pendingOutCompletionRef.current;
+            pendingOutCompletionRef.current = null;
+            if (outCompletion === 'thirdOut') handleThirdOut('batting');
+            else if (outCompletion === 'nextBatter') playFlow.nextPlateAppearance();
+            else if (runnerCode) startRunnerSession(runnerCode);
           }}
           onSkip={() => {
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
             setPendingHitPlay(null);
-            if (runnerCode) startRunnerSession(runnerCode);
+            const outCompletion = pendingOutCompletionRef.current;
+            pendingOutCompletionRef.current = null;
+            if (outCompletion === 'thirdOut') handleThirdOut('batting');
+            else if (outCompletion === 'nextBatter') playFlow.nextPlateAppearance();
+            else if (runnerCode) startRunnerSession(runnerCode);
           }}
           onClose={() => {
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
             setPendingHitPlay(null);
-            if (runnerCode) startRunnerSession(runnerCode);
+            const outCompletion = pendingOutCompletionRef.current;
+            pendingOutCompletionRef.current = null;
+            if (outCompletion === 'thirdOut') handleThirdOut('batting');
+            else if (outCompletion === 'nextBatter') playFlow.nextPlateAppearance();
+            else if (runnerCode) startRunnerSession(runnerCode);
           }}
         />
       )}
