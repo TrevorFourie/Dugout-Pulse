@@ -155,6 +155,45 @@ export function isHitPlay(code: PlayCode): boolean {
 }
 
 /**
+ * Validates a hit-location tap against the selected play outcome.
+ * Foul balls must be outside fair territory; singles/doubles/triples must land
+ * in fair territory inside the fence; home runs must be in fair territory beyond the fence.
+ * Other batted-ball outcomes can be placed anywhere in fair territory.
+ */
+export function isValidHitLocationForPlay(
+  loc: Pick<HitLocation, 'x' | 'y'>,
+  code: PlayCode
+): boolean {
+  const x = (loc.x / 100) * 300;
+  const y = (loc.y / 100) * 300;
+  const homeX = 150;
+  const homeY = 260;
+
+  // Fair territory is the wedge between the two 45-degree foul lines.
+  const distanceUpField = homeY - y;
+  const inFairTerritory =
+    distanceUpField >= 0 &&
+    x >= homeX - distanceUpField &&
+    x <= homeX + distanceUpField;
+
+  // Elliptical outfield fence: foul poles at (28,138) and (272,138), CF at y=26.
+  const fenceHalfWidth = 122;
+  const normalizedX = (x - homeX) / fenceHalfWidth;
+  const withinFenceSpan = Math.abs(normalizedX) <= 1;
+  const fenceY = withinFenceSpan
+    ? 138 - 112 * Math.sqrt(Math.max(0, 1 - normalizedX * normalizedX))
+    : 138;
+  const beyondFence = y < fenceY;
+
+  if (code === 'pitchFoul') return !inFairTerritory;
+  if (code === 'homeRun') return inFairTerritory && beyondFence;
+  if (code === 'single' || code === 'double' || code === 'triple') {
+    return inFairTerritory && !beyondFence;
+  }
+  return true;
+}
+
+/**
  * Returns human-friendly label for trajectory
  */
 export function getTrajectoryLabel(trajectory?: HitTrajectory): string {
