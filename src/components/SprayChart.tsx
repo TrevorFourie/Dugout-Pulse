@@ -13,6 +13,7 @@ import {
   resolveZone,
   isBattedBallPlay,
   isHitPlay,
+  isValidHitLocationForPlay,
 } from '../utils/sprayChart';
 import { getPlayShortLabel } from '../utils/playDefinitions';
 import { Box, Crosshair, Info, Star, X } from 'lucide-react';
@@ -78,6 +79,7 @@ interface SprayChartProps {
   interactive?: boolean;
   selectedLocation?: HitLocation | null;
   onSelectLocation?: (loc: HitLocation) => void;
+  selectionCode?: PlayCode;
   heightClass?: string;
   showFilters?: boolean;
   showStats?: boolean;
@@ -101,6 +103,7 @@ export const SprayChart: React.FC<SprayChartProps> = ({
   interactive = false,
   selectedLocation = null,
   onSelectLocation,
+  selectionCode,
   heightClass = 'aspect-[280/262] max-h-[75vh]',
   showFilters = false,
   showStats = false,
@@ -203,13 +206,12 @@ export const SprayChart: React.FC<SprayChartProps> = ({
 
     const trajectory = selectedLocation?.trajectory || 'lineDrive';
     const zone = getZoneFromCoordinates(xPct, yPct);
+    const tappedLocation = { x: xPct, y: yPct, zone, trajectory };
 
-    onSelectLocation({
-      x: xPct,
-      y: yPct,
-      zone,
-      trajectory,
-    });
+    // Ignore taps that contradict the selected outcome (foul vs. fair hit vs. home run).
+    if (selectionCode && !isValidHitLocationForPlay(tappedLocation, selectionCode)) return;
+
+    onSelectLocation(tappedLocation);
   };
 
   const getPlayColor = (code: PlayCode) => {
