@@ -4276,8 +4276,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
             updatePlayHitLocation(pendingHitPlay.playId, loc);
-            if (isHitPlay(pendingHitPlay.code)) {
-              // Judge possible ROE only after the contact location has been saved.
+            if (isHitPlay(pendingHitPlay.code) && pendingHitPlay.code !== 'homeRun') {
+              // Judge possible ROE only after the contact location has been saved. A home run cannot be scored as ROE.
               // Keep the existing play ID/location and defer RBI + runner workflow until the decision.
               setPendingRoeDecision({
                 playId: pendingHitPlay.playId,
