@@ -402,6 +402,15 @@ export const PLAY_DEFINITIONS: Record<PlayCode, PlayDefinition> = {
     example: 'Only used when your player is playing catcher.',
     categoryColor: 'out',
   },
+  catcherGloveDeadBall: {
+    code: 'catcherGloveDeadBall',
+    mode: 'fielding',
+    shortLabel: 'DB',
+    fullLabel: "Catcher's Glove — Dead Ball",
+    description: "A pitched ball deflects off the catcher's glove and enters dead-ball territory; runners are awarded one base from the time the ball became dead.",
+    example: 'A pitch glances off the catcher’s glove and rolls beyond the backstop boundary.',
+    categoryColor: 'out',
+  },
   caughtStealing: {
     code: 'caughtStealing',
     mode: 'fielding',
@@ -557,6 +566,7 @@ export function getFieldingPlaysForPosition(position?: DefensivePosition): PlayD
     const catcherCodes: FieldingPlayCode[] = [
       ...coreCodes,
       'passedBall',
+      'catcherGloveDeadBall',
       'caughtStealing',
       'stealAllowed',
       'catchersInterference',
@@ -631,6 +641,7 @@ export function getPlayLabel(code: PlayCode, mode?: PlayMode): string {
   }
   if (mode === 'fielding') {
     if (code === 'fieldersChoice') return "Fielder's Choice";
+    if (code === 'catcherGloveDeadBall') return "Catcher's Glove — Dead Ball";
     if (code === 'catchersInterference') return "Catcher's Interference";
     if (code === 'pickoff') return 'Pickoff';
     if (code === 'droppedThirdStrike') return 'Dropped 3rd Strike';
@@ -643,6 +654,7 @@ export function getPlayLabel(code: PlayCode, mode?: PlayMode): string {
 export function getPlayShortLabel(code: PlayCode, mode?: PlayMode): string {
   if (mode === 'fielding') {
     if (code === 'fieldersChoice') return 'FC';
+    if (code === 'catcherGloveDeadBall') return 'DB';
     if (code === 'outfieldAssist') return 'OFA';
     if (code === 'catchersInterference') return 'CI';
     if (code === 'pickoff') return 'PK';
