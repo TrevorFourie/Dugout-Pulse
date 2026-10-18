@@ -1688,6 +1688,19 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                       {status.text}
                     </span>
                   </div>
+                  {status.tone === 'none' &&
+                    inning === currentInning &&
+                    inning > 1 &&
+                    inning === reachedInning &&
+                    !allPlays.some((p) => p.inning === inning) && (
+                      <button
+                        type="button"
+                        onClick={undoEmptyCurrentInning}
+                        className="mt-2 rounded-md border border-slate-300 dark:border-[#354050] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors"
+                      >
+                        Undo empty inning &amp; return to Inning {inning - 1}
+                      </button>
+                    )}
                 </div>
               )}
 
@@ -2519,12 +2532,19 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     setIsSaveModalOpen(true);
   };
 
-  // An extra inning added past the scheduled innings, with nothing recorded in it yet, can be undone.
+  // Any accidentally opened trailing inning can be undone, including one that is still
+  // within the configured game length. This is separate from intentionally adding extra innings.
   const canRemoveExtraInning =
-    currentInning > settings.inningsPerGame &&
+    currentInning > 1 &&
     currentInning === reachedInning &&
     !isBenchedCurrentInning &&
     !liveGame.plays.some((p) => p.inning === currentInning);
+
+  const undoEmptyCurrentInning = () => {
+    if (canRemoveExtraInning && removeEmptyLastInning()) {
+      setViewedInning(Math.max(1, currentInning - 1));
+    }
+  };
 
   // At (or past) the scheduled number of innings, moving on becomes End Game / Add Another Inning.
   const showEndGameChoice =
@@ -3403,10 +3423,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       {canRemoveExtraInning && (
         <button
           type="button"
-          onClick={() => removeEmptyLastInning()}
+          onClick={undoEmptyCurrentInning}
           className="w-full rounded-md border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#1A2028] py-2.5 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer shadow-2xs"
         >
-          Remove Inning {currentInning} (added by mistake)
+          Undo Empty Inning {currentInning} &amp; Return to Inning {currentInning - 1}
         </button>
       )}
 
