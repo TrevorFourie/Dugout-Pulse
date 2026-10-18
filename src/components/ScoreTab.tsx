@@ -1985,13 +1985,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     const outsBefore = getBattingOutCount(currentInning);
     setBatterBalls(0);
     setBatterStrikes(0);
-    addPlay('batting', 'strikeout', {
+    const strikeoutPlay = addPlay('batting', 'strikeout', {
       pitcherHand,
       lineupSpot: currentInningLineupSpot,
       targetInning: viewedInning,
       droppedThirdStrikeSafe,
     });
     if (droppedThirdStrikeSafe) {
+      if (strikeoutPlay) pendingRunnerPrimaryPlayIdRef.current = strikeoutPlay.id;
       startRunnerSession('walk');
       return;
     }
