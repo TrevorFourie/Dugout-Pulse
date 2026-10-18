@@ -4339,6 +4339,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           onConfirm={handleScoringResolution}
           onBatterRunnerInterference={() => {
             setOutResolutionOpen(false);
+            skipOutLocationPromptRef.current = false;
+            pendingHitLocationRef.current = null;
             addPlay('batting', 'out', {
               pitcherHand,
               lineupSpot: currentInningLineupSpot,
@@ -4350,7 +4352,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               playFlow.nextPlateAppearance();
             }
           }}
-          onCancel={() => setOutResolutionOpen(false)}
+          onCancel={() => {
+            setOutResolutionOpen(false);
+            skipOutLocationPromptRef.current = false;
+            pendingHitLocationRef.current = null;
+          }}
         />
       )}
 
