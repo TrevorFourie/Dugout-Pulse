@@ -425,7 +425,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [roeModalOpen, setRoeModalOpen] = useState(false);
   const [roeDecisionModalOpen, setRoeDecisionModalOpen] = useState(false);
   const [roeDecisionMode, setRoeDecisionMode] = useState<'roe' | 'extraBases'>('roe');
-  const [pendingRoeDecision, setPendingRoeDecision = useState<{
+  const [pendingRoeDecision, setPendingRoeDecision] = useState<{
     playId: string;
     originalCode: PlayCode;
     runnerCode: PlayCode | null;
