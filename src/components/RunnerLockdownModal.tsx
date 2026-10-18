@@ -163,7 +163,7 @@ export const RunnerLockdownModal: React.FC<RunnerLockdownModalProps> = ({
             </div>
           ) : (
           /* Two rows of three equal buttons */
-          <div className="grid grid-cols-3 grid-rows-2 gap-2 flex-1 min-h-0">
+          <div className="grid grid-cols-3 grid-rows-3 gap-2 flex-1 min-h-0">
             <button type="button" onClick={handleSteal} className={TILE_NAVY}>
               <span className={TILE_LABEL}>{getStealLabel(state.base)}</span>
               <span className={TILE_SUB}>+1 SB</span>
