@@ -442,7 +442,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         if (createdPlay && getRunnerBaseForPrimary(code)) {
           pendingRunnerPrimaryPlayIdRef.current = createdPlay.id;
         }
-        if (!preselectedLoc && hitTapperEnabled && isHitPlay(code) && createdPlay) {
+        const locationTrackableOutCodes: PlayCode[] = ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'];
+        if (!preselectedLoc && hitTapperEnabled && (isHitPlay(code) || locationTrackableOutCodes.includes(code)) && createdPlay) {
+          // Only base hits need RBI handling in the location modal; outs are mapped for contact location only.
           pendingRunnerAfterHitRef.current = getRunnerBaseForPrimary(code) ? code : null;
           setPendingHitPlay({ playId: createdPlay.id, code });
         }
@@ -1541,15 +1543,16 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 )}
               </button>
             )}
-            {!play.hitLocation && play.mode === 'batting' && isHitPlay(play.code) && (
+            {!play.hitLocation && play.mode === 'batting' &&
+              (isHitPlay(play.code) || ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'].includes(play.code)) && (
               <button
                 type="button"
                 onClick={() => setPendingHitPlay({ playId: play.id, code: play.code })}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-500 hover:text-[#007A6A] dark:hover:text-[#00D7BC] hover:border-[#00BFA5] transition-colors"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed text-xs font-semibold transition-colors ${isHitPlay(play.code) ? 'border-slate-300 dark:border-[#354050] text-slate-500 hover:text-[#007A6A] dark:hover:text-[#00D7BC] hover:border-[#00BFA5]' : 'border-red-300 dark:border-red-900/70 text-red-600 dark:text-red-400 hover:border-red-500 hover:text-red-700'}`}
                 title="Map hit location"
               >
                 <Crosshair className="w-3 h-3" />
-                <span>Map Hit Spray</span>
+                <span>{isHitPlay(play.code) ? 'Map Hit Spray' : 'Map Contact'}</span>
               </button>
             )}
           </div>
@@ -4131,7 +4134,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         />
       )}
 
-      {/* Hit Direction Tapper Modal (auto-prompt on batted ball hits) */}
+      {/* Hit Location Modal (auto-prompt for base hits and selected batted-ball outs) */}
       {pendingHitPlay && (
         <HitLocationModal
           isOpen={Boolean(pendingHitPlay)}
@@ -4144,7 +4147,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
             updatePlayHitLocation(pendingHitPlay.playId, loc);
-            recordHitRbis(pendingHitPlay.code, rbiEarned);
+            if (isHitPlay(pendingHitPlay.code)) {
+              recordHitRbis(pendingHitPlay.code, rbiEarned);
+            }
             setPendingHitPlay(null);
             if (runnerCode) startRunnerSession(runnerCode);
           }}
