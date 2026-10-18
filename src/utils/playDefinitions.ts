@@ -606,6 +606,7 @@ export function getFieldingPlaysForPosition(position?: DefensivePosition): PlayD
       'catcherObstruction',
       'catcherObstruction2',
       'pickoffCaughtStealing',
+      'fieldersChoice',
     ];
     return [
       ...catcherCodes.map(getFieldingPlayDef),
