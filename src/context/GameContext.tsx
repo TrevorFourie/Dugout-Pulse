@@ -79,6 +79,7 @@ interface GameContextType {
     newThrowTo?: string
   ) => void;
   updatePlayHitLocation: (playId: string, hitLocation: HitLocation | undefined) => void;
+  updatePlayOutcome: (playId: string, code: PlayCode, errorType?: Play['errorType']) => void;
   /** Set how many RBI plays are attached to a batting play (adds/removes 'rbi' plays right after it). */
   setPlayRbis: (playId: string, count: number) => void;
   /** Move a play one step earlier/later in the game (swaps it with its neighbour). */
@@ -1265,6 +1266,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  // Correct the outcome of an existing batting play without creating a duplicate.
+  // This is used when a hit is judged to be reached on error after its location was marked.
+  const updatePlayOutcome = useCallback((
+    playId: string,
+    code: PlayCode,
+    errorType?: Play['errorType']
+  ) => {
+    setLiveGame((prev) => {
+      if (!prev) return null;
+      const nextGame = {
+        ...prev,
+        plays: prev.plays.map((p) => {
+          if (p.id !== playId) return p;
+          const { errorType: _previousErrorType, ...playWithoutErrorType } = p;
+          return {
+            ...playWithoutErrorType,
+            code,
+            ...(errorType ? { errorType } : {}),
+          };
+        }),
+      };
+      try {
+        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
+      } catch (storageError) {
+        console.error('Failed to persist corrected play outcome locally:', storageError);
+      }
+      return nextGame;
+    });
+  }, []);
+
   // Make the number of RBI plays attached to a batting play equal `count`.
   const setPlayRbis = useCallback((playId: string, count: number) => {
     setLiveGame((prev) => {
@@ -2137,6 +2168,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deletePlay,
         editPlay,
         updatePlayHitLocation,
+        updatePlayOutcome,
         setPlayRbis,
         movePlay,
         movePlayTo,
