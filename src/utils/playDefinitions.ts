@@ -456,6 +456,33 @@ export const PLAY_DEFINITIONS: Record<PlayCode, PlayDefinition> = {
     example: 'Pitch in the dirt on strike three requires a throw to first.',
     categoryColor: 'neutral',
   },
+  catcherObstruction: {
+    code: 'catcherObstruction',
+    mode: 'fielding',
+    shortLabel: 'OBS',
+    fullLabel: 'Catcher Obstruction',
+    description: 'The catcher illegally hinders the batter or batter-runner; record this as a catcher event, not a pitching event.',
+    example: 'The catcher obstructs the batter during the swing or play.',
+    categoryColor: 'out',
+  },
+  catcherObstruction2: {
+    code: 'catcherObstruction2',
+    mode: 'fielding',
+    shortLabel: 'OBS2',
+    fullLabel: 'Catcher Obstruction (OBS2)',
+    description: 'Record the second catcher-obstruction notation used by your scoring rules as a catcher event.',
+    example: 'The scorer records an OBS2 catcher-obstruction event.',
+    categoryColor: 'out',
+  },
+  pickoffCaughtStealing: {
+    code: 'pickoffCaughtStealing',
+    mode: 'fielding',
+    shortLabel: 'POCS',
+    fullLabel: 'Pickoff Caught Stealing',
+    description: 'The catcher initiates a pickoff play and the runner is caught stealing and put out.',
+    example: 'Catcher makes a pickoff attempt and the runner is tagged out.',
+    categoryColor: 'defense',
+  },
   defensiveIndifference: {
     code: 'defensiveIndifference',
     mode: 'fielding',
@@ -532,6 +559,9 @@ export const FIELDING_PLAY_CODES: PlayCode[] = [
   'pickoff',
   'droppedThirdStrike',
   'defensiveIndifference',
+  'catcherObstruction',
+  'catcherObstruction2',
+  'pickoffCaughtStealing',
   'fieldersChoice',
   'outfieldAssist',
 ];
@@ -573,8 +603,15 @@ export function getFieldingPlaysForPosition(position?: DefensivePosition): PlayD
       'pickoff',
       'droppedThirdStrike',
       'defensiveIndifference',
+      'catcherObstruction',
+      'catcherObstruction2',
+      'pickoffCaughtStealing',
     ];
-    return catcherCodes.map(getFieldingPlayDef);
+    return [
+      ...catcherCodes.map(getFieldingPlayDef),
+      { ...PLAY_DEFINITIONS.wildPitch, mode: 'fielding' as const },
+      { ...PLAY_DEFINITIONS.balk, mode: 'fielding' as const, description: 'Record a balk-related catcher event when the catcher leaves the catcher’s box before the pitch, according to the rules in use.' },
+    ];
   }
 
   if (position === '1B' || position === '2B' || position === '3B' || position === 'SS') {
