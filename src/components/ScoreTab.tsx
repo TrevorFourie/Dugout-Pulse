@@ -195,6 +195,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     deletePlay,
     editPlay,
     updatePlayHitLocation,
+    updatePlayOutcome,
     setPlayRbis,
     movePlay,
     movePlayTo,
@@ -422,7 +423,13 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [isBatterStrikeoutModalOpen, setIsBatterStrikeoutModalOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
   const [roeModalOpen, setRoeModalOpen] = useState(false);
-  const pendingRoeErrorTypeRef = useRef<Play['errorType'] | null>(null);
+  const [roeDecisionModalOpen, setRoeDecisionModalOpen] = useState(false);
+  const [pendingRoeDecision, setPendingRoeDecision] = useState<{
+    playId: string;
+    originalCode: PlayCode;
+    runnerCode: PlayCode | null;
+    rbiEarned: number;
+  } | null>(null);
 
   // Double Play follow-up: asks what the scored player did on the play. `endsHalfInning` is true when the
   // play made the third out, in which case the half-inning ends once the modal is confirmed or skipped.
@@ -436,8 +443,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         pendingHitLocationRef.current = null;
         const scoringMeta = pendingScoringMetaRef.current?.code === code ? pendingScoringMetaRef.current : null;
         if (scoringMeta) pendingScoringMetaRef.current = null;
-        const errorType = code === 'reachedOnError' ? pendingRoeErrorTypeRef.current ?? undefined : undefined;
-        if (code === 'reachedOnError') pendingRoeErrorTypeRef.current = null;
+        const errorType = undefined;
         const createdPlay = addPlay('batting', code, {
           pitcherHand,
           lineupSpot: liveGame?.lineupSpot,
@@ -1761,7 +1767,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     'walk',
     'hbp',
     'out',
-    'reachedOnError',
     'catchersInterference',
   ];
 
@@ -2041,11 +2046,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   const handleScoringPlay = (code: PlayCode) => {
     if (activeMode === 'batting') {
-      if (['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError', 'catchersInterference'].includes(code)) {
+      if (['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'catchersInterference'].includes(code)) {
         setBatterBalls(0);
         setBatterStrikes(0);
       }
-      const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError', 'catchersInterference'].includes(code);
+      const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'catchersInterference'].includes(code);
       if (requiresLineupSpot && !currentInningLineupSpot) {
         setLineupSpotPromptOpen(true);
         return;
@@ -2069,10 +2074,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         // the validated outcome flow requests Hit Location only for batted-ball outs
         // (groundouts, flyouts, bunts, and double-play ground balls).
         setOutResolutionOpen(true);
-        return;
-      }
-      if (code === 'reachedOnError' && !pendingRoeErrorTypeRef.current) {
-        setRoeModalOpen(true);
         return;
       }
       if (code === 'catchersInterference') {
@@ -3263,7 +3264,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 walk: ['BB', 'Walk'],
                 hbp: ['HBP', 'Hit by pitch'],
                 out: ['OUT', 'Out'],
-                reachedOnError: ['ROE', 'Error'],
                 catchersInterference: ['CI', 'Catcher interference'],
               };
               const [label, subtitle] = labels[code];
@@ -4277,7 +4277,17 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             pendingRunnerAfterHitRef.current = null;
             updatePlayHitLocation(pendingHitPlay.playId, loc);
             if (isHitPlay(pendingHitPlay.code)) {
-              recordHitRbis(pendingHitPlay.code, rbiEarned);
+              // Judge possible ROE only after the contact location has been saved.
+              // Keep the existing play ID/location and defer RBI + runner workflow until the decision.
+              setPendingRoeDecision({
+                playId: pendingHitPlay.playId,
+                originalCode: pendingHitPlay.code,
+                runnerCode,
+                rbiEarned,
+              });
+              setPendingHitPlay(null);
+              setRoeDecisionModalOpen(true);
+              return;
             }
             setPendingHitPlay(null);
             const outCompletion = pendingOutCompletionRef.current;
@@ -4309,32 +4319,84 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         />
       )}
 
-      {/* Foul-ball location: records the contact location without ending the plate appearance */}
-      {roeModalOpen && (
+      {/* A hit is judged for a defensive error only after its location has been recorded. */}
+      {roeDecisionModalOpen && pendingRoeDecision && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="roe-decision-title" className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
             <div>
-              <h2 className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">Reached on Error</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">What type of error allowed the batter to reach base?</p>
+              <h2 id="roe-decision-title" className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">Did a defensive error change the play?</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">Consider whether an average effort would have got the batter out. A fielder misplaying the ball does not automatically make this an error for the batter.</p>
+            </div>
+            <div className="grid gap-2">
+              <button type="button" onClick={() => {
+                recordHitRbis(pendingRoeDecision.originalCode, pendingRoeDecision.rbiEarned);
+                const runnerCode = pendingRoeDecision.runnerCode;
+                setRoeDecisionModalOpen(false);
+                setPendingRoeDecision(null);
+                if (runnerCode) startRunnerSession(runnerCode);
+              }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
+                <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">No — keep the hit</span>
+                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">The batter would likely have reached safely anyway.</span>
+              </button>
+              <button type="button" onClick={() => {
+                setRoeDecisionModalOpen(false);
+                setRoeModalOpen(true);
+              }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
+                <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">Yes — score Reached on Error</span>
+                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Use only when the batter likely would have been out without the misplay.</span>
+              </button>
+              <button type="button" onClick={() => {
+                recordHitRbis(pendingRoeDecision.originalCode, pendingRoeDecision.rbiEarned);
+                const runnerCode = pendingRoeDecision.runnerCode;
+                setRoeDecisionModalOpen(false);
+                setPendingRoeDecision(null);
+                if (runnerCode) startRunnerSession(runnerCode);
+              }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
+                <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">Hit stands — error only allowed extra bases</span>
+                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Keep the hit; handle the runner’s extra advance in the next step.</span>
+              </button>
+            </div>
+            <button type="button" onClick={() => {
+              setRoeDecisionModalOpen(false);
+              setPendingRoeDecision(null);
+              recordHitRbis(pendingRoeDecision.originalCode, pendingRoeDecision.rbiEarned);
+              if (pendingRoeDecision.runnerCode) startRunnerSession(pendingRoeDecision.runnerCode);
+            }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Keep hit for now (can correct later)</button>
+          </div>
+        </div>
+      )}
+
+      {roeModalOpen && pendingRoeDecision && (
+        <div className="fixed inset-0 z-[111] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+          <div role="dialog" aria-modal="true" aria-labelledby="roe-error-title" className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
+            <div>
+              <h2 id="roe-error-title" className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">What type of error?</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">The hit location will be kept, but the play will count as ROE instead of a hit.</p>
             </div>
             <div className="grid gap-2">
               {([
-                ['fielding', 'Fielding error', 'Bobble, mishandled grounder, or misplayed ball'],
+                ['fielding', 'Fielding error', 'The fielder mishandled or bobbled the ball'],
                 ['throwing', 'Throwing error', 'An inaccurate throw allowed the batter to reach'],
                 ['droppedCatch', 'Dropped catch', 'A catchable ball was dropped'],
                 ['other', 'Other error', 'Another defensive misplay'],
               ] as const).map(([value, label, description]) => (
                 <button key={value} type="button" onClick={() => {
-                  pendingRoeErrorTypeRef.current = value;
+                  const pending = pendingRoeDecision;
+                  updatePlayOutcome(pending.playId, 'reachedOnError', value);
                   setRoeModalOpen(false);
-                  handleScoringPlay('reachedOnError');
+                  setPendingRoeDecision(null);
+                  // ROE means the batter-runner is credited with reaching first, not the selected hit base.
+                  if (pending.runnerCode) startRunnerSession('single');
                 }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
                   <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
                   <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">{description}</span>
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setRoeModalOpen(false)} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Cancel</button>
+            <button type="button" onClick={() => {
+              setRoeModalOpen(false);
+              setRoeDecisionModalOpen(true);
+            }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Back</button>
           </div>
         </div>
       )}
