@@ -3250,15 +3250,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 <span>{activeProfile.playerName || 'Player'} safe on {activeRunnerChip.base === 1 ? '1st' : activeRunnerChip.base === 2 ? '2nd' : '3rd'} Base</span>
               </div>
             </button>
-            <button
-              type="button"
-              onClick={() => advanceTrackedRunnerForAward('walk')}
-              className="w-full rounded-lg border border-[#246BFD]/50 dark:border-[#3478FF]/50 bg-white dark:bg-[#252D38] px-3 py-3 text-left text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:border-[#246BFD] dark:hover:border-[#3478FF] transition-colors"
-              title="Use when a walk or hit-by-pitch forces this runner to advance"
-            >
-              <span className="block">{activeRunnerChip.base === 3 ? 'Score on Walk / HBP' : 'Advance on Walk / HBP'}</span>
-              <span className="mt-1 block text-xs font-medium text-slate-500 dark:text-[#9CA3AF]">Forced advance · records the runner movement</span>
-            </button>
+
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-2 pb-1">
@@ -4494,6 +4486,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           onAdvance={handleRunnerAdvance}
           onOut={handleRunnerOut}
           onScore={handleRunnerScore}
+          onWalkHbp={() => advanceTrackedRunnerForAward('walk')}
           onThirdOut={handleRunnerThirdOut}
           onUndo={handleUnifiedRunnerUndo}
           onHoldOnBase={handleHoldRunnerOnBase}
