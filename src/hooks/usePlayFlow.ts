@@ -30,7 +30,12 @@ type CatcherFieldingCode =
   | 'catchersInterference'
   | 'pickoff'
   | 'droppedThirdStrike'
-  | 'defensiveIndifference';
+  | 'defensiveIndifference'
+  | 'catcherObstruction'
+  | 'catcherObstruction2'
+  | 'pickoffCaughtStealing'
+  | 'wildPitch'
+  | 'balk';
 
 interface UsePlayFlowOptions {
   onEvent: (
