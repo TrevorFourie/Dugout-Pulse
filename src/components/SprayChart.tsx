@@ -224,8 +224,13 @@ export const SprayChart: React.FC<SprayChartProps> = ({
         return '#7FEBDD'; // Light teal
       case 'single':
         return '#A9C6FF'; // Light blue
+      case 'out':
+      case 'sacFly':
+      case 'sacBunt':
+      case 'groundedIntoDoublePlay':
+        return '#D6313A'; // Dugout Pulse red: batted-ball out, not a base hit
       default:
-        return '#94A3B8'; // Slate out
+        return '#94A3B8'; // Slate for other non-hit plays
     }
   };
 
