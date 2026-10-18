@@ -4344,10 +4344,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           allowPlayChange={false}
           onSave={(loc) => {
             addPlay('batting', 'pitchFoul', {
-              lineupSpot: liveGame?.lineupSpot,
+              lineupSpot: currentInningLineupSpot,
               hitLocation: loc,
               targetInning: viewedInning,
             });
+            // A foul adds a strike only until the batter already has two strikes.
+            setBatterStrikes((count) => Math.min(2, count + 1));
             setIsFoulTapperOpen(false);
           }}
           onSkip={() => setIsFoulTapperOpen(false)}
