@@ -58,6 +58,9 @@ export type FieldingPlayCode =
   | 'pickoff'
   | 'droppedThirdStrike'
   | 'defensiveIndifference'
+  | 'catcherObstruction'
+  | 'catcherObstruction2'
+  | 'pickoffCaughtStealing'
   | 'fieldersChoice'
   | 'outfieldAssist';
 
