@@ -424,7 +424,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
   const [roeModalOpen, setRoeModalOpen] = useState(false);
   const [roeDecisionModalOpen, setRoeDecisionModalOpen] = useState(false);
-  const [pendingRoeDecision, setPendingRoeDecision] = useState<{
+  const [roeDecisionMode, setRoeDecisionMode] = useState<'roe' | 'extraBases'>('roe');
+  const [pendingRoeDecision, setPendingRoeDecision = useState<{
     playId: string;
     originalCode: PlayCode;
     runnerCode: PlayCode | null;
@@ -4346,14 +4347,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Use only when the batter likely would have been out without the misplay.</span>
               </button>
               <button type="button" onClick={() => {
-                recordHitRbis(pendingRoeDecision.originalCode, pendingRoeDecision.rbiEarned);
-                const runnerCode = pendingRoeDecision.runnerCode;
+                setRoeDecisionMode('extraBases');
                 setRoeDecisionModalOpen(false);
-                setPendingRoeDecision(null);
-                if (runnerCode) startRunnerSession(runnerCode);
+                setRoeModalOpen(true);
               }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
                 <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">Hit stands — error only allowed extra bases</span>
-                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Keep the hit; handle the runner’s extra advance in the next step.</span>
+                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Keep the hit, record the error detail, then handle the runner’s advancement.</span>
               </button>
             </div>
             <button type="button" onClick={() => {
@@ -4371,7 +4370,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           <div role="dialog" aria-modal="true" aria-labelledby="roe-error-title" className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
             <div>
               <h2 id="roe-error-title" className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">What type of error?</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">The hit location will be kept, but the play will count as ROE instead of a hit.</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">{roeDecisionMode === 'roe' ? 'The hit location will be kept, but the play will count as ROE instead of a hit.' : 'The hit remains a hit. This records the defensive error detail without removing the hit from the batter’s stats.'}</p>
             </div>
             <div className="grid gap-2">
               {([
@@ -4382,11 +4381,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               ] as const).map(([value, label, description]) => (
                 <button key={value} type="button" onClick={() => {
                   const pending = pendingRoeDecision;
-                  updatePlayOutcome(pending.playId, 'reachedOnError', value);
+                  const isRoe = roeDecisionMode === 'roe';
+                  updatePlayOutcome(pending.playId, isRoe ? 'reachedOnError' : pending.originalCode, value);
                   setRoeModalOpen(false);
                   setPendingRoeDecision(null);
                   // ROE means the batter-runner is credited with reaching first, not the selected hit base.
-                  if (pending.runnerCode) startRunnerSession('single');
+                  if (pending.runnerCode) startRunnerSession(isRoe ? 'single' : pending.runnerCode);
                 }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
                   <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
                   <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">{description}</span>
@@ -4395,6 +4395,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             </div>
             <button type="button" onClick={() => {
               setRoeModalOpen(false);
+              setRoeDecisionMode('roe');
               setRoeDecisionModalOpen(true);
             }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] px-4 py-2.5 font-semibold text-[#18212D] dark:text-[#FAFAFA] hover:bg-slate-50 dark:hover:bg-[#252D38]">Back</button>
           </div>
