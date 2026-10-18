@@ -51,6 +51,7 @@ export type FieldingPlayCode =
   | 'doublePlay'
   | 'triplePlay'
   | 'passedBall'
+  | 'catcherGloveDeadBall'
   | 'caughtStealing'
   | 'stealAllowed'
   | 'catchersInterference'
@@ -168,7 +169,7 @@ export interface Play {
   autoOutcome?: boolean; // For strikeout/walk auto-triggered by reaching 3 strikes / 4 balls
   runnerFromBase?: 1 | 2 | 3;
   runnerToBase?: 1 | 2 | 3 | 4;
-  runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
+  runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError' | 'walk' | 'deadBall';
   runnerSubNumber?: string;
   runnerOutReason?: RunnerOutReason; // How a baserunner was retired (runnerOut plays)
   outReason?: 'batterRunnerInterference'; // Why the scored batter was recorded out
