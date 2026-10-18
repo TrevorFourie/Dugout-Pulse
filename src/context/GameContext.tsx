@@ -292,9 +292,8 @@ const DEFAULT_SETTINGS: AppSettings = {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 /**
- * Number of innings actually played. Unless the user set the count by hand, trailing innings
- * that have no plays and were not a bench inning (e.g. the "next inning" opened after the last
- * out of a shortened game) are not counted.
+ * Number of innings actually played. Trailing innings with no plays and no bench/rest entry
+ * (e.g. an inning opened accidentally or after a shortened game) are not counted.
  */
 export function getInningsPlayed(game: Game): number {
   // The configured inning count is the scheduled/minimum game length, not proof that
