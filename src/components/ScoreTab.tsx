@@ -346,6 +346,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingHitPlay, setPendingHitPlay] = useState<{ playId: string; code: PlayCode } | null>(null);
   const [isGameSprayModalOpen, setIsGameSprayModalOpen] = useState(false);
   const [isDirectTapperOpen, setIsDirectTapperOpen] = useState(false);
+  const [isOutLocationFirstOpen, setIsOutLocationFirstOpen] = useState(false);
   const [isFoulTapperOpen, setIsFoulTapperOpen] = useState(false);
   const pendingHitLocationRef = useRef<HitLocation | null>(null);
   // Smart-scoring metadata (extra outs, validated context) waiting to be attached to the next primary batting play.
@@ -1994,6 +1995,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         return;
       }
       if (code === 'out') {
+        // Capture the batted-ball contact location before asking the scorer to resolve the out.
+        // The location is then attached to the final out outcome selected in the resolution flow.
+        if (hitTapperEnabled && !pendingHitLocationRef.current) {
+          setIsOutLocationFirstOpen(true);
+          return;
+        }
         setOutResolutionOpen(true);
         return;
       }
@@ -2144,9 +2151,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       batterSafeAtFirst: c.batterSafeAtFirst,
       autoCorrected: res.autoCorrected || undefined,
     };
+    const preselectedLoc = pendingHitLocationRef.current || undefined;
+    pendingHitLocationRef.current = null;
     const playOptions = {
       pitcherHand,
       lineupSpot: currentInningLineupSpot,
+      hitLocation: preselectedLoc,
       extraOuts: res.extraOuts,
       scoringContext,
     };
@@ -2175,7 +2185,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     // onEvent callback. Explicitly open Hit Location for batted-ball outs here as well, and
     // defer the batter/inning transition so it doesn't clear or cover the location modal.
     const locationTrackableOutCodes: PlayCode[] = ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'];
-    if (createdPlay && hitTapperEnabled && locationTrackableOutCodes.includes(code)) {
+    if (createdPlay && !preselectedLoc && hitTapperEnabled && locationTrackableOutCodes.includes(code)) {
       pendingRunnerAfterHitRef.current = null;
       pendingOutCompletionRef.current = res.inningEnds ? 'thirdOut' : 'nextBatter';
       setPendingHitPlay({ playId: createdPlay.id, code });
@@ -4275,6 +4285,28 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           }}
           onSkip={() => setIsFoulTapperOpen(false)}
           onClose={() => setIsFoulTapperOpen(false)}
+        />
+      )}
+
+      {/* Capture batted-ball location before entering the OUT resolution flow. */}
+      {isOutLocationFirstOpen && (
+        <HitLocationModal
+          isOpen={isOutLocationFirstOpen}
+          playCode="out"
+          allowPlayChange={false}
+          onSave={(loc) => {
+            setIsOutLocationFirstOpen(false);
+            pendingHitLocationRef.current = loc;
+            handleScoringPlay('out');
+          }}
+          onSkip={() => {
+            setIsOutLocationFirstOpen(false);
+            handleScoringPlay('out');
+          }}
+          onClose={() => {
+            setIsOutLocationFirstOpen(false);
+            handleScoringPlay('out');
+          }}
         />
       )}
 
