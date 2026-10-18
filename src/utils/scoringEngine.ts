@@ -311,7 +311,8 @@ export function statLineFor(outcome: ScoringOutcome): StatLine {
  * Outs implied by a stored batting play. Single source of truth for the inning out counter so that
  * sacrifices and fielder's-choice plays are no longer silently ignored.
  */
-export function playOutCount(play: { code: string; extraOuts?: number }): number {
+export function playOutCount(play: { code: string; extraOuts?: number; droppedThirdStrikeSafe?: boolean }): number {
+  if (play.code === 'strikeout' && play.droppedThirdStrikeSafe) return Math.max(0, play.extraOuts ?? 0);
   const base =
     play.code === 'groundedIntoDoublePlay'
       ? 2
