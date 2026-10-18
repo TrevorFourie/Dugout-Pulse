@@ -470,6 +470,7 @@ export function calculateFieldingStats(plays: Play[], gameCount: number = 1): Fi
         pb++;
         break;
       case 'caughtStealing':
+      case 'pickoffCaughtStealing':
         cs++;
         break;
       case 'stealAllowed':
