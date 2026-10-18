@@ -416,6 +416,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     });
   };
   const [outResolutionOpen, setOutResolutionOpen] = useState(false);
+  // Batter-side pitch count is deliberately separate from pitching statistics.
+  const [batterBalls, setBatterBalls] = useState(0);
+  const [batterStrikes, setBatterStrikes] = useState(0);
+  const [isBatterStrikeoutModalOpen, setIsBatterStrikeoutModalOpen] = useState(false);
   const [lineupSpotPromptOpen, setLineupSpotPromptOpen] = useState(false);
   const [roeModalOpen, setRoeModalOpen] = useState(false);
   const pendingRoeErrorTypeRef = useRef<Play['errorType'] | null>(null);
@@ -1976,8 +1980,70 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     setRunnerSession(createRunnerLifecycle(base));
   };
 
+  const recordBatterStrikeout = (droppedThirdStrikeSafe: boolean) => {
+    setIsBatterStrikeoutModalOpen(false);
+    const outsBefore = getBattingOutCount(currentInning);
+    setBatterBalls(0);
+    setBatterStrikes(0);
+    addPlay('batting', 'strikeout', {
+      pitcherHand,
+      lineupSpot: currentInningLineupSpot,
+      targetInning: viewedInning,
+      droppedThirdStrikeSafe,
+    });
+    if (droppedThirdStrikeSafe) {
+      startRunnerSession('walk');
+      return;
+    }
+    if (outsBefore + 1 >= 3) handleThirdOut('batting');
+    else playFlow.nextPlateAppearance();
+  };
+
+  const handleBatterBall = () => {
+    if (playFlow.isPrimaryEventDisabled) return;
+    addPlay('batting', 'pitchBall', {
+      pitcherHand,
+      lineupSpot: currentInningLineupSpot,
+      targetInning: viewedInning,
+    });
+    const nextCount = batterBalls + 1;
+    if (nextCount >= 4) {
+      setBatterBalls(0);
+      setBatterStrikes(0);
+      handleScoringPlay('walk');
+    } else {
+      setBatterBalls(nextCount);
+    }
+  };
+
+  const handleBatterStrike = () => {
+    if (playFlow.isPrimaryEventDisabled) return;
+    addPlay('batting', 'pitchStrike', {
+      pitcherHand,
+      lineupSpot: currentInningLineupSpot,
+      targetInning: viewedInning,
+    });
+    const nextCount = batterStrikes + 1;
+    if (nextCount >= 3) {
+      setBatterBalls(0);
+      setBatterStrikes(0);
+      const firstBaseOccupied =
+        (activeRunnerChip?.inning === currentInning && activeRunnerChip.base === 1) ||
+        runnerSession?.base === 1;
+      const outsBefore = getBattingOutCount(currentInning);
+      if (!firstBaseOccupied || outsBefore >= 2) setIsBatterStrikeoutModalOpen(true);
+      else recordBatterStrikeout(false);
+    } else {
+      setBatterStrikes(nextCount);
+    }
+  };
+
   const handleScoringPlay = (code: PlayCode) => {
     if (activeMode === 'batting') {
+      if (['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError', 'catchersInterference'].includes(code)) {
+        setBatterBalls(0);
+        setBatterStrikes(0);
+      }
       const requiresLineupSpot = ['single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'reachedOnError', 'catchersInterference'].includes(code);
       if (requiresLineupSpot && !currentInningLineupSpot) {
         setLineupSpotPromptOpen(true);
@@ -3184,11 +3250,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             })}
             <button
               type="button"
-              onClick={() => addPlay('batting', 'pitchStrike', {
-                pitcherHand,
-                lineupSpot: currentInningLineupSpot,
-                targetInning: viewedInning,
-              })}
+              onClick={handleBatterStrike}
               disabled={playFlow.isPrimaryEventDisabled}
               className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
               title="Record a strike seen by the batter; does not affect pitching or fielding statistics"
@@ -3198,11 +3260,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             </button>
             <button
               type="button"
-              onClick={() => addPlay('batting', 'pitchBall', {
-                pitcherHand,
-                lineupSpot: currentInningLineupSpot,
-                targetInning: viewedInning,
-              })}
+              onClick={handleBatterBall}
               disabled={playFlow.isPrimaryEventDisabled}
               className="min-h-[92px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-2 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
               title="Record a ball received by the batter; does not affect pitching or fielding statistics"
@@ -4335,6 +4393,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           }}
           onSkip={() => setIsDirectTapperOpen(false)}
           onClose={() => setIsDirectTapperOpen(false)}
+        />
+      )}
+
+      {isBatterStrikeoutModalOpen && (
+        <ConfirmationModal
+          isOpen={isBatterStrikeoutModalOpen}
+          title="Third strike — what happened?"
+          message="The batter may be safe at first on a dropped third strike because first base is unoccupied or there are two outs. Choose the result that happened."
+          confirmLabel="Safe at 1st (D3S)"
+          cancelLabel="Strikeout"
+          onConfirm={() => recordBatterStrikeout(true)}
+          onCancel={() => recordBatterStrikeout(false)}
         />
       )}
 
