@@ -1482,9 +1482,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setInning = useCallback((inning: number) => {
     if (inning < 1) return;
-    setLiveGame((prev) =>
-      prev ? { ...prev, innings: inning, maxInning: Math.max(prev.maxInning ?? prev.innings, inning) } : null
-    );
+    setLiveGame((prev) => {
+      if (!prev) return null;
+      const currentPosition = prev.fieldingPositions?.[prev.innings];
+      const fieldingPositions =
+        currentPosition &&
+        currentPosition !== 'BENCH' &&
+        inning > prev.innings &&
+        !prev.fieldingPositions?.[inning]
+          ? { ...(prev.fieldingPositions || {}), [inning]: currentPosition }
+          : prev.fieldingPositions;
+      return {
+        ...prev,
+        innings: inning,
+        maxInning: Math.max(prev.maxInning ?? prev.innings, inning),
+        ...(fieldingPositions ? { fieldingPositions } : {}),
+      };
+    });
   }, []);
 
   const setInningPosition = useCallback(
