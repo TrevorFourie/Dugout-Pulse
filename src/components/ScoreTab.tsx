@@ -2120,7 +2120,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           ? 3
           : code === 'doublePlay'
           ? 2
-          : code === 'putout' || code === 'caughtStealing' || code === 'pickoff' || code === 'fieldersChoice'
+          : code === 'putout' || code === 'caughtStealing' || code === 'pickoffCaughtStealing' || code === 'pickoff' || code === 'fieldersChoice'
           ? 1
           : 0;
 
@@ -2133,6 +2133,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         'pickoff',
         'droppedThirdStrike',
         'defensiveIndifference',
+        'catcherObstruction',
+        'catcherObstruction2',
+        'pickoffCaughtStealing',
+        'wildPitch',
+        'balk',
       ];
 
       if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
