@@ -297,7 +297,9 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
  * out of a shortened game) are not counted.
  */
 export function getInningsPlayed(game: Game): number {
-  if (game.inningsManual) return Math.max(1, game.innings);
+  // The configured inning count is the scheduled/minimum game length, not proof that
+  // every inning was actually played. Trim trailing empty innings when saving so
+  // unfinished innings do not inflate game length or pitching/stat calculations.
   let innings = Math.max(1, game.innings);
   while (
     innings > 1 &&
