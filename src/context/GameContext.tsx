@@ -1979,8 +1979,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (liveGame) return false;
       const targetGame = games.find((g) => g.id === gameId);
       if (!targetGame) return false;
-      const resumedGame = {
-        ...JSON.parse(JSON.stringify(targetGame)) as Game,
+      const resumedGame: Game = {
+        ...JSON.parse(JSON.stringify(targetGame)),
         finalResult: '',
       };
       setLiveGame(resumedGame);
