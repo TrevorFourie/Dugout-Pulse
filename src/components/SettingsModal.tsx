@@ -6,7 +6,6 @@ import { AppLogo } from './AppLogo';
 import {
   X,
   ArrowLeft,
-  Menu,
   Sliders,
   Moon,
   Sun,
@@ -140,8 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newDefaultLineupSpot, setNewDefaultLineupSpot] = useState<number | undefined>(undefined);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [settingsSection, setSettingsSection] = useState<SettingsSectionId | null>(initialSection);
-  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
   const [activePresetTab, setActivePresetTab] = useState<'seasons' | 'tournaments' | 'ageGroups'>('seasons');
@@ -174,7 +172,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSettingsSection(initialSection);
-      setIsSettingsMenuOpen(false);
       settingsContentRef.current?.scrollTo({ top: 0 });
     }
   }, [isOpen, initialSection]);
@@ -370,24 +367,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] overflow-hidden">
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-[#354050] flex items-center justify-between bg-slate-50 dark:bg-[#1A2028]/80">
-            <div className="flex items-center gap-2 min-w-0">
-              <button
-                type="button"
-                onClick={() => setIsSettingsMenuOpen(true)}
-                aria-label="Open settings menu"
-                aria-expanded={isSettingsMenuOpen}
-                className="shrink-0 p-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
-                  Preferences
-                </span>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                  Settings
-                </h2>
-              </div>
+            <div className="min-w-0">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
+                Preferences
+              </span>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
+                Settings
+              </h2>
             </div>
             <button
               type="button"
@@ -422,66 +408,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* Settings navigation and active section */}
+          {/* Settings page content; navigation is provided by the app-wide drawer. */}
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-            {isSettingsMenuOpen && (
-              <button
-                type="button"
-                aria-label="Close settings menu"
-                onClick={() => setIsSettingsMenuOpen(false)}
-                className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[1px]"
-              />
-            )}
-            <aside className={`absolute inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-r border-slate-200 bg-slate-50 shadow-xl dark:border-[#354050] dark:bg-[#1A2028] transition-transform duration-250 ease-out ${isSettingsMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={!isSettingsMenuOpen}>
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-[#354050]">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">Settings Menu</span>
-                <button type="button" onClick={() => setIsSettingsMenuOpen(false)} aria-label="Close settings menu" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <nav aria-label="Settings sections" className="flex flex-col items-stretch gap-1.5 p-3">
-                {[
-                  { id: 'playerDetails', label: 'Player Details', shortLabel: 'Player', icon: UserPlus, detail: 'Name and primary team' },
-                  { id: 'teams', label: 'Teams', shortLabel: 'Teams', icon: Shield, detail: 'Add and manage teams' },
-                  { id: 'teamLists', label: 'Team Setup Lists', shortLabel: 'Team Lists', icon: Layers, detail: 'Seasons, tournaments, ages' },
-                  { id: 'scoring', label: 'Scoring', shortLabel: 'Scoring', icon: Sliders , detail: 'Rules and appearance' },
-                  { id: 'displayTheme', label: 'Display', shortLabel: 'Theme', icon: Palette, detail: 'App Theme' },
-                  { id: 'players', label: 'Profiles', shortLabel: 'Profiles', icon: Users, detail: 'Manage player profiles' },
-                  { id: 'data', label: 'Data & About', shortLabel: 'Data', icon: Download, detail: 'Backup and app info' },
-                ].map((section) => {
-                  const Icon = section.icon;
-                  const isSelected = settingsSection === section.id;
-                  return (
-                    <button
-                      key={section.id}
-                      type="button"
-                      onClick={() => {
-                        setSettingsSection(section.id as typeof settingsSection);
-                        setIsSettingsMenuOpen(false);
-                        settingsContentRef.current?.scrollTo({ top: 0 });
-                      }}
-                      aria-current={isSelected ? 'page' : undefined}
-                      aria-label={section.label}
-                      className={`flex min-w-0 w-full items-center gap-2 rounded-md border px-3 py-3 text-left transition-colors ${
-                        isSelected
-                          ? 'border-[#00BFA5] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] dark:border-[#00D7BC] sm:shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:bg-[#354050] sm:bg-transparent sm:dark:bg-transparent'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="hidden">{section.shortLabel}</span>
-                      <span className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-xs font-extrabold">{section.label}</span>
-                        <span className={`mt-0.5 block truncate text-[10px] ${isSelected ? 'text-white/70' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
-                          {section.detail}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </aside>
-
             <div ref={settingsContentRef} className="app-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5">
               <div className="space-y-6">
 
