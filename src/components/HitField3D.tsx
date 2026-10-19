@@ -1,27 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { HitLocation, HitTrajectory } from '../types/baseball';
-import { INFIELD_CENTER, INFIELD_DIRT_RADIUS } from '../utils/sprayChart';
 import {
   BASES,
   BASE_SIZE,
-  FENCE,
   FIELD_COLORS as C,
-  FIELD_SIZE,
   FOUL_POLES,
-  GRASS_DIAMOND,
-  HOME,
-  HOME_DIRT_RADIUS,
   MOUND,
   MOUND_RADIUS,
-  STRIPE_COUNT,
-  STRIPE_STEP,
   pctToField,
 } from '../utils/fieldGeometry';
+import {
+  FIELD_TEXTURE,
+  buildStadium,
+  disposeMaterial,
+  makeBeamTexture,
+  makeFieldTexture,
+  makeHorizonTexture,
+  makeRadialTexture,
+  makeSkyTexture,
+  wx,
+  wz,
+} from '../utils/HitField3DScenery';
 
 /**
  * View-only 3D replay of a hit. The field uses the same 300 x 300 space as the 2D chart:
  * world X = fieldX - 150, world Z = fieldY - 260 (home plate at the origin, outfield toward -Z).
+ * Scenery (textures, stadium) lives in HitField3DScenery.ts.
  */
 
 type ViewName = 'home' | 'top' | 'out';
@@ -42,147 +47,10 @@ interface SceneApi {
   dispose: () => void;
 }
 
-const wx = (fieldX: number) => fieldX - HOME.x;
-const wz = (fieldY: number) => fieldY - HOME.y;
 const BALL_RADIUS = 1.5;
 const TUBE_SEGMENTS = 90;
-const TUBE_RADIAL = 5;
-
-/* ---------- ground texture (same art as the 2D field, painted once to a canvas) ---------- */
-function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
-  const K = 4;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = FIELD_SIZE * K;
-  const g = canvas.getContext('2d')!;
-  g.scale(K, K);
-
-  const fair = () => {
-    g.beginPath();
-    g.moveTo(HOME.x, HOME.y);
-    g.lineTo(28, 138);
-    g.ellipse(FENCE.cx, FENCE.cy, FENCE.rx, FENCE.ry, 0, Math.PI, 2 * Math.PI);
-    g.closePath();
-  };
-  const stripes = (clip: () => void) => {
-    g.save();
-    clip();
-    g.clip();
-    for (let k = STRIPE_COUNT - 1; k >= 0; k--) {
-      g.fillStyle = k % 2 ? C.grassA : C.grassB;
-      g.beginPath();
-      g.arc(HOME.x, HOME.y, k * STRIPE_STEP, 0, Math.PI * 2);
-      g.fill();
-    }
-    g.restore();
-  };
-
-  g.fillStyle = C.surround;
-  g.fillRect(0, 0, FIELD_SIZE, FIELD_SIZE);
-  g.fillStyle = C.foul;
-  g.beginPath();
-  g.ellipse(FENCE.cx, FENCE.cy, FENCE.rx, FENCE.ry, 0, Math.PI, 2 * Math.PI);
-  g.lineTo(272, 290);
-  g.lineTo(28, 290);
-  g.closePath();
-  g.fill();
-  stripes(fair);
-
-  g.save();
-  fair();
-  g.clip();
-  g.strokeStyle = C.dirt;
-  g.lineWidth = 18;
-  g.beginPath();
-  g.ellipse(FENCE.cx, FENCE.cy, FENCE.rx, FENCE.ry, 0, Math.PI, 2 * Math.PI);
-  g.stroke();
-  g.restore();
-
-  const dirt = g.createRadialGradient(HOME.x, 222, 0, HOME.x, 222, 70);
-  dirt.addColorStop(0, C.dirtLight);
-  dirt.addColorStop(1, C.dirtDark);
-  g.fillStyle = dirt;
-  g.beginPath();
-  g.arc(INFIELD_CENTER.x, INFIELD_CENTER.y, INFIELD_DIRT_RADIUS, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = C.dirt;
-  g.beginPath();
-  g.arc(HOME.x, HOME.y, HOME_DIRT_RADIUS, 0, Math.PI * 2);
-  g.fill();
-  stripes(() => {
-    g.beginPath();
-    GRASS_DIAMOND.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-    g.closePath();
-  });
-  g.fillStyle = dirt;
-  g.beginPath();
-  g.arc(MOUND.x, MOUND.y, MOUND_RADIUS, 0, Math.PI * 2);
-  g.fill();
-
-  g.strokeStyle = 'rgba(255,255,255,.92)';
-  g.lineCap = 'round';
-  g.lineWidth = 1.4;
-  g.beginPath();
-  g.moveTo(HOME.x, HOME.y);
-  g.lineTo(28.6, 138.6);
-  g.moveTo(HOME.x, HOME.y);
-  g.lineTo(271.4, 138.6);
-  g.stroke();
-  g.lineWidth = 0.7;
-  g.strokeRect(136, 253, 7, 12);
-  g.strokeRect(157, 253, 7, 12);
-
-  // Fine grain so the grass and dirt do not look flat up close
-  for (let i = 0; i < 26000; i++) {
-    g.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.05)';
-    g.fillRect(Math.random() * FIELD_SIZE, Math.random() * FIELD_SIZE, 0.35, 0.35);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = maxAnisotropy;
-  return texture;
-}
-
-function makeSkyTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 4;
-  canvas.height = 256;
-  const g = canvas.getContext('2d')!;
-  const grad = g.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, '#5b9bd6');
-  grad.addColorStop(0.55, '#a9cfee');
-  grad.addColorStop(1, '#e8f1f4');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 4, 256);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-/** A strip of wall following the outfield fence ellipse. */
-function makeWall(height: number, y0: number, color: number): THREE.Mesh {
-  const SEGMENTS = 80;
-  const positions: number[] = [];
-  const indices: number[] = [];
-  for (let i = 0; i <= SEGMENTS; i++) {
-    const t = (Math.PI * i) / SEGMENTS;
-    const x = wx(FENCE.cx + FENCE.rx * Math.cos(t));
-    const z = wz(FENCE.cy - FENCE.ry * Math.sin(t));
-    positions.push(x, y0, z, x, y0 + height, z);
-  }
-  for (let i = 0; i < SEGMENTS; i++) {
-    const a = i * 2;
-    indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color, roughness: 0.85, side: THREE.DoubleSide }));
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
-}
+/** Direction the sun pushes shadows on the ground (per unit of height). */
+const SHADOW_SKEW = { x: 0.55, z: -0.6 };
 
 /** Ball path from the bat to the landing spot, with a height profile per trajectory. */
 function makePathPoints(tx: number, tz: number, trajectory: HitTrajectory): THREE.Vector3[] {
@@ -236,62 +104,103 @@ interface CameraState {
 /** Camera presets, fitted to the canvas aspect so the whole field stays in frame in portrait. */
 function viewPreset(view: ViewName, aspect: number): CameraState {
   const fit = Math.min(1, aspect);
-  if (view === 'top') return { yaw: 0, pitch: 1.5, dist: Math.max(255, 255 / (0.93 * fit)), tz: -105 };
-  if (view === 'out') return { yaw: Math.PI, pitch: 0.32, dist: Math.max(270, (280 / (0.93 * fit)) * 0.95), tz: -110 };
-  return { yaw: 0, pitch: 0.5, dist: Math.max(230, (255 / (0.93 * fit)) * 0.95), tz: -95 };
+  if (view === 'top') return { yaw: 0, pitch: 1.5, dist: Math.max(285, 285 / (0.93 * fit)), tz: -112 };
+  // Behind centre field and above the roof line, looking in at the plate
+  if (view === 'out') return { yaw: Math.PI, pitch: 0.5, dist: Math.max(340, 340 / (0.93 * fit)), tz: -40 };
+  return { yaw: 0, pitch: 0.34, dist: Math.max(246, (272 / (0.93 * fit)) * 0.95), tz: -104 };
 }
 
 function createScene(canvas: HTMLCanvasElement): SceneApi {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const scene = new THREE.Scene();
-  scene.background = makeSkyTexture();
-  scene.fog = new THREE.Fog(0xcfe3ee, 320, 820);
-  const camera = new THREE.PerspectiveCamera(50, 1, 1, 2000);
+  scene.fog = new THREE.Fog(0xc99aa0, 520, 2300);
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 4000);
 
-  // Light intensities are physically based in current three.js (about pi x the old values).
-  scene.add(new THREE.HemisphereLight(0xdcecff, 0x2c4a31, 2.6));
-  const sun = new THREE.DirectionalLight(0xfff2d6, 3.2);
-  sun.position.set(-110, 170, 90);
-  sun.target.position.set(0, 0, -90);
+  /* sky and horizon follow the camera, so they never show parallax */
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(2400, 40, 20),
+    new THREE.MeshBasicMaterial({ map: makeSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }),
+  );
+  sky.renderOrder = -2;
+  sky.rotation.y = Math.PI;
+  scene.add(sky);
+  const horizonTexture = makeHorizonTexture();
+  horizonTexture.repeat.set(2, 1);
+  const horizon = new THREE.Mesh(
+    new THREE.CylinderGeometry(1500, 1500, 190, 64, 1, true),
+    new THREE.MeshBasicMaterial({ map: horizonTexture, side: THREE.BackSide, transparent: true, fog: false, depthWrite: false }),
+  );
+  horizon.position.y = 70;
+  horizon.renderOrder = -1;
+  scene.add(horizon);
+
+  /* golden-hour light: warm low sun, cool sky fill */
+  scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x4a5a3a, 1.55));
+  const sun = new THREE.DirectionalLight(0xffe0b4, 3.4);
+  sun.position.set(-130, 190, 110);
+  sun.target.position.set(0, 0, -100);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -190, right: 190, top: 190, bottom: -190, near: 10, far: 520 });
-  sun.shadow.bias = -0.0004;
+  Object.assign(sun.shadow.camera, { left: -300, right: 300, top: 300, bottom: -300, near: 10, far: 700 });
+  sun.shadow.bias = -0.0005;
+  sun.shadow.normalBias = 0.6;
   scene.add(sun, sun.target);
 
+  /* ground */
   const fieldTexture = makeFieldTexture(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_SIZE, FIELD_SIZE), new THREE.MeshStandardMaterial({ map: fieldTexture, roughness: 0.95 }));
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(FIELD_TEXTURE.span, FIELD_TEXTURE.span),
+    new THREE.MeshStandardMaterial({ map: fieldTexture, roughness: 0.96 }),
+  );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, 0, wz(FIELD_SIZE / 2));
+  const groundCentre = FIELD_TEXTURE.origin + FIELD_TEXTURE.span / 2;
+  ground.position.set(wx(groundCentre), 0, wz(groundCentre));
   ground.receiveShadow = true;
   scene.add(ground);
-  const farGround = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), new THREE.MeshStandardMaterial({ color: 0x1b3325, roughness: 1 }));
+  const farGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0x1f2c2e, roughness: 1 }));
   farGround.rotation.x = -Math.PI / 2;
-  farGround.position.set(0, -0.2, -110);
+  farGround.position.set(0, -0.3, -110);
   scene.add(farGround);
 
-  scene.add(makeWall(6, 0, 0x153b27));
-  scene.add(makeWall(1, 6, 0xf2c230));
-  const stands = makeWall(24, 0, 0x0f2a1c);
-  stands.scale.set(1.12, 1, 1.12);
-  scene.add(stands);
+  const glowTexture = makeRadialTexture();
+  scene.add(buildStadium(glowTexture));
+  const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xf5c93a, roughness: 0.45, emissive: 0x6b4d00, emissiveIntensity: 0.4 });
   FOUL_POLES.forEach((pole) => {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 24, 10), new THREE.MeshStandardMaterial({ color: 0xf2c230, roughness: 0.6 }));
-    mesh.position.set(wx(pole.x), 12, wz(pole.y));
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 30, 10), poleMaterial);
+    mesh.position.set(wx(pole.x), 15, wz(pole.y));
     mesh.castShadow = true;
     scene.add(mesh);
+    const mesh2 = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 8), poleMaterial);
+    mesh2.position.set(wx(pole.x), 30, wz(pole.y));
+    scene.add(mesh2);
   });
 
-  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+  /* chalk foul lines: real geometry so they stay bright white */
+  const chalk = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+  FOUL_POLES.forEach((pole) => {
+    const dx = wx(pole.x);
+    const dz = wz(pole.y);
+    const length = Math.hypot(dx, dz);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(1.5, length), chalk);
+    line.rotation.x = -Math.PI / 2;
+    line.rotation.z = Math.atan2(-dx, -dz) + Math.PI;
+    line.position.set(dx / 2, 0.06, dz / 2);
+    scene.add(line);
+  });
+
+  /* bases, plate, mound */
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 });
   BASES.forEach((b) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(BASE_SIZE, 1, BASE_SIZE), white);
-    mesh.position.set(wx(b.x), 0.5, wz(b.y));
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(BASE_SIZE, 1.3, BASE_SIZE), white);
+    mesh.position.set(wx(b.x), 0.55, wz(b.y));
     mesh.rotation.y = Math.PI / 4;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -299,12 +208,12 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   });
   const plate = new THREE.Shape();
   [[-4, 4], [4, 4], [4, 0], [0, -4], [-4, 0]].forEach(([x, y], i) => (i ? plate.lineTo(x, y) : plate.moveTo(x, y)));
-  const plateMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(plate, { depth: 0.5, bevelEnabled: false }), white);
+  const plateMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(plate, { depth: 0.6, bevelEnabled: false }), white);
   plateMesh.rotation.x = -Math.PI / 2;
   plateMesh.position.set(0, 0.05, 0);
   plateMesh.castShadow = true;
   scene.add(plateMesh);
-  const mound = new THREE.Mesh(new THREE.CylinderGeometry(MOUND_RADIUS - 1.5, MOUND_RADIUS + 3, 2.2, 40), new THREE.MeshStandardMaterial({ color: 0xc9996a, roughness: 1 }));
+  const mound = new THREE.Mesh(new THREE.CylinderGeometry(MOUND_RADIUS - 2, MOUND_RADIUS + 2.5, 2.2, 48), new THREE.MeshStandardMaterial({ color: 0xcf9f6d, roughness: 1 }));
   mound.position.set(0, 1.1, wz(MOUND.y));
   mound.castShadow = true;
   mound.receiveShadow = true;
@@ -313,47 +222,89 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   rubber.position.set(0, 2.35, wz(MOUND.y));
   scene.add(rubber);
 
-  /* landing marker: ring, pulse ring, beam, ground glow */
+  /* landing marker: crisp ring, ripple, soft ground glow and a fading beam */
   const marker = new THREE.Group();
   scene.add(marker);
-  const ringMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true, opacity: 0.95 });
-  const pulseMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true });
-  const beamMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const glowMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true, opacity: 0.35 });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(5.2, 0.65, 10, 48), ringMaterial);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.4;
-  const pulse = new THREE.Mesh(new THREE.TorusGeometry(5.2, 0.35, 8, 48), pulseMaterial);
-  pulse.rotation.x = Math.PI / 2;
-  pulse.position.y = 0.4;
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 4.4, 46, 24, 1, true), beamMaterial);
-  beam.position.y = 23;
-  const glow = new THREE.Mesh(new THREE.CircleGeometry(4.8, 32), glowMaterial);
+  const ringMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true, opacity: 0.98, toneMapped: false });
+  const pulseMaterial = new THREE.MeshBasicMaterial({ color: C.hit, transparent: true, toneMapped: false, depthWrite: false });
+  const beamMaterial = new THREE.MeshBasicMaterial({
+    color: C.hit,
+    transparent: true,
+    opacity: 0.5,
+    alphaMap: makeBeamTexture(),
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  const glowMaterial = new THREE.MeshBasicMaterial({ color: C.hit, map: glowTexture, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6.2, 64), ringMaterial);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.35;
+  const pulse = new THREE.Mesh(new THREE.RingGeometry(5.2, 5.8, 64), pulseMaterial);
+  pulse.rotation.x = -Math.PI / 2;
+  pulse.position.y = 0.34;
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 4.6, 52, 32, 1, true), beamMaterial);
+  beam.position.y = 26;
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(18, 48), glowMaterial);
   glow.rotation.x = -Math.PI / 2;
   glow.position.y = 0.25;
-  marker.add(ring, pulse, beam, glow);
+  marker.add(glow, ring, pulse, beam);
 
+  /* ball, its soft ground shadow and a little glow */
   const ball = new THREE.Group();
-  const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 24, 16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }));
+  const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 28, 20), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.45 }));
   ballMesh.castShadow = true;
-  const seam = new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS + 0.01, 0.08, 6, 28), new THREE.MeshBasicMaterial({ color: 0xd6313a }));
+  const seamMaterial = new THREE.MeshBasicMaterial({ color: 0xd6313a });
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(BALL_RADIUS + 0.01, 0.09, 6, 32), seamMaterial);
   const seam2 = seam.clone();
   seam2.rotation.y = Math.PI / 2;
-  ball.add(ballMesh, seam, seam2);
+  const ballGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xfff1c0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.55 }));
+  ballGlow.scale.set(11, 11, 1);
+  ball.add(ballMesh, seam, seam2, ballGlow);
   scene.add(ball);
+  const ballShadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, map: glowTexture, transparent: true, depthWrite: false, opacity: 0.5 });
+  const ballShadow = new THREE.Mesh(new THREE.CircleGeometry(3.4, 24), ballShadowMaterial);
+  ballShadow.rotation.x = -Math.PI / 2;
+  ballShadow.position.y = 0.2;
+  scene.add(ballShadow);
 
-  let trail: THREE.Mesh | null = null;
+  /* trail: bright core, soft halo, and a faint line on the grass under the flight */
+  interface Trail {
+    mesh: THREE.Mesh;
+    radial: number;
+  }
+  let trails: Trail[] = [];
   let curve: THREE.CatmullRomCurve3 | null = null;
   let duration = 1.5;
   let playStart = 0;
   let playing = false;
 
+  const clearTrails = () => {
+    trails.forEach(({ mesh }) => {
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    });
+    trails = [];
+  };
+  const addTrail = (points: THREE.Vector3[], radius: number, radial: number, material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), TUBE_SEGMENTS, radius, radial, false), material);
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+    trails.push({ mesh, radial });
+  };
+
   const applyProgress = (t: number) => {
-    if (!curve || !trail) return;
-    trail.geometry.setDrawRange(0, Math.floor(t * TUBE_SEGMENTS) * TUBE_RADIAL * 6);
+    if (!curve) return;
+    trails.forEach(({ mesh, radial }) => mesh.geometry.setDrawRange(0, Math.floor(t * TUBE_SEGMENTS) * radial * 6));
     ball.position.copy(curve.getPointAt(Math.min(1, t)));
     ball.rotation.x = t * 30;
     ball.rotation.z = t * 18;
+    const h = Math.max(0, ball.position.y - BALL_RADIUS);
+    ballShadow.position.set(ball.position.x + h * SHADOW_SKEW.x, 0.2, ball.position.z + h * SHADOW_SKEW.z);
+    ballShadow.scale.setScalar(1 + h * 0.018);
+    ballShadowMaterial.opacity = Math.max(0.12, 0.62 - h * 0.012);
   };
 
   const setHit: SceneApi['setHit'] = (xPct, yPct, trajectory, isHit, replay) => {
@@ -362,15 +313,17 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     const color = isHit ? C.hit : C.out;
     marker.position.set(tx, 0, tz);
     [ringMaterial, pulseMaterial, beamMaterial, glowMaterial].forEach((m) => m.color.set(color));
-    curve = new THREE.CatmullRomCurve3(makePathPoints(tx, tz, trajectory));
-    if (trail) {
-      scene.remove(trail);
-      trail.geometry.dispose();
-      (trail.material as THREE.Material).dispose();
-    }
-    trail = new THREE.Mesh(new THREE.TubeGeometry(curve, TUBE_SEGMENTS, 0.4, TUBE_RADIAL, false), new THREE.MeshBasicMaterial({ color: 0xfffbe0, transparent: true, opacity: 0.9 }));
-    trail.frustumCulled = false;
-    scene.add(trail);
+    const points = makePathPoints(tx, tz, trajectory);
+    curve = new THREE.CatmullRomCurve3(points);
+    clearTrails();
+    addTrail(points, 1.25, 6, new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    addTrail(points, 0.42, 6, new THREE.MeshBasicMaterial({ color: 0xfffbe6, transparent: true, opacity: 0.95, toneMapped: false }));
+    addTrail(
+      points.map((p) => new THREE.Vector3(p.x + p.y * SHADOW_SKEW.x, 0.18, p.z + p.y * SHADOW_SKEW.z)),
+      0.35,
+      4,
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }),
+    );
     duration = replaySeconds(trajectory, Math.hypot(tx, tz));
     if (replay && !reduceMotion) {
       playing = true;
@@ -437,7 +390,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     if (!running) return;
     frameId = requestAnimationFrame(frame);
     if (goal) {
-      const k = reduceMotion ? 1 : 0.09;
+      const k = reduceMotion ? 1 : 0.07;
       cam.yaw += (goal.yaw - cam.yaw) * k;
       cam.pitch += (goal.pitch - cam.pitch) * k;
       cam.dist += (goal.dist - cam.dist) * k;
@@ -446,13 +399,18 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     const cp = Math.cos(cam.pitch);
     camera.position.set(Math.sin(cam.yaw) * cp * cam.dist, Math.sin(cam.pitch) * cam.dist, cam.tz + Math.cos(cam.yaw) * cp * cam.dist);
     camera.lookAt(0, 0, cam.tz);
+    sky.position.copy(camera.position);
+    horizon.position.x = camera.position.x;
+    horizon.position.z = camera.position.z;
 
     const s = now / 1000;
     if (!reduceMotion) {
-      ring.scale.setScalar(1 + Math.sin(s * 3) * 0.07);
-      pulse.scale.setScalar(1.25 + ((s * 0.9) % 1) * 0.9);
-      pulseMaterial.opacity = 1 - ((s * 0.9) % 1);
-      beamMaterial.opacity = 0.22 + Math.sin(s * 2.4) * 0.05;
+      const phase = (s * 0.9) % 1;
+      ring.scale.setScalar(1 + Math.sin(s * 3) * 0.05);
+      pulse.scale.setScalar(1 + phase * 1.1);
+      pulseMaterial.opacity = (1 - phase) * 0.8;
+      beamMaterial.opacity = 0.45 + Math.sin(s * 2.4) * 0.08;
+      glowMaterial.opacity = 0.75 + Math.sin(s * 2.4) * 0.1;
     }
     if (playing) {
       const t = Math.min(1, (performance.now() - playStart) / 1000 / duration);
@@ -461,6 +419,8 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     }
     renderer.render(scene, camera);
   };
+
+  const homeView = () => viewPreset('home', camera.aspect || 1);
 
   return {
     setHit,
@@ -476,8 +436,10 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     resize,
     start: () => {
       resize();
-      Object.assign(cam, viewPreset('home', camera.aspect || 1));
-      goal = viewPreset('home', camera.aspect || 1);
+      const target = homeView();
+      goal = target;
+      // Open slightly high and wide, then settle into the broadcast angle
+      Object.assign(cam, reduceMotion ? target : { yaw: -0.22, pitch: target.pitch + 0.2, dist: target.dist * 1.22, tz: target.tz });
       running = true;
       frameId = requestAnimationFrame(frame);
     },
@@ -491,15 +453,12 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
       canvas.removeEventListener('wheel', onWheel);
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        mesh.geometry.dispose();
+        if (!mesh.isMesh && !(obj as THREE.Sprite).isSprite) return;
+        mesh.geometry?.dispose();
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((m) => {
-          (m as THREE.MeshStandardMaterial).map?.dispose();
-          m.dispose();
-        });
+        materials.forEach(disposeMaterial);
       });
-      (scene.background as THREE.Texture | null)?.dispose();
+      glowTexture.dispose();
       renderer.dispose();
     },
   };
@@ -551,7 +510,7 @@ const HitField3D: React.FC<HitField3DProps> = ({ location, isHit, onUnsupported 
 
   return (
     <div className="w-full">
-      <div className="relative w-full aspect-[1/0.95] bg-[#1b3325]">
+      <div className="relative w-full aspect-[1/0.95] bg-[#2b3550]">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 h-full w-full cursor-grab active:cursor-grabbing"
