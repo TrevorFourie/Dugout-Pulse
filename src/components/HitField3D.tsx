@@ -63,7 +63,7 @@ function makePathPoints(tx: number, tz: number, trajectory: HitTrajectory): THRE
       : trajectory === 'lineDrive'
         ? Math.min(22, Math.max(5, dist * 0.12))
         : trajectory === 'popUp'
-          ? Math.min(95, 55 + dist * 0.4)
+          ? Math.min(38, Math.max(20, 18 + dist * 0.16))
           : 0;
   const bounces = Math.max(3, Math.round(dist / 26));
   const points: THREE.Vector3[] = [];
