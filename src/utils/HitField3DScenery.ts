@@ -297,12 +297,7 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
   g.strokeRect(136, 253, 7, 12);
   g.strokeRect(157, 253, 7, 12);
 
-  // Fade to the dark ground outside the stadium
-  const fade = g.createRadialGradient(150, 140, 175, 150, 140, 265);
-  fade.addColorStop(0, 'rgba(31,44,46,0)');
-  fade.addColorStop(1, 'rgba(31,44,46,1)');
-  g.fillStyle = fade;
-  g.fillRect(lo, lo, hi - lo, hi - lo);
+  // No dark radial vignette: keep the grass bright and the golden-hour atmosphere intact.
 
   // Fine grain
   for (let i = 0; i < 60000; i++) {
@@ -636,10 +631,17 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const path = wallPath();
   // Keep the full outfield wall, but concentrate the grandstand behind home plate.
   // Seating fades down naturally along the foul lines instead of wrapping the entire field.
+  const STAND_SCALE = 0.82; // bring the grandstand closer to home plate without moving the outfield wall
   const standPath = path.map((p) => {
     const t = Math.max(0, Math.min(1, (p.z + 55) / 65));
     const fade = t * t * (3 - 2 * t);
-    return { ...p, taper: p.taper * fade };
+    return {
+      ...p,
+      x: p.x * STAND_SCALE,
+      z: p.z * STAND_SCALE,
+      length: p.length * STAND_SCALE,
+      taper: p.taper * fade,
+    };
   });
 
   // Wall
@@ -729,8 +731,8 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const rightStart = arcStart + PATH_ARC + 1;
   const towerIndexes = [2, 8, path.length - 9, path.length - 3];
   towerIndexes.forEach((index) => {
-    const p = path[index];
-    const away = roofD + 16;
+    const p = standPath[index];
+    const away = roofD + 12;
     const x = p.x + p.nx * away;
     const z = p.z + p.nz * away;
     const tower = new THREE.Group();
