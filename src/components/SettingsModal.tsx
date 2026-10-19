@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
+import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -77,7 +78,7 @@ const CustomNumberInput: React.FC<{
   );
 };
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'teamLists' | 'scoring' | 'displayTheme' | 'players' | 'data';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'scoring' | 'displayTheme' | 'players' | 'data';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -1537,6 +1538,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               </div>
             )}
+
+            {settingsSection === 'oppositionTeams' && <OppositionTeamsSettings />}
 
             {settingsSection === 'data' && (
               <div className="space-y-6">
