@@ -9,7 +9,8 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
-import { X, UserPlus, Shield, Layers, Sliders, Palette, Users, Download } from 'lucide-react';
+import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download } from 'lucide-react';
+import { AppLogo } from './components/AppLogo';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame } = useGame();
@@ -114,13 +115,34 @@ const MainApp: React.FC = () => {
           />
           <aside className={`absolute inset-y-0 left-0 z-10 flex w-72 max-w-[85vw] flex-col border-r border-slate-200 bg-[#F4F6F8] shadow-xl transition-transform duration-300 ease-out dark:border-[#354050] dark:bg-[#1A2028] ${isSettingsMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Settings menu">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-[#354050]">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC]">Dugout Pulse</p>
-                <h2 className="text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">Settings</h2>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-[#18212D] dark:border-[#354050] dark:bg-[#252D38]">
+                  <AppLogo variant="icon" className="h-full w-full object-contain" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold tracking-tight text-[#18212D] dark:text-[#FAFAFA]">DUGOUT PULSE</h2>
+                  <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">Play for the love of it!</p>
+                </div>
               </div>
               <button type="button" onClick={() => setIsSettingsMenuOpen(false)} aria-label="Close settings menu" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"><X className="h-5 w-5" /></button>
             </div>
             <nav className="flex flex-col gap-1.5 overflow-y-auto p-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSettingsMenuOpen(false);
+                  setIsSettingsOpen(false);
+                  setActiveTab('dashboard');
+                }}
+                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${activeTab === 'dashboard' ? 'border-[#00BFA5] bg-[#E6FBF8] dark:border-[#00D7BC] dark:bg-[#252D38]' : 'border-slate-200 bg-white hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]'}`}
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Dashboard</span>
+                  <span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Your season at a glance</span>
+                </span>
+              </button>
+              <div className="my-1 border-t border-slate-200 dark:border-[#354050]" />
               {([
                 { id: 'playerDetails', label: 'Player Details', detail: 'Name and primary team', icon: UserPlus },
                 { id: 'teams', label: 'Teams', detail: 'Add and manage teams', icon: Shield },
