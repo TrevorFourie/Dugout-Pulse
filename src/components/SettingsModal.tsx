@@ -93,6 +93,7 @@ type PresetKind = 'seasons' | 'tournaments' | 'ageGroups';
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
+  initialSection = 'playerDetails',
   onOpenSetupWizard,
 }) => {
   const {
@@ -139,8 +140,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newDefaultLineupSpot, setNewDefaultLineupSpot] = useState<number | undefined>(undefined);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [settingsSection, setSettingsSection] = useState<SettingsSectionId | null>(null);
-  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(true);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId | null>(initialSection);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
   const [activePresetTab, setActivePresetTab] = useState<'seasons' | 'tournaments' | 'ageGroups'>('seasons');
@@ -172,12 +173,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Enter Settings on the menu first. Do not select a page until the user chooses one.
-      setSettingsSection(null);
-      setIsSettingsMenuOpen(true);
+      setSettingsSection(initialSection);
+      setIsSettingsMenuOpen(false);
       settingsContentRef.current?.scrollTo({ top: 0 });
     }
-  }, [isOpen]);
+  }, [isOpen, initialSection]);
 
   if (!isOpen) return null;
 
