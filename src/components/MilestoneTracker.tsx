@@ -290,7 +290,7 @@ function ProgressCard({ milestone }: { milestone: ProgressMilestone }) {
       <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">
         {milestone.label}
       </p>
-      <p className="mt-1 text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+      <p className="mt-1 text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">
         {milestone.target} {milestone.unit}
       </p>
       <p className="mt-0.5 text-xs text-slate-500 dark:text-[#9CA3AF]">
@@ -391,7 +391,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     <section className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+          <h2 className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">
             Milestones
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">
@@ -415,7 +415,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
         <div className="border-b border-slate-200/80 bg-[#F4F6FA] p-4 dark:border-[#354050] dark:bg-[#202429]">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-[#D1D5DB]">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-slate-600 dark:text-[#D1D5DB]">
               Latest recorded achievement
             </span>
           </div>
@@ -485,7 +485,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
     {/* Personal bests: standalone category, separate from progress milestones */}
     <section className="space-y-3">
       <div className="px-1">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+        <h2 className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">
           Personal Bests
         </h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">
@@ -497,7 +497,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]">
           <Zap className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-          <p className="mt-2 text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+          <p className="mt-2 text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
             {data.personalBest.hits}
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-[#9CA3AF]">
@@ -507,7 +507,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]">
           <Activity className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-          <p className="mt-2 text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+          <p className="mt-2 text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
             {data.personalBest.strikeouts}
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-[#9CA3AF]">
@@ -517,7 +517,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]">
           <CircleDot className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-          <p className="mt-2 text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+          <p className="mt-2 text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
             {data.personalBest.putouts}
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-[#9CA3AF]">
@@ -527,7 +527,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]">
           <ShieldCheck className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-          <p className="mt-2 text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+          <p className="mt-2 text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
             {data.personalBest.assists}
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-[#9CA3AF]">
