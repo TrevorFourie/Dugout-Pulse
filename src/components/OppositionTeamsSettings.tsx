@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ImagePlus, Plus, Shield, Trash2, Upload, X, Check } from 'lucide-react';
+import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 
 const STORAGE_KEY = 'dugoutPulse.oppositionTeams.v1';
 
@@ -132,7 +132,7 @@ export const OppositionTeamsSettings: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => { setEditingId(team.id); setEditName(team.name); }} aria-label={`Rename ${team.name}`} title="Rename team" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><PencilIcon /></button>
+                  <button type="button" onClick={() => { setEditingId(team.id); setEditName(team.name); }} aria-label={`Rename ${team.name}`} title="Rename team" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-4 w-4" /></button>
                   <label className="cursor-pointer rounded-lg p-2 text-[#007A6A] hover:bg-slate-100 dark:text-[#00D7BC] dark:hover:bg-[#354050]" title={team.logo ? 'Change logo' : 'Upload logo'}>
                     <ImagePlus className="h-4 w-4" />
                     <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
@@ -149,4 +149,3 @@ export const OppositionTeamsSettings: React.FC = () => {
   );
 };
 
-const PencilIcon: React.FC = () => <Upload className="h-4 w-4" />;
