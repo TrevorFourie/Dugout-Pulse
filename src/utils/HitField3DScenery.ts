@@ -314,32 +314,35 @@ export function makeSkyTexture(): THREE.CanvasTexture {
   const H = 768;
   const [canvas, g] = makeCanvas(W, H);
   const rand = makeRng(5);
-  // Clear summer afternoon like the LLWS broadcast look, not a dramatic sunset sky.
+  // Bright late-morning summer sky: clean blue overhead, warm light near the horizon.
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#2e72bb');
-  grad.addColorStop(0.28, '#5b9bd8');
-  grad.addColorStop(0.42, '#91c4ed');
-  grad.addColorStop(0.47, '#b9dcf5');
-  grad.addColorStop(0.5, '#a8d2f0');
-  grad.addColorStop(1, '#8dbfe5');
+  grad.addColorStop(0, '#367fc6');
+  grad.addColorStop(0.24, '#70afe4');
+  grad.addColorStop(0.40, '#a8d4f1');
+  grad.addColorStop(0.47, '#d9e9ed');
+  grad.addColorStop(0.51, '#f0dfc4');
+  grad.addColorStop(0.62, '#f3d7b2');
+  grad.addColorStop(1, '#e8cba5');
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  // Gentle daylight haze at the horizon; avoid the heavy orange sun-glow effect.
-  blob(g, W * 0.5, H * 0.49, 300, '235,247,255', 0.16);
+  // Soft golden daylight at the horizon gives the park a welcoming, sunlit feel.
+  blob(g, W * 0.5, H * 0.51, 360, '255,224,177', 0.24);
+  blob(g, W * 0.5, H * 0.47, 260, '255,248,224', 0.17);
 
-  // Soft white summer clouds with restrained cool shadows.
-  for (let c = 0; c < 22; c++) {
+  // Distinct fluffy white clouds with gentle warm undersides, not grey storm clouds.
+  for (let c = 0; c < 25; c++) {
     const cx = rand() * W;
-    const cy = H * (0.28 + rand() * 0.17);
-    const size = 28 + rand() * 62;
+    const cy = H * (0.25 + rand() * 0.20);
+    const size = 26 + rand() * 66;
     const puffs = 6 + Math.floor(rand() * 7);
     for (let p = 0; p < puffs; p++) {
       const px = cx + (rand() - 0.5) * size * 4.4;
       const py = cy + (rand() - 0.5) * size * 0.45;
       const r = size * (0.5 + rand() * 0.8);
-      blob(g, px, py + r * 0.18, r, '112,143,166', 0.07);
-      blob(g, px, py - r * 0.12, r * 0.82, '255,255,250', 0.23);
+      blob(g, px, py + r * 0.16, r, '204,177,146', 0.055);
+      blob(g, px, py - r * 0.14, r * 0.86, '255,255,250', 0.31);
+      if (rand() > 0.58) blob(g, px - r * 0.12, py - r * 0.26, r * 0.48, '255,255,255', 0.18);
     }
   }
   return toTexture(canvas);
@@ -601,36 +604,6 @@ function wallPath(): PathPoint[] {
 }
 
 /** Two separate grandstands run alongside the first-base and third-base foul lines. */
-function grandstandPaths(): PathPoint[][] {
-  const count = 42;
-  return [-1, 1].map((side) => {
-    const points: { x: number; z: number; taper: number }[] = [];
-    for (let i = 0; i <= count; i++) {
-      const t = i / count;
-      // Start just behind home plate and extend toward the outfield, parallel to
-      // the foul line. The stands stay outside the playing diamond; no half-moon.
-      points.push({
-        x: side * (15 + 112 * t),
-        z: 14 - 112 * t,
-        taper: smooth(Math.min(1, i / 6)) * smooth(Math.min(1, (count - i) / 6)),
-      });
-    }
-    let length = 0;
-    return points.map((p, i) => {
-      const a = points[Math.max(0, i - 1)];
-      const b = points[Math.min(points.length - 1, i + 1)];
-      let tx = b.x - a.x;
-      let tz = b.z - a.z;
-      const len = Math.hypot(tx, tz) || 1;
-      tx /= len;
-      tz /= len;
-      const nx = side * Math.abs(tz);
-      const nz = Math.abs(tx);
-      if (i) length += Math.hypot(p.x - a.x, p.z - a.z);
-      return { x: p.x, z: p.z, nx, nz, length, taper: p.taper };
-    });
-  });
-}
 
 function sweep(path: PathPoint[], profile: [number, number][], uScale: number, vScale: number): THREE.BufferGeometry {
   const positions: number[] = [];
@@ -751,8 +724,6 @@ export function buildStadium(): THREE.Group {
   // to the backstop with side walls: that creates the continuous oval stadium silhouette.
   const fenceStart = PATH_BACK + PATH_SIDE;
   const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
-  // Two independent foul-line grandstands; the outfield remains open.
-  const standPaths = grandstandPaths();
 
   // Wall
   const wallTexture = makeWallTexture();
@@ -770,67 +741,6 @@ export function buildStadium(): THREE.Group {
   cap.castShadow = true;
   group.add(cap);
 
-  const stairs = (d0: number, h0: number, rows: number, tread: number, rise: number): [number, number][] => {
-    const pts: [number, number][] = [[d0, h0]];
-    for (let i = 0; i < rows; i++) {
-      pts.push([d0 + i * tread, h0 + (i + 1) * rise], [d0 + (i + 1) * tread, h0 + (i + 1) * rise]);
-    }
-    return pts;
-  };
-
-
-
-  // Each side is a separate stepped structure parallel to its foul line.
-  // No curved seating connector behind home plate and no seating around the outfield.
-  standPaths.forEach((standPath, standIndex) => {
-    const LOWER = { rows: 6, tread: 2.25, rise: 1.25 };
-    const lowerTexture = makeCrowdTexture(41 + standIndex, '#27415e', 0.9, LOWER.rise / (LOWER.rise + LOWER.tread));
-    const walkway: [number, number][] = [[0.9, WALL_HEIGHT], [3, WALL_HEIGHT]];
-    const lower = new THREE.Mesh(
-      sweep(standPath, [...walkway, ...stairs(3, WALL_HEIGHT, LOWER.rows, LOWER.tread, LOWER.rise).slice(1)], 40, LOWER.rise + LOWER.tread),
-      new THREE.MeshStandardMaterial({ map: lowerTexture, roughness: 0.95, side: THREE.DoubleSide }),
-    );
-    lower.castShadow = true;
-    lower.receiveShadow = true;
-    group.add(lower);
-
-    const lowerTopD = 3 + LOWER.rows * LOWER.tread;
-    const lowerTopH = WALL_HEIGHT + LOWER.rows * LOWER.rise;
-    const upperRows = 4;
-    const upperTread = 2.1;
-    const upperRise = 1.35;
-    const upperTexture = makeCrowdTexture(73 + standIndex, '#354b66', 0.88, upperRise / (upperRise + upperTread));
-    const upper = new THREE.Mesh(
-      sweep(
-        standPath,
-        [
-          [lowerTopD + 1.5, lowerTopH + 1.1],
-          [lowerTopD + 3.2, lowerTopH + 1.1],
-          ...stairs(lowerTopD + 3.2, lowerTopH + 1.1, upperRows, upperTread, upperRise).slice(1),
-        ],
-        40,
-        upperRise + upperTread,
-      ),
-      new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
-    );
-    upper.castShadow = true;
-    upper.receiveShadow = true;
-    group.add(upper);
-
-    const roofD = lowerTopD + 3.2 + upperRows * upperTread + 2.2;
-    const roofH = lowerTopH + 1.1 + upperRows * upperRise + 1.8;
-    const fascia = new THREE.Mesh(
-      sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.8], [roofD + 3, roofH + 2]], 40, 5),
-      new THREE.MeshStandardMaterial({ color: 0x34404a, roughness: 0.82, side: THREE.DoubleSide }),
-    );
-    fascia.castShadow = true;
-    group.add(fascia);
-    const strip = new THREE.Mesh(
-      sweep(standPath, [[roofD - 0.05, roofH + 1.0], [roofD - 0.05, roofH + 1.35]], 40, 1),
-      new THREE.MeshBasicMaterial({ color: 0xffe8bf, toneMapped: false, side: THREE.DoubleSide }),
-    );
-    group.add(strip);
-  });
 
   // No tall floodlight towers: the LLWS look is open, compact and centred on the diamond.
   return group;
