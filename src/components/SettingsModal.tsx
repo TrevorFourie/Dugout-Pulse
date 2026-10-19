@@ -9,7 +9,6 @@ import {
   Sliders,
   Moon,
   Sun,
-  Smartphone,
   Download,
   Upload,
   UserPlus,
@@ -1383,9 +1382,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Sun className="w-4 h-4 text-blue-500" />
                 Display Theme
               </h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'system', label: 'System', icon: Smartphone },
                   { id: 'light', label: 'Light', icon: Sun },
                   { id: 'dark', label: 'Dark', icon: Moon },
                 ].map((item) => {
