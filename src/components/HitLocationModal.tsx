@@ -9,7 +9,7 @@ import {
 } from '../utils/sprayChart';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
 import { SprayChart } from './SprayChart';
-import { Check, X, Crosshair, Star, Box, MapPin } from 'lucide-react';
+import { Check, X, Crosshair, Star, Box, MapPin, AlertTriangle } from 'lucide-react';
 import { BaseballBallIcon } from './BaseballIcons';
 
 // The 3D replay pulls in three.js, so it is only downloaded the first time someone opens that tab.
@@ -59,6 +59,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 }) => {
   const [currentCode, setCurrentCode] = useState<PlayCode>(initialPlayCode);
   const [hasExplicitPlaySelection, setHasExplicitPlaySelection] = useState(false);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [rbiCount, setRbiCount] = useState<number>(() => {
     if (initialLocation?.rbiCount !== undefined) return initialLocation.rbiCount;
     if (initialPlayCode === 'homeRun') return 1;
@@ -122,15 +123,15 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 
   const handleSave = () => {
     if (requirePlaySelection && !hasExplicitPlaySelection) {
-      window.alert('Please select the hit type before saving the hit location.');
+      setValidationMessage('Please select the type of hit before continuing.');
       return;
     }
     if (requireLocationSelection && !hasExplicitLocation) {
-      window.alert('Please tap the field to mark where the ball landed before saving.');
+      setValidationMessage('Please tap the field to mark where the ball landed before continuing.');
       return;
     }
     if (requireTrajectorySelection && !hasExplicitTrajectory) {
-      window.alert('Please select how the ball was hit before saving the hit location.');
+      setValidationMessage('Please select how the ball was hit before continuing.');
       return;
     }
     const locWithRbi: HitLocation = {
@@ -435,6 +436,20 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
           </button>
         </div>
       </div>
+      {validationMessage && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="hit-validation-title" aria-describedby="hit-validation-message" className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00BFA5]/15 text-[#007A6A] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]"><AlertTriangle className="h-5 w-5" /></span>
+              <div className="min-w-0">
+                <h3 id="hit-validation-title" className="text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">Selection required</h3>
+                <p id="hit-validation-message" className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">{validationMessage}</p>
+              </div>
+            </div>
+            <button type="button" autoFocus onClick={() => setValidationMessage(null)} className="mt-4 w-full rounded-xl bg-[#00BFA5] px-4 py-2.5 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">Go back and complete</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
