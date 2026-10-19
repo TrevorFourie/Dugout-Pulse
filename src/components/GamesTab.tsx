@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ThemedDropdown } from './ThemedDropdown';
+import { UpcomingGames } from './UpcomingGames';
 
 interface GameHistoryRowProps {
   game: Game;
@@ -308,6 +309,8 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
           </button>
         </div>
       </div>
+
+      <UpcomingGames />
 
       {lastSavedGame && (
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs dark:border-[#354050] dark:bg-[#252D38] sm:flex-row sm:items-center sm:justify-between">
