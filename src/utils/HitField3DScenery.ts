@@ -319,35 +319,32 @@ export function makeSkyTexture(): THREE.CanvasTexture {
   const H = 768;
   const [canvas, g] = makeCanvas(W, H);
   const rand = makeRng(5);
+  // Clear summer afternoon like the LLWS broadcast look, not a dramatic sunset sky.
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#2f63a8');
-  grad.addColorStop(0.2, '#4a86c6');
-  grad.addColorStop(0.34, '#86b6e0');
-  grad.addColorStop(0.42, '#cfd8e6');
-  grad.addColorStop(0.465, '#f6d3ad');
-  grad.addColorStop(0.495, '#f7ae72');
-  grad.addColorStop(0.5, '#f2a266');
-  grad.addColorStop(0.53, '#c98f6d');
-  grad.addColorStop(1, '#4d4a58');
+  grad.addColorStop(0, '#2e72bb');
+  grad.addColorStop(0.28, '#5b9bd8');
+  grad.addColorStop(0.42, '#91c4ed');
+  grad.addColorStop(0.47, '#c7e1f3');
+  grad.addColorStop(0.5, '#e3edf0');
+  grad.addColorStop(1, '#c5d7d8');
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  // Low sun glow
-  blob(g, W * 0.5, H * 0.488, 330, '255,221,160', 0.8);
-  blob(g, W * 0.5, H * 0.495, 120, '255,244,205', 0.85);
+  // Gentle daylight haze at the horizon; avoid the heavy orange sun-glow effect.
+  blob(g, W * 0.5, H * 0.49, 300, '255,250,226', 0.24);
 
-  // Clouds: clusters of soft puffs, white on top and warm underneath
-  for (let c = 0; c < 26; c++) {
+  // Soft white summer clouds with restrained cool shadows.
+  for (let c = 0; c < 22; c++) {
     const cx = rand() * W;
-    const cy = H * (0.3 + rand() * 0.15);
-    const size = 30 + rand() * 70;
-    const puffs = 7 + Math.floor(rand() * 7);
+    const cy = H * (0.28 + rand() * 0.17);
+    const size = 28 + rand() * 62;
+    const puffs = 6 + Math.floor(rand() * 7);
     for (let p = 0; p < puffs; p++) {
-      const px = cx + (rand() - 0.5) * size * 4.6;
+      const px = cx + (rand() - 0.5) * size * 4.4;
       const py = cy + (rand() - 0.5) * size * 0.45;
       const r = size * (0.5 + rand() * 0.8);
-      blob(g, px, py + r * 0.22, r, '244,160,140', 0.14);
-      blob(g, px, py - r * 0.1, r * 0.8, '255,246,238', 0.17);
+      blob(g, px, py + r * 0.18, r, '112,143,166', 0.07);
+      blob(g, px, py - r * 0.12, r * 0.82, '255,255,250', 0.23);
     }
   }
   return toTexture(canvas);
