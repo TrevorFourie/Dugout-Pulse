@@ -439,8 +439,8 @@ export function makeFarGroundTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Low wooded ridges and scattered trees sit in the middle distance. They deliberately stay lower
- * than the stands and light towers, adding a believable landscape without competing with the play.
+ * Compact LLWS-style berm and tree line sit just beyond the outfield fence. The replay should
+ * feel like a youth ballpark, not a huge arena surrounded by distant mountains.
  */
 export function buildOutfieldLandscape(): THREE.Group {
   const group = new THREE.Group();
@@ -459,10 +459,10 @@ export function buildOutfieldLandscape(): THREE.Group {
   // Keep the backdrop immediately beyond the fence so the replay stays focused on the play.
   const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
   const hillSpecs = [
-    { x: -300, z: -265, sx: 235, sy: 22, sz: 82, color: '#66884a' },
-    { x: -80, z: -285, sx: 245, sy: 27, sz: 95, color: '#789657' },
-    { x: 180, z: -270, sx: 245, sy: 24, sz: 88, color: '#5f8046' },
-    { x: 420, z: -300, sx: 250, sy: 22, sz: 92, color: '#6b8a4e' },
+    { x: -210, z: -225, sx: 150, sy: 18, sz: 48, color: '#66884a' },
+    { x: -75, z: -238, sx: 155, sy: 22, sz: 54, color: '#789657' },
+    { x: 75, z: -232, sx: 160, sy: 19, sz: 50, color: '#5f8046' },
+    { x: 215, z: -222, sx: 150, sy: 17, sz: 46, color: '#6b8a4e' },
   ];
   hillSpecs.forEach((h) => {
     const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
@@ -472,15 +472,15 @@ export function buildOutfieldLandscape(): THREE.Group {
     group.add(hill);
   });
 
-  // Loose, uneven tree belts: clustered at the edges with gaps so the landscape remains open.
-  for (let i = 0; i < 76; i++) {
+  // A close, low tree line frames the berm. Keep the centre mostly open behind the outfield.
+  for (let i = 0; i < 48; i++) {
     const side = rand() > 0.5 ? 1 : -1;
     const along = rand();
-    const x = side * (65 + rand() * 440);
-    const z = -205 - along * 210 + (rand() - 0.5) * 45;
+    const x = side * (48 + rand() * 250);
+    const z = -170 - along * 88 + (rand() - 0.5) * 24;
     // Leave occasional open sight-lines through to the rolling hills.
     if (rand() < 0.14 && Math.abs(x) < 420) continue;
-    const scale = 0.7 + rand() * 1.25;
+    const scale = 0.58 + rand() * 0.78;
     const tree = new THREE.Group();
     tree.position.set(x, 0, z);
     tree.scale.setScalar(scale);
