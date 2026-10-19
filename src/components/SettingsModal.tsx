@@ -5,6 +5,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { AppLogo } from './AppLogo';
 import {
   X,
+  Menu,
   Settings,
   Sliders,
   Moon,
@@ -140,6 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
   const [activePresetTab, setActivePresetTab] = useState<'seasons' | 'tournaments' | 'ageGroups'>('seasons');
@@ -363,15 +365,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-3 pt-2 sm:px-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#1A2028] animate-in fade-in duration-150">
         <div
-          className="h-[90dvh] w-full max-w-4xl min-w-0 max-h-[90vh] flex flex-col bg-white dark:bg-[#1A2028] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden"
+          className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] shadow-2xl overflow-hidden"
           role="dialog"
           aria-modal="true"
         >
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-[#354050] flex items-center justify-between bg-slate-50 dark:bg-[#1A2028]/80">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setIsSettingsMenuOpen(true)}
+                aria-label="Open settings menu"
+                aria-expanded={isSettingsMenuOpen}
+                className="shrink-0 p-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
               <div className="p-2 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]">
                 <Settings className="w-5 h-5" />
               </div>
@@ -415,9 +426,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {/* Settings navigation and active section */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
-            <aside className="shrink-0 border-b border-slate-200 bg-slate-50 dark:border-[#354050] dark:bg-[#1A2028] sm:w-52 sm:border-b-0 sm:border-r">
-              <nav aria-label="Settings sections" className="grid grid-cols-6 items-center gap-1.5 px-3 py-2 sm:flex sm:flex-col sm:items-stretch sm:gap-1.5 sm:p-3">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {isSettingsMenuOpen && (
+              <button
+                type="button"
+                aria-label="Close settings menu"
+                onClick={() => setIsSettingsMenuOpen(false)}
+                className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[1px]"
+              />
+            )}
+            <aside className={`absolute inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-r border-slate-200 bg-slate-50 shadow-xl dark:border-[#354050] dark:bg-[#1A2028] transition-transform duration-250 ease-out ${isSettingsMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-hidden={!isSettingsMenuOpen}>
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-[#354050]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">Settings Menu</span>
+                <button type="button" onClick={() => setIsSettingsMenuOpen(false)} aria-label="Close settings menu" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <nav aria-label="Settings sections" className="flex flex-col items-stretch gap-1.5 p-3">
                 {[
                   { id: 'playerDetails', label: 'Player Details', shortLabel: 'Player', icon: UserPlus, detail: 'Name and primary team' },
                   { id: 'teams', label: 'Teams', shortLabel: 'Teams', icon: Shield, detail: 'Add and manage teams' },
@@ -435,19 +460,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={() => {
                         setSettingsSection(section.id as typeof settingsSection);
+                        setIsSettingsMenuOpen(false);
                         settingsContentRef.current?.scrollTo({ top: 0 });
                       }}
                       aria-current={isSelected ? 'page' : undefined}
                       aria-label={section.label}
-                      className={`col-span-2 flex min-w-0 items-center justify-center gap-1.5 rounded-md border px-1.5 py-2 text-center transition-colors sm:col-span-1 sm:w-full sm:justify-start sm:gap-2 sm:border-transparent sm:px-3 sm:py-3 sm:text-left ${
+                      className={`flex min-w-0 w-full items-center gap-2 rounded-md border px-3 py-3 text-left transition-colors ${
                         isSelected
                           ? 'border-[#00BFA5] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] dark:border-[#00D7BC] sm:shadow-xs'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:bg-[#354050] sm:bg-transparent sm:dark:bg-transparent'
                       }`}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
-                      <span className="whitespace-nowrap text-[11px] font-semibold sm:hidden">{section.shortLabel}</span>
-                      <span className="hidden min-w-0 text-left sm:block">
+                      <span className="hidden">{section.shortLabel}</span>
+                      <span className="min-w-0 flex-1 text-left">
                         <span className="block truncate text-xs font-extrabold">{section.label}</span>
                         <span className={`mt-0.5 block truncate text-[10px] ${isSelected ? 'text-white/70' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
                           {section.detail}
