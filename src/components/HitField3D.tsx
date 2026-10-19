@@ -165,7 +165,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   ground.position.set(wx(groundCentre), 0, wz(groundCentre));
   ground.receiveShadow = true;
   scene.add(ground);
-  const farGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0x1f2c2e, roughness: 1 }));
+  const farGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0x3b7545, roughness: 1 }));
   farGround.rotation.x = -Math.PI / 2;
   farGround.position.set(0, -0.3, -110);
   scene.add(farGround);
