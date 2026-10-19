@@ -324,14 +324,14 @@ export function makeSkyTexture(): THREE.CanvasTexture {
   grad.addColorStop(0, '#2e72bb');
   grad.addColorStop(0.28, '#5b9bd8');
   grad.addColorStop(0.42, '#91c4ed');
-  grad.addColorStop(0.47, '#c7e1f3');
-  grad.addColorStop(0.5, '#e3edf0');
-  grad.addColorStop(1, '#c5d7d8');
+  grad.addColorStop(0.47, '#b9dcf5');
+  grad.addColorStop(0.5, '#a8d2f0');
+  grad.addColorStop(1, '#8dbfe5');
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
   // Gentle daylight haze at the horizon; avoid the heavy orange sun-glow effect.
-  blob(g, W * 0.5, H * 0.49, 300, '255,250,226', 0.24);
+  blob(g, W * 0.5, H * 0.49, 300, '235,247,255', 0.16);
 
   // Soft white summer clouds with restrained cool shadows.
   for (let c = 0; c < 22; c++) {
