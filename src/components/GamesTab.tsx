@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Home,
   Plane,
+  RotateCcw,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ThemedDropdown } from './ThemedDropdown';
@@ -153,6 +154,7 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
     liveGame,
     editingGameId,
     startEditingSavedGame,
+    reopenSavedGame,
     deleteSavedGame,
     activeProfile,
     settings,
@@ -240,6 +242,13 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
     return Array.from(groups.entries()).map(([key, group]) => ({ key, ...group }));
   }, [filteredGames, visibleGameCount]);
 
+  const lastSavedGame = useMemo(() => sortGames(games, 'newestFirst')[0] ?? null, [games]);
+
+  const handleReopenLastGame = () => {
+    if (!lastSavedGame || liveGame) return;
+    if (reopenSavedGame(lastSavedGame.id)) onNavigateToScore();
+  };
+
   const handleStartEdit = (gameId: string) => {
     if (liveGame && editingGameId !== gameId) {
       setEditBlockedMessage(
@@ -300,6 +309,30 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
           </button>
         </div>
       </div>
+
+      {lastSavedGame && (
+        <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xs dark:border-[#354050] dark:bg-[#252D38] sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-slate-900 dark:text-[#FAFAFA]">Re-open last game</p>
+            <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+              {lastSavedGame.opponent ? ('vs ' + lastSavedGame.opponent) : 'Most recently saved game'} · {lastSavedGame.date}
+            </p>
+            <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
+              Continue live scoring from the saved plays. This is separate from Edit Game.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleReopenLastGame}
+            disabled={Boolean(liveGame)}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#00BFA5] px-4 py-2.5 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"
+            title={liveGame ? 'Save or discard the current live game first' : 'Continue scoring the most recently saved game'}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {liveGame ? 'Live Game in Progress' : 'Re-open to Score'}
+          </button>
+        </div>
+      )}
 
       {/* Filter Bar (Team, Season, Age Group, Tournament) */}
       <div className="sticky top-0 z-20 -mx-4 sm:-mx-6 bg-white/95 px-4 py-3.5 shadow-xs backdrop-blur-md dark:bg-[#101419]/95 sm:px-6 sm:py-4 space-y-2.5">
