@@ -778,13 +778,7 @@ export function buildStadium(): THREE.Group {
     return pts;
   };
 
-  const stairs = (d0: number, h0: number, rows: number, tread: number, rise: number): [number, number][] => {
-    const pts: [number, number][] = [[d0, h0]];
-    for (let i = 0; i < rows; i++) {
-      pts.push([d0 + i * tread, h0 + (i + 1) * rise], [d0 + (i + 1) * tread, h0 + (i + 1) * rise]);
-    }
-    return pts;
-  };
+
 
   // Each side is a separate stepped structure parallel to its foul line.
   // No curved seating connector behind home plate and no seating around the outfield.
