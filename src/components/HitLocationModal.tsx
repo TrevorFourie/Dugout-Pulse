@@ -24,6 +24,7 @@ interface HitLocationModalProps {
   showFieldViewToggle?: boolean;
   requirePlaySelection?: boolean;
   requireTrajectorySelection?: boolean;
+  requireLocationSelection?: boolean;
   onSave: (location: HitLocation, selectedPlayCode: PlayCode, rbiCount: number) => void;
   onSkip: () => void;
   onClose: () => void;
@@ -52,6 +53,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   showFieldViewToggle = true,
   requirePlaySelection = false,
   requireTrajectorySelection = false,
+  requireLocationSelection = false,
   onSave,
   onSkip,
 }) => {
@@ -81,6 +83,8 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const [location, setLocation] = useState<HitLocation>(defaultInitialLoc);
+  // Do not treat fallback coordinates as a user-selected landing spot.
+  const [hasExplicitLocation, setHasExplicitLocation] = useState(Boolean(initialLocation && isValidHitLocationForPlay(initialLocation, initialPlayCode)));
   // A fresh hit must explicitly choose its trajectory; existing saved locations retain theirs when edited.
   const [hasExplicitTrajectory, setHasExplicitTrajectory] = useState(Boolean(initialLocation?.trajectory));
   // 'place' = tap the 2D field; '3d' = view-only 3D replay of the same hit
@@ -96,6 +100,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 
   const handleFieldSelect = (newLoc: HitLocation) => {
     setLocation(newLoc);
+    setHasExplicitLocation(true);
   };
 
   const handleCodeChange = (newCode: PlayCode) => {
@@ -118,6 +123,10 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   const handleSave = () => {
     if (requirePlaySelection && !hasExplicitPlaySelection) {
       window.alert('Please select the hit type before saving the hit location.');
+      return;
+    }
+    if (requireLocationSelection && !hasExplicitLocation) {
+      window.alert('Please tap the field to mark where the ball landed before saving.');
       return;
     }
     if (requireTrajectorySelection && !hasExplicitTrajectory) {
@@ -339,7 +348,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
               {fieldView === 'place' ? 'Tap the field where the ball landed:' : 'Replay of the hit you placed:'}
             </span>
             <span className="text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-              {location.zone ? `${getZoneLabel(resolveZone(location))} (${resolveZone(location)})` : 'Tap to place'}
+              {hasExplicitLocation && location.zone ? `${getZoneLabel(resolveZone(location))} (${resolveZone(location)})` : 'Tap to place'}
             </span>
           </div>
 
@@ -348,7 +357,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
             {fieldView === 'place' ? (
               <SprayChart
                 interactive
-                selectedLocation={location}
+                selectedLocation={hasExplicitLocation ? location : null}
                 onSelectLocation={handleFieldSelect}
                 selectionCode={currentCode}
                 isHit={isHitPlay(currentCode) || currentCode === 'pitchFoul'}
