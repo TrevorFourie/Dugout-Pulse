@@ -122,18 +122,21 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const handleSave = () => {
+    const missingSelections: string[] = [];
     if (requirePlaySelection && !hasExplicitPlaySelection) {
-      setValidationMessage('Please select the type of hit before continuing.');
-      return;
+      missingSelections.push('select the type of hit');
     }
     if (requireLocationSelection && !hasExplicitLocation) {
-      setValidationMessage('Please tap the field to mark where the ball landed before continuing.');
-      return;
+      missingSelections.push('tap the field to mark where the ball landed');
     }
     if (requireTrajectorySelection && !hasExplicitTrajectory) {
-      setValidationMessage('Please select how the ball was hit before continuing.');
+      missingSelections.push('select how the ball was hit');
+    }
+    if (missingSelections.length > 0) {
+      setValidationMessage(`Complete the following before continuing: ${missingSelections.join('; ')}.`);
       return;
     }
+    setValidationMessage(null);
     const locWithRbi: HitLocation = {
       ...location,
       rbi: rbiCount > 0,
@@ -437,17 +440,9 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
         </div>
       </div>
       {validationMessage && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-          <div role="alertdialog" aria-modal="true" aria-labelledby="hit-validation-title" aria-describedby="hit-validation-message" className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]">
-            <div className="flex items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#00BFA5]/15 text-[#007A6A] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]"><AlertTriangle className="h-5 w-5" /></span>
-              <div className="min-w-0">
-                <h3 id="hit-validation-title" className="text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">Selection required</h3>
-                <p id="hit-validation-message" className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">{validationMessage}</p>
-              </div>
-            </div>
-            <button type="button" autoFocus onClick={() => setValidationMessage(null)} className="mt-4 w-full rounded-xl bg-[#00BFA5] px-4 py-2.5 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">Go back and complete</button>
-          </div>
+        <div role="alert" aria-live="polite" className="mx-4 mb-3 flex items-start gap-2 rounded-xl border border-[#00BFA5]/40 bg-[#00BFA5]/10 p-3 text-xs text-[#18212D] dark:border-[#00D7BC]/40 dark:bg-[#00D7BC]/10 dark:text-[#D1D5DB]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+          <p className="leading-relaxed">{validationMessage}</p>
         </div>
       )}
     </div>
