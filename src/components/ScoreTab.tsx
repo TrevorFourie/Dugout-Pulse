@@ -3295,7 +3295,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               const [label, subtitle] = labels[code];
 
               // Neutral scoring cards keep the action grid calm; the code carries the brand accent.
-              const buttonColor = 'min-h-[92px] rounded-lg p-3 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
+              const buttonColor = 'h-[72px] min-h-[72px] max-h-[72px] box-border rounded-lg p-1.5 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
 
 
               return (
@@ -3304,7 +3304,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                     type="button"
                     onClick={() => handleScoringPlay(code)}
                     disabled={playFlow.isPrimaryEventDisabled}
-                    className={`w-full min-h-[72px] rounded-md p-1.5 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer ${buttonColor}`}
+                    className={`w-full h-[72px] min-h-[72px] max-h-[72px] box-border rounded-md p-1.5 text-center flex flex-col items-center justify-center transition-[transform,filter] active:scale-[0.97] active:brightness-90 disabled:opacity-40 cursor-pointer ${buttonColor}`}
                   >
                     <span className="text-[14px] sm:text-[15px] font-semibold leading-tight tracking-tight text-[#18212D] dark:text-[#FAFAFA]">{label}</span>
                     <span className="mt-1 text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-600 dark:text-[#D1D5DB]">{subtitle}</span>
@@ -3316,7 +3316,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               type="button"
               onClick={handleBatterStrike}
               disabled={playFlow.isPrimaryEventDisabled}
-              className="min-h-[72px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              className="h-[72px] min-h-[72px] max-h-[72px] box-border rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
               title="Record a strike seen by the batter; does not affect pitching or fielding statistics"
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight text-[#18212D] dark:text-[#FAFAFA]">Strike</span>
@@ -3326,7 +3326,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               type="button"
               onClick={handleBatterBall}
               disabled={playFlow.isPrimaryEventDisabled}
-              className="min-h-[72px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              className="h-[72px] min-h-[72px] max-h-[72px] box-border rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
               title="Record a ball received by the batter; does not affect pitching or fielding statistics"
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight text-[#18212D] dark:text-[#FAFAFA]">Ball</span>
@@ -3336,7 +3336,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               type="button"
               onClick={() => setIsFoulTapperOpen(true)}
               disabled={playFlow.isPrimaryEventDisabled}
-              className="min-h-[72px] rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+              className="h-[72px] min-h-[72px] max-h-[72px] box-border rounded-md border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] p-1.5 text-center flex flex-col items-center justify-center transition-colors hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
               title="Record a foul ball and map where it went without ending the plate appearance"
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight text-[#18212D] dark:text-[#FAFAFA]">Foul</span>
@@ -3411,7 +3411,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                     key={def.code}
                     type="button"
                     onClick={() => handleScoringPlay(def.code)}
-                    className="min-h-[72px] rounded-lg p-1.5 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
+                    className="h-[72px] min-h-[72px] max-h-[72px] box-border rounded-lg p-1.5 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]"
                   >
                     <span className="text-[13px] sm:text-[14px] font-semibold leading-tight tracking-tight text-[#18212D] dark:text-[#FAFAFA]">{def.fullLabel}</span>
                     <span className="text-[10px] sm:text-[11px] font-semibold leading-tight text-center mt-1 text-slate-600 dark:text-[#D1D5DB]">{def.shortLabel}</span>
