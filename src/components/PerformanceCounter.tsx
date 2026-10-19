@@ -30,10 +30,22 @@ const PERIODS: { value: Period; label: string }[] = [
 ];
 
 function startOfWeek(date: Date) {
+  // Use a Sunday-to-Saturday calendar week so weekend games are included in
+  // "This Week" when viewing the dashboard at the start of a new week.
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  start.setDate(start.getDate() - start.getDay());
   start.setHours(0, 0, 0, 0);
   return start;
+}
+
+function getLocalGameDate(dateValue: string): Date | null {
+  // Game dates are stored as date-only strings (YYYY-MM-DD). Parse the calendar
+  // parts locally instead of relying on browser parsing/time-zone conversion.
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(dateValue || '');
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  date.setHours(0, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 // ── Gauge geometry (viewBox 280 x 160) ─────────────────────────────────────
@@ -116,12 +128,14 @@ export const PerformanceCounter: React.FC<PerformanceCounterProps> = ({
 
   const filteredGames = useMemo(() => {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = startOfWeek(now);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const latestSeason = defaultSeason || [...allGames].sort((a, b) => b.date.localeCompare(a.date))[0]?.season;
     return allGames.filter((game) => {
-      if (period === 'week') return new Date(`${game.date}T00:00:00`) >= weekStart;
-      if (period === 'month') return new Date(`${game.date}T00:00:00`) >= monthStart;
+      const gameDate = getLocalGameDate(game.date);
+      if (period === 'week') return Boolean(gameDate && gameDate >= weekStart && gameDate <= today);
+      if (period === 'month') return Boolean(gameDate && gameDate >= monthStart && gameDate <= today);
       if (period === 'season' && latestSeason) return game.season === latestSeason;
       return true;
     });
