@@ -83,6 +83,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 PLAY FOR THE LOVE OF IT!
               </span>
             </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
