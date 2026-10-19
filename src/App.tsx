@@ -104,15 +104,15 @@ const MainApp: React.FC = () => {
       </main>
       </>
 
-      {isSettingsMenuOpen && (
-        <div className="fixed inset-0 z-50">
+      <div className={`fixed inset-0 z-50 ${isSettingsMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!isSettingsMenuOpen}>
           <button
             type="button"
+            tabIndex={isSettingsMenuOpen ? 0 : -1}
             aria-label="Close settings menu"
             onClick={() => setIsSettingsMenuOpen(false)}
-            className="absolute inset-0 bg-black/45"
+            className={`absolute inset-0 bg-black/45 transition-opacity duration-300 ${isSettingsMenuOpen ? 'opacity-100' : 'opacity-0'}`}
           />
-          <aside className="absolute inset-y-0 left-0 z-10 flex w-72 max-w-[85vw] animate-in slide-in-from-left duration-300 flex-col border-r border-slate-200 bg-[#F4F6F8] shadow-xl dark:border-[#354050] dark:bg-[#1A2028]" aria-label="Settings menu">
+          <aside className={`absolute inset-y-0 left-0 z-10 flex w-72 max-w-[85vw] flex-col border-r border-slate-200 bg-[#F4F6F8] shadow-xl transition-transform duration-300 ease-out dark:border-[#354050] dark:bg-[#1A2028] ${isSettingsMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} aria-label="Settings menu">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-[#354050]">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC]">Dugout Pulse</p>
