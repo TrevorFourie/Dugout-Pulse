@@ -106,10 +106,10 @@ interface CameraState {
 /** Camera presets, fitted to the canvas aspect so the whole field stays in frame in portrait. */
 function viewPreset(view: ViewName, aspect: number): CameraState {
   const fit = Math.min(1, aspect);
-  if (view === 'top') return { yaw: 0, pitch: 1.5, dist: Math.max(285, 285 / (0.93 * fit)), tz: -112 };
+  if (view === 'top') return { yaw: 0, pitch: 1.5, dist: Math.max(255, 255 / (0.93 * fit)), tz: -100 };
   // Behind centre field and above the roof line, looking in at the plate
-  if (view === 'out') return { yaw: Math.PI, pitch: 0.5, dist: Math.max(340, 340 / (0.93 * fit)), tz: -40 };
-  return { yaw: 0, pitch: 0.34, dist: Math.max(246, (272 / (0.93 * fit)) * 0.95), tz: -104 };
+  if (view === 'out') return { yaw: Math.PI, pitch: 0.5, dist: Math.max(300, 300 / (0.93 * fit)), tz: -35 };
+  return { yaw: 0, pitch: 0.34, dist: Math.max(220, (242 / (0.93 * fit)) * 0.95), tz: -95 };
 }
 
 function createScene(canvas: HTMLCanvasElement): SceneApi {
@@ -123,12 +123,12 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xc99aa0, 360, 1050);
+  scene.fog = new THREE.Fog(0x9fb7a0, 280, 650);
   const camera = new THREE.PerspectiveCamera(50, 1, 1, 4000);
 
   /* sky and horizon follow the camera, so they never show parallax */
   const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(2400, 40, 20),
+    new THREE.SphereGeometry(1400, 40, 20),
     new THREE.MeshBasicMaterial({ map: makeSkyTexture(), side: THREE.BackSide, fog: false, depthWrite: false }),
   );
   sky.renderOrder = -2;
@@ -137,10 +137,10 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   const horizonTexture = makeHorizonTexture();
   horizonTexture.repeat.set(2, 1);
   const horizon = new THREE.Mesh(
-    new THREE.CylinderGeometry(1500, 1500, 190, 64, 1, true),
+    new THREE.CylinderGeometry(850, 850, 130, 64, 1, true),
     new THREE.MeshBasicMaterial({ map: horizonTexture, side: THREE.BackSide, transparent: true, fog: false, depthWrite: false }),
   );
-  horizon.position.y = 70;
+  horizon.position.y = 38;
   horizon.renderOrder = -1;
   scene.add(horizon);
 
@@ -171,11 +171,11 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   // This avoids the old hard visual jump from detailed turf to a single flat green plane.
   const farGroundTexture = makeFarGroundTexture();
   const farGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(1800, 1800),
+    new THREE.PlaneGeometry(850, 850),
     new THREE.MeshStandardMaterial({ map: farGroundTexture, color: 0xffffff, roughness: 1 }),
   );
   farGround.rotation.x = -Math.PI / 2;
-  farGround.position.set(0, -0.3, -110);
+  farGround.position.set(0, -0.3, -95);
   farGround.receiveShadow = true;
   scene.add(farGround);
   scene.add(buildOutfieldLandscape());
