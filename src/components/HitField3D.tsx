@@ -19,6 +19,7 @@ import {
   makeFieldTexture,
   makeFarGroundTexture,
   makeHorizonTexture,
+  makeRadialTexture,
   makeSkyTexture,
   wx,
   wz,
@@ -229,6 +230,8 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   const rubber = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 1.6), white);
   rubber.position.set(0, 2.35, wz(MOUND.y));
   scene.add(rubber);
+
+  const glowTexture = makeRadialTexture();
 
   /* landing marker: crisp ring, ripple, soft ground glow and a fading beam */
   const marker = new THREE.Group();
