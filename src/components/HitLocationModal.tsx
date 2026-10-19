@@ -9,7 +9,7 @@ import {
 } from '../utils/sprayChart';
 import { getPlayLabel, getPlayShortLabel } from '../utils/playDefinitions';
 import { SprayChart } from './SprayChart';
-import { Check, X, Crosshair, Star, Box, MapPin, AlertTriangle } from 'lucide-react';
+import { Check, X, Crosshair, Star, Box, MapPin, AlertTriangle, Undo2 } from 'lucide-react';
 import { BaseballBallIcon } from './BaseballIcons';
 
 // The 3D replay pulls in three.js, so it is only downloaded the first time someone opens that tab.
@@ -28,6 +28,7 @@ interface HitLocationModalProps {
   onSave: (location: HitLocation, selectedPlayCode: PlayCode, rbiCount: number) => void;
   onSkip: () => void;
   onClose: () => void;
+  onUndo?: () => void;
 }
 
 const POPULAR_BATTING_CODES: { code: PlayCode; label: string; badge: string; isHit: boolean }[] = [
@@ -56,6 +57,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   requireLocationSelection = false,
   onSave,
   onSkip,
+  onUndo,
 }) => {
   const [currentCode, setCurrentCode] = useState<PlayCode>(initialPlayCode);
   const [hasExplicitPlaySelection, setHasExplicitPlaySelection] = useState(false);
@@ -419,6 +421,16 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 
         {/* Modal Actions Footer */}
         <div className="px-5 py-3 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/80 flex items-center justify-between gap-1.5">
+          {onUndo && (
+            <button
+              type="button"
+              onClick={onUndo}
+              className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#465160] text-slate-700 dark:text-[#D1D5DB] text-xs font-semibold hover:bg-slate-200/50 dark:hover:bg-[#354050] cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Undo2 className="h-4 w-4" />
+              <span>Undo</span>
+            </button>
+          )}
           {allowSkip && (
             <button
               type="button"
