@@ -609,9 +609,12 @@ function wallPath(): PathPoint[] {
 function grandstandPath(): PathPoint[] {
   const points: { x: number; z: number }[] = [];
   const count = 56;
+  // Keep the permanent grandstand compact and shallow behind home plate.
+  // Its width/depth must not mirror the outfield arc and make the entire ballpark
+  // read as a symmetrical oval bowl.
   for (let i = 0; i <= count; i++) {
     const t = (Math.PI * i) / count;
-    points.push({ x: -122 * Math.cos(t), z: 40 + 100 * Math.sin(t) });
+    points.push({ x: -82 * Math.cos(t), z: 26 + 58 * Math.sin(t) });
   }
   let length = 0;
   return points.map((p, i) => {
@@ -625,7 +628,7 @@ function grandstandPath(): PathPoint[] {
     let nx = tz;
     let nz = -tx;
     // The seating's outward normal must point away from the playing field.
-    if (nx * p.x + nz * (p.z + 40) < 0) {
+    if (nx * p.x + nz * (p.z + 26) < 0) {
       nx = -nx;
       nz = -nz;
     }
