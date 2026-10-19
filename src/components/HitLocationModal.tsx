@@ -20,6 +20,9 @@ interface HitLocationModalProps {
   playCode: PlayCode;
   initialLocation?: HitLocation | null;
   allowPlayChange?: boolean;
+  allowSkip?: boolean;
+  showFieldViewToggle?: boolean;
+  requirePlaySelection?: boolean;
   onSave: (location: HitLocation, selectedPlayCode: PlayCode, rbiCount: number) => void;
   onSkip: () => void;
   onClose: () => void;
@@ -44,10 +47,14 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   playCode: initialPlayCode,
   initialLocation,
   allowPlayChange = true,
+  allowSkip = true,
+  showFieldViewToggle = true,
+  requirePlaySelection = false,
   onSave,
   onSkip,
 }) => {
   const [currentCode, setCurrentCode] = useState<PlayCode>(initialPlayCode);
+  const [hasExplicitPlaySelection, setHasExplicitPlaySelection] = useState(false);
   const [rbiCount, setRbiCount] = useState<number>(() => {
     if (initialLocation?.rbiCount !== undefined) return initialLocation.rbiCount;
     if (initialPlayCode === 'homeRun') return 1;
@@ -88,6 +95,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const handleCodeChange = (newCode: PlayCode) => {
+    setHasExplicitPlaySelection(true);
     setCurrentCode(newCode);
     if (newCode === 'homeRun' && rbiCount < 1) {
       setRbiCount(1);
@@ -109,6 +117,10 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const handleSave = () => {
+    if (requirePlaySelection && !hasExplicitPlaySelection) {
+      window.alert('Please select the hit type before saving the hit location.');
+      return;
+    }
     const locWithRbi: HitLocation = {
       ...location,
       rbi: rbiCount > 0,
@@ -149,14 +161,16 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB] cursor-pointer"
-            aria-label="Skip hit location"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {allowSkip && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB] cursor-pointer"
+              aria-label="Skip hit location"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Modal Scrollable Body */}
@@ -291,8 +305,8 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
           </div>
           )}
 
-          {/* Field view switch: tap to place (2D) or watch the hit in 3D */}
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-[#354050] dark:bg-[#252D38]/60" role="tablist" aria-label="Field view">
+          {/* Optional field-view switch. When Hit Location is enabled, keep the scorer focused on placing the marker. */}
+          {showFieldViewToggle && <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-[#354050] dark:bg-[#252D38]/60" role="tablist" aria-label="Field view">
             {([
               { id: 'place', label: 'Place hit', Icon: MapPin },
               { id: '3d', label: '3D replay', Icon: Box },
@@ -313,7 +327,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                 {label}
               </button>
             ))}
-          </div>
+          </div>}
 
           {/* Instruction banner */}
           <div className="flex items-center justify-between text-xs px-0.5">
@@ -388,13 +402,15 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
 
         {/* Modal Actions Footer */}
         <div className="px-5 py-3 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/80 flex items-center justify-between gap-1.5">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#354050] text-slate-700 dark:text-[#D1D5DB] text-xs font-semibold hover:bg-slate-200/50 cursor-pointer"
-          >
-            Skip
-          </button>
+          {allowSkip && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#354050] text-slate-700 dark:text-[#D1D5DB] text-xs font-semibold hover:bg-slate-200/50 cursor-pointer"
+            >
+              Skip
+            </button>
+          )}
 
           <button
             type="button"
