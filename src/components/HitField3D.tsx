@@ -13,9 +13,11 @@ import {
 import {
   FIELD_TEXTURE,
   buildStadium,
+  buildOutfieldLandscape,
   disposeMaterial,
   makeBeamTexture,
   makeFieldTexture,
+  makeFarGroundTexture,
   makeHorizonTexture,
   makeRadialTexture,
   makeSkyTexture,
@@ -165,10 +167,18 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   ground.position.set(wx(groundCentre), 0, wz(groundCentre));
   ground.receiveShadow = true;
   scene.add(ground);
-  const farGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0x3b7545, roughness: 1 }));
+  // The meadow beyond the painted field has its own terrain texture and mid-distance landmarks.
+  // This avoids the old hard visual jump from detailed turf to a single flat green plane.
+  const farGroundTexture = makeFarGroundTexture();
+  const farGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(6000, 6000),
+    new THREE.MeshStandardMaterial({ map: farGroundTexture, color: 0xffffff, roughness: 1 }),
+  );
   farGround.rotation.x = -Math.PI / 2;
   farGround.position.set(0, -0.3, -110);
+  farGround.receiveShadow = true;
   scene.add(farGround);
+  scene.add(buildOutfieldLandscape());
 
   const glowTexture = makeRadialTexture();
   scene.add(buildStadium(glowTexture));
