@@ -41,7 +41,7 @@ function startOfWeek(date: Date) {
 function getLocalGameDate(dateValue: string): Date | null {
   // Game dates are stored as date-only strings (YYYY-MM-DD). Parse the calendar
   // parts locally instead of relying on browser parsing/time-zone conversion.
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(dateValue || '');
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateValue || '');
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   date.setHours(0, 0, 0, 0);
