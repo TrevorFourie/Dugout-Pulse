@@ -97,15 +97,15 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
 
       {(
         <>
-          {/* Primary 2x2 grid */}
-          <div className="grid grid-cols-4 gap-2">
+          {/* Primary scoring action grid */}
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               type="button"
               onClick={() => onAction({ type: 'BALL' })}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Ball</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">Pitch Only</span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Ball</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">B</span>
             </button>
             <button
               type="button"
@@ -116,62 +116,54 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                   onAction({ type: 'STRIKE' });
                 }
               }}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">
                 {state.strikes >= 2 ? 'Strike 3' : 'Strike'}
               </span>
-              <span className="mt-1 text-xs font-semibold opacity-80">
-                {state.strikes >= 2 ? 'Prompts Result' : 'Pitch Only'}
-              </span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">K</span>
             </button>
             <button
               type="button"
               onClick={() => onAction({ type: 'FOUL' })}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Foul</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">Will Add Strike (max 2)</span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Foul</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">F</span>
             </button>
             <button
               type="button"
               onClick={() => setInPlayOpen(true)}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Hit/Out</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">Other Action</span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">In Play</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">IP</span>
             </button>
 
             <button
               type="button"
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
               onClick={() => setWildPitchOpen(true)}
               title="Wild pitch: choose ball or strike and runner movement"
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Wild Pitch</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">
-                Ball / Strike · Runners
-              </span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Wild Pitch</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">WP</span>
             </button>
             <button 
               type="button"
               onClick={() => onAction( { type: 'BALK'} )}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
               title="Balk: no pitch, runners advance one base">
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Balk</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">
-                Deadball · Runner(s) Advance · Batter Remains
-              </span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Balk</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">BK</span>
             </button>
             <button 
               type="button"
               onClick={() => setPickoffOpen( true )}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
               title="Pickoff attempt / out: no pitch">
-              <span className="text-[20px] font-semibold leading-none tracking-tight">Pickoff</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">
-                Choose Result · No Pitch Count
-              </span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Pickoff</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">PO</span>
             </button>
             <button
               type="button"
@@ -180,13 +172,11 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                 setRunType(classifyRun(state) === 'unearned' ? 'unearned' : 'earned');
                 setRunOpen(true);
               }}
-              className={`${GRID_BTN} min-h-[92px]`}
+              className={`${GRID_BTN} min-h-[72px] p-1.5`}
               title="Run scored on a wild pitch, balk or steal"
             >
-              <span className="text-[20px] font-semibold leading-none tracking-tight">+Run</span>
-              <span className="mt-1 text-xs font-semibold opacity-80">
-                Earned / Unearned
-              </span>
+              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Run</span>
+              <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">R</span>
             </button>
           </div>
         </>
