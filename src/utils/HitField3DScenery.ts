@@ -458,11 +458,13 @@ export function buildOutfieldLandscape(): THREE.Group {
   // Compact LLWS-style outfield setting: a low grass berm and a close tree line.
   // Keep the backdrop immediately beyond the fence so the replay stays focused on the play.
   const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
+  // All berm geometry sits well beyond the deepest point of the outfield fence (z ≈ -234).
+  // Negative Z is beyond the outfield; never place a berm between home plate and the fence.
   const hillSpecs = [
-    { x: -210, z: -225, sx: 150, sy: 18, sz: 48, color: '#66884a' },
-    { x: -75, z: -238, sx: 155, sy: 22, sz: 54, color: '#789657' },
-    { x: 75, z: -232, sx: 160, sy: 19, sz: 50, color: '#5f8046' },
-    { x: 215, z: -222, sx: 150, sy: 17, sz: 46, color: '#6b8a4e' },
+    { x: -210, z: -300, sx: 145, sy: 20, sz: 42, color: '#66884a' },
+    { x: -75, z: -316, sx: 150, sy: 23, sz: 46, color: '#789657' },
+    { x: 75, z: -314, sx: 150, sy: 21, sz: 44, color: '#5f8046' },
+    { x: 210, z: -298, sx: 145, sy: 19, sz: 40, color: '#6b8a4e' },
   ];
   hillSpecs.forEach((h) => {
     const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
@@ -477,7 +479,7 @@ export function buildOutfieldLandscape(): THREE.Group {
     const side = rand() > 0.5 ? 1 : -1;
     const along = rand();
     const x = side * (48 + rand() * 250);
-    const z = -170 - along * 88 + (rand() - 0.5) * 24;
+    const z = -278 - along * 92 + (rand() - 0.5) * 18;
     // Leave occasional open sight-lines through to the rolling hills.
     if (rand() < 0.14 && Math.abs(x) < 420) continue;
     const scale = 0.58 + rand() * 0.78;
@@ -710,21 +712,16 @@ export const WALL_HEIGHT = 8;
 export function buildStadium(): THREE.Group {
   const group = new THREE.Group();
   const path = wallPath();
-  // Keep the full outfield wall, but concentrate the grandstand behind home plate.
-  // Seating fades down naturally along the foul lines instead of wrapping the entire field.
-  const STAND_WIDTH = 0.64;
-  const STAND_DEPTH = 0.9;
+  // The wall follows the baseball outfield arc. Seating is built OUTSIDE that wall,
+  // concentrated behind home plate and tapering along the foul lines; never scale it inward.
   const standPath = path.map((p) => {
-    // Seating is concentrated behind the plate and fades away quickly down each foul line.
-    // The wall remains full-sized and untouched.
+    // Preserve the real wall footprint. The sweep profile grows outward along the
+    // path's outward normal, so the grandstand cannot intrude onto the playing field.
     const behindPlate = Math.max(0, Math.min(1, (p.z + 18) / 38));
     const centrality = Math.max(0, 1 - Math.pow(Math.abs(p.x) / 190, 1.7));
     const fade = smooth(behindPlate) * smooth(centrality);
     return {
       ...p,
-      x: p.x * STAND_WIDTH,
-      z: p.z * STAND_DEPTH,
-      length: p.length * STAND_WIDTH,
       taper: p.taper * fade,
     };
   });
