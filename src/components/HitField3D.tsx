@@ -19,7 +19,6 @@ import {
   makeFieldTexture,
   makeFarGroundTexture,
   makeHorizonTexture,
-  makeRadialTexture,
   makeSkyTexture,
   wx,
   wz,
