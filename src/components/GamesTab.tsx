@@ -18,7 +18,6 @@ import {
   RotateCcw,
   Home,
   Plane,
-  RotateCcw,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ThemedDropdown } from './ThemedDropdown';
