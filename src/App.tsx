@@ -40,6 +40,8 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
+      {!isSettingsOpen && (
+      <>
       <Navigation
         activeTab={activeTab}
         onSelectTab={(tab) => {
@@ -83,6 +85,8 @@ const MainApp: React.FC = () => {
           <GamesTab onNavigateToScore={() => setActiveTab('score')} />
         )}
       </main>
+      </>
+      )}
 
       <HelpModal
         isOpen={isHelpOpen}
