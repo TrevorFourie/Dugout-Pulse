@@ -70,7 +70,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   return (
     <div className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 pt-4 max-w-4xl mx-auto w-full space-y-5 animate-in fade-in duration-200">
       {/* App & Season Header */}
-      <div className="bg-white dark:bg-[#252D38] rounded-2xl p-5 border border-slate-200/80 dark:border-[#354050] shadow-xs">
+      <div className="bg-white dark:bg-[#252D38] rounded-2xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-xs">
         <div className="flex items-start justify-between gap-2">
           <button
             type="button"
@@ -89,7 +89,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
             <div className="py-0">
               <span className="py-0 text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">GAME DAY SCORING</span>
-              <h1 className="text-2xl sm:text-4xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
                 {playerNameDisplay}
                 {activeProfile.jerseyNumber && (
                   <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB] px-0.5"> · #{activeProfile.jerseyNumber}</span>
@@ -118,7 +118,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
                   GAME IN PROGRESS
                 </div>
-                <h2 className="text-xl sm:text-2xl font-semibold text-white">
+                <h2 className="text-lg sm:text-xl font-semibold text-white">
                   Inning {liveGame.innings} · vs {liveGame.opponent || 'Opponent'}
                 </h2>
                 <p className="text-xs text-slate-300">
@@ -131,7 +131,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <Sparkles className="w-3.5 h-3.5" />
                   READY FOR NEXT GAME
                 </div>
-                <h2 className="text-xl sm:text-2xl font-semibold text-white">
+                <h2 className="text-lg sm:text-xl font-semibold text-white">
                   Start Game Scoring
                 </h2>
                 <p className="text-xs text-slate-300">
@@ -177,7 +177,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Season Snapshot (4 Tiles) */}
       <div>
         <div className="flex items-center justify-between mb-2.5 px-1">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
             Season Snapshot Overview
           </span>
           <span className="text-xs font-semibold text-slate-600 dark:text-[#D1D5DB]">
@@ -189,7 +189,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
             <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Games</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{gameCount}</span>
+              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{gameCount}</span>
               <Activity className="w-4 h-4 text-slate-300 dark:text-[#6B7280]" />
             </div>
           </div>
@@ -197,7 +197,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
             <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Batting Avg</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</span>
+              <span className="text-xl sm:text-2xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</span>
               <Award className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]/40" />
             </div>
           </div>
@@ -205,7 +205,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
             <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Hits</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{batting.h}</span>
+              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{batting.h}</span>
               <span className="text-[11px] font-semibold text-slate-400">{batting.ab} AB</span>
             </div>
           </div>
@@ -213,7 +213,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
             <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Last Game Hits</span>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl sm:text-3xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
+              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
                 {lastGameHits !== null ? lastGameHits : '—'}
               </span>
               <TrendingUp className="w-4 h-4 text-teal-500/60" />
@@ -232,7 +232,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <BarChart3 className="w-6 h-6" />
           </div>
           <div>
-            <div className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+            <div className="font-medium text-sm text-slate-900 dark:text-[#FAFAFA]">
               View Full Player Statistics & Deep Dive Breakdowns
             </div>
             <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
@@ -253,7 +253,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <HelpCircle className="w-5 h-5" />
           </div>
           <div>
-            <div className="font-semibold text-base text-slate-900 dark:text-[#FAFAFA]">
+            <div className="font-medium text-sm text-slate-900 dark:text-[#FAFAFA]">
               New to scorekeeping?
             </div>
             <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
