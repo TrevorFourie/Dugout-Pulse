@@ -52,7 +52,7 @@ const SubModal: React.FC<{ title: string; subtitle?: string; onClose: () => void
       <header className="mb-3 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">Pitching</p>
-          <h2 className="text-base font-semibold text-slate-950 dark:text-[#FAFAFA]">{title}</h2>
+          <h2 className="text-sm font-semibold text-slate-950 dark:text-[#FAFAFA]">{title}</h2>
           {subtitle && <p className="text-[13px] font-semibold text-slate-500 dark:text-[#9CA3AF]">{subtitle}</p>}
         </div>
         <button
@@ -104,7 +104,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => onAction({ type: 'BALL' })}
               className={GRID_BTN}
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Ball</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Ball</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">B</span>
             </button>
             <button
@@ -118,7 +118,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               }}
               className={GRID_BTN}
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">
                 {state.strikes >= 2 ? 'Strike 3' : 'Strike'}
               </span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">K</span>
@@ -128,7 +128,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => onAction({ type: 'FOUL' })}
               className={GRID_BTN}
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Foul</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Foul</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">F</span>
             </button>
             <button
@@ -136,7 +136,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => setInPlayOpen(true)}
               className={GRID_BTN}
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">In Play</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">In Play</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">IP</span>
             </button>
 
@@ -146,7 +146,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => setWildPitchOpen(true)}
               title="Wild pitch: choose ball or strike and runner movement"
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Wild Pitch</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Wild Pitch</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">WP</span>
             </button>
             <button 
@@ -154,7 +154,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => onAction( { type: 'BALK'} )}
               className={GRID_BTN}
               title="Balk: no pitch, runners advance one base">
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Balk</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Balk</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">BK</span>
             </button>
             <button 
@@ -162,7 +162,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               onClick={() => setPickoffOpen( true )}
               className={GRID_BTN}
               title="Pickoff attempt / out: no pitch">
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Pickoff</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Pickoff</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">PO</span>
             </button>
             <button
@@ -175,7 +175,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
               className={GRID_BTN}
               title="Run scored on a wild pitch, balk or steal"
             >
-              <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Run</span>
+              <span className="text-[13px] sm:text-sm font-medium leading-tight">Run</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">R</span>
             </button>
           </div>
@@ -263,7 +263,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-[#354050] dark:bg-[#252D38]/60 transition-all active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between">
-                  <span className="block text-sm font-semibold text-slate-950 dark:text-[#FAFAFA]">
+                  <span className="block text-sm font-medium text-slate-950 dark:text-[#FAFAFA]">
                     Pickoff Attempt — SAFE at {pickoffTargetBase === 'HOME' ? 'Home' : pickoffTargetBase}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200 dark:bg-[#354050] text-slate-700 dark:text-[#D1D5DB]">
@@ -290,7 +290,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-[#354050] dark:bg-[#252D38]/60 transition-all active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between">
-                  <span className="block text-sm font-semibold text-slate-950 dark:text-[#FAFAFA]">
+                  <span className="block text-sm font-medium text-slate-950 dark:text-[#FAFAFA]">
                     Runner Picked Off — OUT at {pickoffTargetBase === 'HOME' ? 'Home' : pickoffTargetBase}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]">
@@ -317,7 +317,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-slate-300 dark:border-[#354050] dark:bg-[#252D38]/60 transition-all active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between">
-                  <span className="block text-sm font-semibold text-slate-950 dark:text-[#FAFAFA]">
+                  <span className="block text-sm font-medium text-slate-950 dark:text-[#FAFAFA]">
                     Caught Stealing — OUT at {pickoffTargetBase === 'HOME' ? 'Home' : pickoffTargetBase + 1}
                   </span>
                   <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]">
