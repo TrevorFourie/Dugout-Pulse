@@ -23,6 +23,7 @@ interface HitLocationModalProps {
   allowSkip?: boolean;
   showFieldViewToggle?: boolean;
   requirePlaySelection?: boolean;
+  requireTrajectorySelection?: boolean;
   onSave: (location: HitLocation, selectedPlayCode: PlayCode, rbiCount: number) => void;
   onSkip: () => void;
   onClose: () => void;
@@ -50,6 +51,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   allowSkip = true,
   showFieldViewToggle = true,
   requirePlaySelection = false,
+  requireTrajectorySelection = false,
   onSave,
   onSkip,
 }) => {
@@ -79,6 +81,8 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
   };
 
   const [location, setLocation] = useState<HitLocation>(defaultInitialLoc);
+  // A fresh hit must explicitly choose its trajectory; existing saved locations retain theirs when edited.
+  const [hasExplicitTrajectory, setHasExplicitTrajectory] = useState(Boolean(initialLocation?.trajectory));
   // 'place' = tap the 2D field; '3d' = view-only 3D replay of the same hit
   const [fieldView, setFieldView] = useState<'place' | '3d'>('place');
 
@@ -100,25 +104,24 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
     if (newCode === 'homeRun' && rbiCount < 1) {
       setRbiCount(1);
     }
-    const suggestedTraj = getDefaultTrajectoryForPlay(newCode);
     setLocation((prev) => {
-      if (newCode === 'pitchFoul') {
-        return { ...prev, x: 10, y: 60, zone: 'LF', trajectory: suggestedTraj };
-      }
-      if (newCode === 'homeRun') {
-        return { ...prev, x: 50, y: 5, zone: 'CF', trajectory: suggestedTraj };
-      }
+      if (newCode === 'pitchFoul') return { ...prev, x: 10, y: 60, zone: 'LF' };
+      if (newCode === 'homeRun') return { ...prev, x: 50, y: 5, zone: 'CF' };
       if ((newCode === 'single' || newCode === 'double' || newCode === 'triple') &&
           !isValidHitLocationForPlay(prev, newCode)) {
-        return { ...prev, x: 50, y: 35, zone: 'CF', trajectory: suggestedTraj };
+        return { ...prev, x: 50, y: 35, zone: 'CF' };
       }
-      return { ...prev, trajectory: suggestedTraj };
+      return prev;
     });
   };
 
   const handleSave = () => {
     if (requirePlaySelection && !hasExplicitPlaySelection) {
       window.alert('Please select the hit type before saving the hit location.');
+      return;
+    }
+    if (requireTrajectorySelection && !hasExplicitTrajectory) {
+      window.alert('Please select how the ball was hit before saving the hit location.');
       return;
     }
     const locWithRbi: HitLocation = {
@@ -381,14 +384,15 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
                 <button
                   key={traj.id}
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    setHasExplicitTrajectory(true);
                     setLocation((prev) => ({
                       ...prev,
                       trajectory: traj.id,
-                    }))
-                  }
+                    }));
+                  }}
                   className={`min-h-[52px] py-2 px-1 rounded-xl text-center text-xs font-semibold leading-tight transition-all active:scale-95 cursor-pointer ${
-                    location.trajectory === traj.id
+                    hasExplicitTrajectory && location.trajectory === traj.id
                       ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-md ring-2 ring-[#00BFA5]/40'
                       : 'bg-white dark:bg-[#252D38] text-slate-700 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#465160] hover:bg-slate-100'
                   }`}
