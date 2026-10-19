@@ -600,40 +600,38 @@ function wallPath(): PathPoint[] {
   });
 }
 
-/** A separate, open grandstand arc behind home plate. It is not a loop around the field. */
-function grandstandPath(): PathPoint[] {
-  const points: { x: number; z: number }[] = [];
-  const count = 56;
-  // A broad, open horseshoe of permanent seating directly behind home plate.
-  // It is deliberately separate from the outfield fence, with stepped decks facing
-  // the diamond rather than a continuous oval bowl around the playing surface.
-  for (let i = 0; i <= count; i++) {
-    const t = (Math.PI * i) / count;
-    points.push({ x: -96 * Math.cos(t), z: 30 + 66 * Math.sin(t) });
-  }
-  let length = 0;
-  return points.map((p, i) => {
-    const a = points[Math.max(0, i - 1)];
-    const b = points[Math.min(points.length - 1, i + 1)];
-    let tx = b.x - a.x;
-    let tz = b.z - a.z;
-    const len = Math.hypot(tx, tz) || 1;
-    tx /= len;
-    tz /= len;
-    let nx = tz;
-    let nz = -tx;
-    // The seating's outward normal must point away from the playing field.
-    if (nx * p.x + nz * (p.z + 26) < 0) {
-      nx = -nx;
-      nz = -nz;
+/** Two separate grandstands run alongside the first-base and third-base foul lines. */
+function grandstandPaths(): PathPoint[][] {
+  const count = 42;
+  return [-1, 1].map((side) => {
+    const points: { x: number; z: number; taper: number }[] = [];
+    for (let i = 0; i <= count; i++) {
+      const t = i / count;
+      // Start just behind home plate and extend toward the outfield, parallel to
+      // the foul line. The stands stay outside the playing diamond; no half-moon.
+      points.push({
+        x: side * (15 + 112 * t),
+        z: 14 - 112 * t,
+        taper: smooth(Math.min(1, i / 6)) * smooth(Math.min(1, (count - i) / 6)),
+      });
     }
-    if (i) length += Math.hypot(p.x - a.x, p.z - a.z);
-    const edgeFade = smooth(Math.min(1, i / 8)) * smooth(Math.min(1, (count - i) / 8));
-    return { ...p, nx, nz, length, taper: edgeFade };
+    let length = 0;
+    return points.map((p, i) => {
+      const a = points[Math.max(0, i - 1)];
+      const b = points[Math.min(points.length - 1, i + 1)];
+      let tx = b.x - a.x;
+      let tz = b.z - a.z;
+      const len = Math.hypot(tx, tz) || 1;
+      tx /= len;
+      tz /= len;
+      const nx = side * Math.abs(tz);
+      const nz = Math.abs(tx);
+      if (i) length += Math.hypot(p.x - a.x, p.z - a.z);
+      return { x: p.x, z: p.z, nx, nz, length, taper: p.taper };
+    });
   });
 }
 
-/** A ribbon swept along the wall path. `profile` is [outward distance, height] pairs. */
 function sweep(path: PathPoint[], profile: [number, number][], uScale: number, vScale: number): THREE.BufferGeometry {
   const positions: number[] = [];
   const uvs: number[] = [];
@@ -753,9 +751,8 @@ export function buildStadium(): THREE.Group {
   // to the backstop with side walls: that creates the continuous oval stadium silhouette.
   const fenceStart = PATH_BACK + PATH_SIDE;
   const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
-  // Permanent seating is a separate open horseshoe behind home plate, not a bowl around
-  // the outfield. The berm beyond the outfield fence is built by buildOutfieldLandscape().
-  const standPath = grandstandPath();
+  // Two independent foul-line grandstands; the outfield remains open.
+  const standPaths = grandstandPaths();
 
   // Wall
   const wallTexture = makeWallTexture();
@@ -781,57 +778,65 @@ export function buildStadium(): THREE.Group {
     return pts;
   };
 
-  // Lower deck
-  const LOWER = { rows: 6, tread: 2.25, rise: 1.25 };
-  const lowerTexture = makeCrowdTexture(41, '#27415e', 0.9, LOWER.rise / (LOWER.rise + LOWER.tread));
-  const walkway: [number, number][] = [[0.9, WALL_HEIGHT], [3, WALL_HEIGHT]];
-  const lower = new THREE.Mesh(
-    sweep(standPath, [...walkway, ...stairs(3, WALL_HEIGHT, LOWER.rows, LOWER.tread, LOWER.rise).slice(1)], 40, LOWER.rise + LOWER.tread),
-    new THREE.MeshStandardMaterial({ map: lowerTexture, roughness: 0.95, side: THREE.DoubleSide }),
-  );
-  lower.castShadow = true;
-  lower.receiveShadow = true;
-  group.add(lower);
+  const stairs = (d0: number, h0: number, rows: number, tread: number, rise: number): [number, number][] => {
+    const pts: [number, number][] = [[d0, h0]];
+    for (let i = 0; i < rows; i++) {
+      pts.push([d0 + i * tread, h0 + (i + 1) * rise], [d0 + (i + 1) * tread, h0 + (i + 1) * rise]);
+    }
+    return pts;
+  };
 
-  const lowerTopD = 3 + LOWER.rows * LOWER.tread;
-  const lowerTopH = WALL_HEIGHT + LOWER.rows * LOWER.rise;
+  // Each side is a separate stepped structure parallel to its foul line.
+  // No curved seating connector behind home plate and no seating around the outfield.
+  standPaths.forEach((standPath, standIndex) => {
+    const LOWER = { rows: 6, tread: 2.25, rise: 1.25 };
+    const lowerTexture = makeCrowdTexture(41 + standIndex, '#27415e', 0.9, LOWER.rise / (LOWER.rise + LOWER.tread));
+    const walkway: [number, number][] = [[0.9, WALL_HEIGHT], [3, WALL_HEIGHT]];
+    const lower = new THREE.Mesh(
+      sweep(standPath, [...walkway, ...stairs(3, WALL_HEIGHT, LOWER.rows, LOWER.tread, LOWER.rise).slice(1)], 40, LOWER.rise + LOWER.tread),
+      new THREE.MeshStandardMaterial({ map: lowerTexture, roughness: 0.95, side: THREE.DoubleSide }),
+    );
+    lower.castShadow = true;
+    lower.receiveShadow = true;
+    group.add(lower);
 
-  // Upper seating deck, set back above a visible concourse/fascia so the structure
-  // reads as a real ballpark grandstand rather than one thin curved strip.
-  const upperRows = 4;
-  const upperTread = 2.1;
-  const upperRise = 1.35;
-  const upperTexture = makeCrowdTexture(73, '#354b66', 0.88, upperRise / (upperRise + upperTread));
-  const upper = new THREE.Mesh(
-    sweep(
-      standPath,
-      [
-        [lowerTopD + 1.5, lowerTopH + 1.1],
-        [lowerTopD + 3.2, lowerTopH + 1.1],
-        ...stairs(lowerTopD + 3.2, lowerTopH + 1.1, upperRows, upperTread, upperRise).slice(1),
-      ],
-      40,
-      upperRise + upperTread,
-    ),
-    new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
-  );
-  upper.castShadow = true;
-  upper.receiveShadow = true;
-  group.add(upper);
+    const lowerTopD = 3 + LOWER.rows * LOWER.tread;
+    const lowerTopH = WALL_HEIGHT + LOWER.rows * LOWER.rise;
+    const upperRows = 4;
+    const upperTread = 2.1;
+    const upperRise = 1.35;
+    const upperTexture = makeCrowdTexture(73 + standIndex, '#354b66', 0.88, upperRise / (upperRise + upperTread));
+    const upper = new THREE.Mesh(
+      sweep(
+        standPath,
+        [
+          [lowerTopD + 1.5, lowerTopH + 1.1],
+          [lowerTopD + 3.2, lowerTopH + 1.1],
+          ...stairs(lowerTopD + 3.2, lowerTopH + 1.1, upperRows, upperTread, upperRise).slice(1),
+        ],
+        40,
+        upperRise + upperTread,
+      ),
+      new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
+    );
+    upper.castShadow = true;
+    upper.receiveShadow = true;
+    group.add(upper);
 
-  const roofD = lowerTopD + 3.2 + upperRows * upperTread + 2.2;
-  const roofH = lowerTopH + 1.1 + upperRows * upperRise + 1.8;
-  const fascia = new THREE.Mesh(
-    sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.8], [roofD + 3, roofH + 2]], 40, 5),
-    new THREE.MeshStandardMaterial({ color: 0x34404a, roughness: 0.82, side: THREE.DoubleSide }),
-  );
-  fascia.castShadow = true;
-  group.add(fascia);
-  const strip = new THREE.Mesh(
-    sweep(standPath, [[roofD - 0.05, roofH + 1.0], [roofD - 0.05, roofH + 1.35]], 40, 1),
-    new THREE.MeshBasicMaterial({ color: 0xffe8bf, toneMapped: false, side: THREE.DoubleSide }),
-  );
-  group.add(strip);
+    const roofD = lowerTopD + 3.2 + upperRows * upperTread + 2.2;
+    const roofH = lowerTopH + 1.1 + upperRows * upperRise + 1.8;
+    const fascia = new THREE.Mesh(
+      sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.8], [roofD + 3, roofH + 2]], 40, 5),
+      new THREE.MeshStandardMaterial({ color: 0x34404a, roughness: 0.82, side: THREE.DoubleSide }),
+    );
+    fascia.castShadow = true;
+    group.add(fascia);
+    const strip = new THREE.Mesh(
+      sweep(standPath, [[roofD - 0.05, roofH + 1.0], [roofD - 0.05, roofH + 1.35]], 40, 1),
+      new THREE.MeshBasicMaterial({ color: 0xffe8bf, toneMapped: false, side: THREE.DoubleSide }),
+    );
+    group.add(strip);
+  });
 
   // No tall floodlight towers: the LLWS look is open, compact and centred on the diamond.
   return group;
