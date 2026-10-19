@@ -35,7 +35,7 @@ export const GRASS_DIAMOND: [number, number][] = [
 ];
 
 export const FIELD_COLORS = {
-  surround: '#1b3325',
+  surround: '#2f7a3d',
   grassA: '#3f9a4d',
   grassB: '#378f45',
   foul: '#2f7a3d',

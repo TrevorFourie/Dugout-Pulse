@@ -372,7 +372,7 @@ const HitLocationModalDialog: React.FC<HitLocationModalProps> = ({
             ) : (
               <Suspense
                 fallback={
-                  <div className="flex aspect-[1/0.95] w-full items-center justify-center bg-[#1b3325] text-xs font-semibold text-white/70">
+                  <div className="flex aspect-[1/0.95] w-full items-center justify-center bg-[#2f7a3d] text-xs font-semibold text-white/70">
                     Loading 3D field…
                   </div>
                 }
