@@ -4300,6 +4300,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           allowPlayChange={false}
           allowSkip={!hitTapperEnabled || !isHitPlay(pendingHitPlay.code)}
           showFieldViewToggle={!hitTapperEnabled}
+          requireLocationSelection={hitTapperEnabled && isHitPlay(pendingHitPlay.code)}
+          requireTrajectorySelection={hitTapperEnabled && isHitPlay(pendingHitPlay.code)}
           onSave={(loc, _code, rbiEarned) => {
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
@@ -4519,6 +4521,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           showFieldViewToggle={!hitTapperEnabled}
           requirePlaySelection={true}
           requireTrajectorySelection={true}
+          requireLocationSelection={true}
           onSave={(loc, chosenCode, rbiEarned) => {
             setIsDirectTapperOpen(false);
             pendingHitLocationRef.current = loc;
