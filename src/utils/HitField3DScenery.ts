@@ -505,18 +505,6 @@ export function buildOutfieldLandscape(): THREE.Group {
 
 /* ---------- soft sprites ---------- */
 
-export function makeRadialTexture(): THREE.CanvasTexture {
-  const [canvas, g] = makeCanvas(128, 128);
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.3, 'rgba(255,255,255,0.55)');
-  grad.addColorStop(0.65, 'rgba(255,255,255,0.14)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 128, 128);
-  return toTexture(canvas);
-}
-
 /** Vertical fade used as an alpha map: solid at the bottom of the shape, clear at the top. */
 export function makeBeamTexture(): THREE.CanvasTexture {
   const [canvas, g] = makeCanvas(4, 128);
@@ -701,23 +689,6 @@ function makeWallTexture(): THREE.CanvasTexture {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.anisotropy = 4;
   return texture;
-}
-
-function makeLampTexture(): THREE.CanvasTexture {
-  const [canvas, g] = makeCanvas(128, 64);
-  g.fillStyle = '#20252c';
-  g.fillRect(0, 0, 128, 64);
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 8; c++) {
-      const grad = g.createRadialGradient(8 + c * 16, 8 + r * 16, 0, 8 + c * 16, 8 + r * 16, 7);
-      grad.addColorStop(0, '#fff');
-      grad.addColorStop(0.55, '#fff2cf');
-      grad.addColorStop(1, 'rgba(255,230,170,0)');
-      g.fillStyle = grad;
-      g.fillRect(c * 16, r * 16, 16, 16);
-    }
-  }
-  return toTexture(canvas);
 }
 
 export const WALL_HEIGHT = 8;
