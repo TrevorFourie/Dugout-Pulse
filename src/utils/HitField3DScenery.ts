@@ -502,6 +502,19 @@ export function buildOutfieldLandscape(): THREE.Group {
 
 /* ---------- soft sprites ---------- */
 
+/** Soft glow texture retained for compatibility with existing replay imports. */
+export function makeRadialTexture(): THREE.CanvasTexture {
+  const [canvas, g] = makeCanvas(128, 128);
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.65, 'rgba(255,255,255,0.14)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  return toTexture(canvas);
+}
+
 /** Vertical fade used as an alpha map: solid at the bottom of the shape, clear at the top. */
 export function makeBeamTexture(): THREE.CanvasTexture {
   const [canvas, g] = makeCanvas(4, 128);
