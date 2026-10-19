@@ -187,7 +187,6 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
     const o = rand() * 17;
     let x: number;
     let y: number;
-    const part = rand();
     // Keep all warning-track rake marks on the outfield arc; never extend
     // them along the foul lines or into the backstop scenery.
     const t = rand() * Math.PI;
