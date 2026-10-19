@@ -14,7 +14,7 @@ import { AppLogo } from './AppLogo';
 import { exportStatsPdf } from '../utils/pdfReport';
 import defaultLogoSrc from '../assets/dugout-pulse-logo.png?inline';
 
-export type TabId = 'dashboard' | 'score' | 'games' | 'crazyPlays' | 'stats';
+export type TabId = 'dashboard' | 'score' | 'games' | 'crazyPlays' | 'stats' | 'settings';
 
 interface NavigationProps {
   activeTab: TabId;
