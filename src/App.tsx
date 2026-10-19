@@ -126,7 +126,7 @@ const MainApp: React.FC = () => {
               </div>
               <button type="button" onClick={() => setIsSettingsMenuOpen(false)} aria-label="Close settings menu" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"><X className="h-5 w-5" /></button>
             </div>
-            <nav className="flex flex-col gap-1.5 overflow-y-auto p-3">
+            <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3">
               <button
                 type="button"
                 onClick={() => {
@@ -161,6 +161,9 @@ const MainApp: React.FC = () => {
                 );
               })}
             </nav>
+            <div className="shrink-0 border-t border-slate-200 px-4 py-3 text-center dark:border-[#354050]">
+              <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">© 2026 Dugout Pulse. All rights reserved.</p>
+            </div>
           </aside>
         </div>
 
