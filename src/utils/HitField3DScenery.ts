@@ -445,6 +445,31 @@ export function makeFarGroundTexture(): THREE.CanvasTexture {
 export function buildOutfieldLandscape(): THREE.Group {
   const group = new THREE.Group();
   const rand = makeRng(117);
+
+  // Follow the actual baseball outfield arc. The terrain is an unbroken berm BEHIND
+  // the fence, not four isolated mounds and not a ring around the entire stadium.
+  const fullPath = wallPath();
+  const fenceStart = PATH_BACK + PATH_SIDE;
+  const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
+  const berm = new THREE.Mesh(
+    sweep(
+      fencePath,
+      [[3, -0.4], [9, 1], [20, 6], [36, 13], [54, 17], [76, 14], [98, 6], [118, -0.4]],
+      55,
+      8,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: '#648b4a',
+      roughness: 1,
+      side: THREE.DoubleSide,
+      flatShading: false,
+    }),
+  );
+  berm.receiveShadow = true;
+  group.add(berm);
+
+  // A close tree line tracks the outside of the curved berm. Trees are distributed
+  // by distance along the arc, rather than scattered in a straight band.
   const trunkGeometry = new THREE.CylinderGeometry(0.8, 1.25, 7, 7);
   const crownGeometry = new THREE.IcosahedronGeometry(1, 1);
   const trunkMaterial = new THREE.MeshStandardMaterial({ color: '#6e5138', roughness: 1 });
@@ -455,43 +480,27 @@ export function buildOutfieldLandscape(): THREE.Group {
     new THREE.MeshStandardMaterial({ color: '#345e38', roughness: 1, flatShading: true }),
   ];
 
-  // Compact LLWS-style outfield setting: a low grass berm and a close tree line.
-  // Keep the backdrop immediately beyond the fence so the replay stays focused on the play.
-  const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
-  // All berm geometry sits well beyond the deepest point of the outfield fence (z ≈ -234).
-  // Negative Z is beyond the outfield; never place a berm between home plate and the fence.
-  const hillSpecs = [
-    { x: -210, z: -300, sx: 145, sy: 20, sz: 42, color: '#66884a' },
-    { x: -75, z: -316, sx: 150, sy: 23, sz: 46, color: '#789657' },
-    { x: 75, z: -314, sx: 150, sy: 21, sz: 44, color: '#5f8046' },
-    { x: 210, z: -298, sx: 145, sy: 19, sz: 40, color: '#6b8a4e' },
-  ];
-  hillSpecs.forEach((h) => {
-    const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
-    hill.scale.set(h.sx, h.sy, h.sz);
-    hill.position.set(h.x, -h.sy * 0.72, h.z);
-    hill.receiveShadow = true;
-    group.add(hill);
-  });
-
-  // A close, low tree line frames the berm. Keep the centre mostly open behind the outfield.
-  for (let i = 0; i < 48; i++) {
-    const side = rand() > 0.5 ? 1 : -1;
-    const along = rand();
-    const x = side * (48 + rand() * 250);
-    const z = -278 - along * 92 + (rand() - 0.5) * 18;
-    // Leave occasional open sight-lines through to the rolling hills.
-    if (rand() < 0.14 && Math.abs(x) < 420) continue;
-    const scale = 0.58 + rand() * 0.78;
+  for (let i = 2; i < fencePath.length - 2; i += 2) {
+    // Leave small natural breaks, never large empty sections that expose the terrain edge.
+    if (rand() < 0.13) continue;
+    const p = fencePath[i];
+    const distance = 112 + rand() * 28;
+    const x = p.x + p.nx * distance;
+    const z = p.z + p.nz * distance;
+    const scale = 0.7 + rand() * 0.55;
     const tree = new THREE.Group();
-    tree.position.set(x, 0, z);
+    tree.position.set(x, -0.2, z);
     tree.scale.setScalar(scale);
+
     const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
     trunk.position.y = 3.5;
     tree.add(trunk);
     const crownCount = 2 + Math.floor(rand() * 3);
-    for (let c = 0; c < crownCount; c++) {
-      const crown = new THREE.Mesh(crownGeometry, crownMaterials[Math.floor(rand() * crownMaterials.length)]);
+    for (let j = 0; j < crownCount; j++) {
+      const crown = new THREE.Mesh(
+        crownGeometry,
+        crownMaterials[Math.floor(rand() * crownMaterials.length)],
+      );
       crown.position.set((rand() - 0.5) * 3.4, 6 + rand() * 4.2, (rand() - 0.5) * 3.4);
       crown.scale.set(2.8 + rand() * 2.4, 3 + rand() * 3.5, 2.8 + rand() * 2.4);
       crown.castShadow = true;
