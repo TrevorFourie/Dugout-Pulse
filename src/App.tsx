@@ -141,7 +141,6 @@ const MainApp: React.FC = () => {
             </nav>
           </aside>
         </div>
-      )}
 
       <HelpModal
         isOpen={isHelpOpen}
