@@ -4518,6 +4518,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           allowSkip={!hitTapperEnabled}
           showFieldViewToggle={!hitTapperEnabled}
           requirePlaySelection={true}
+          requireTrajectorySelection={true}
           onSave={(loc, chosenCode, rbiEarned) => {
             setIsDirectTapperOpen(false);
             pendingHitLocationRef.current = loc;
