@@ -9,7 +9,7 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
-import { X, Menu, UserPlus, Shield, Layers, Sliders, Palette, Users, Download } from 'lucide-react';
+import { X, UserPlus, Shield, Layers, Sliders, Palette, Users, Download } from 'lucide-react';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame } = useGame();
@@ -37,6 +37,7 @@ const MainApp: React.FC = () => {
     setSettingsInitialSection(section);
     setIsSettingsMenuOpen(false);
     setIsSettingsOpen(true);
+    setActiveTab('settings');
   };
 
   const handleOpenHelp = (mode?: PlayMode) => {
@@ -46,7 +47,6 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
-      {!isSettingsOpen && (
       <>
       <Navigation
         activeTab={activeTab}
@@ -59,6 +59,17 @@ const MainApp: React.FC = () => {
       />
 
       <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+        {activeTab === 'settings' && (
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            initialSection={settingsInitialSection}
+            onClose={() => {
+              setIsSettingsOpen(false);
+              setActiveTab('dashboard');
+            }}
+            onOpenSetupWizard={() => setIsManualSetupOpen(true)}
+          />
+        )}
         {activeTab === 'dashboard' && (
           <DashboardTab
             onNavigateToScore={() => setActiveTab('score')}
@@ -92,9 +103,8 @@ const MainApp: React.FC = () => {
         )}
       </main>
       </>
-      )}
 
-      {isSettingsMenuOpen && !isSettingsOpen && (
+      {isSettingsMenuOpen && (
         <div className="fixed inset-0 z-50">
           <button
             type="button"
@@ -137,13 +147,6 @@ const MainApp: React.FC = () => {
         isOpen={isHelpOpen}
         initialMode={helpInitialMode}
         onClose={() => setIsHelpOpen(false)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        initialSection={settingsInitialSection}
-        onClose={() => setIsSettingsOpen(false)}
-        onOpenSetupWizard={() => setIsManualSetupOpen(true)}
       />
 
       {(isFirstTimeUser || isManualSetupOpen) && (
