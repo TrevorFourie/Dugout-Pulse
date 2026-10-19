@@ -1608,9 +1608,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
                 About App
               </h3>
-              <p className="mt-2 text-xs text-slate-500 dark:text-[#6B7280]">
-                © 2026 Dugout Pulse . All rights reserved.
-              </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-[#6B7280]">
                 Build Version: B1001-1225
               </p>
