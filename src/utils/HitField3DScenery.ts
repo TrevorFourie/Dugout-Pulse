@@ -376,9 +376,10 @@ export function makeHorizonTexture(): THREE.CanvasTexture {
     g.closePath();
     g.fill();
   };
-  layer(78, 16, 'rgba(150,132,156,0.9)', 0, 1);
-  layer(52, 11, 'rgba(104,94,124,0.95)', 5, 2);
-  layer(30, 6, 'rgba(60,62,86,1)', 14, 3);
+  // Low tree-covered ridgeline rather than towering purple mountains.
+  layer(45, 7, 'rgba(123,139,103,0.92)', 3, 1);
+  layer(30, 5, 'rgba(82,112,76,0.96)', 5, 2);
+  layer(18, 3, 'rgba(49,81,54,1)', 8, 3);
   const texture = toTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   return texture;
@@ -457,20 +458,14 @@ export function buildOutfieldLandscape(): THREE.Group {
     new THREE.MeshStandardMaterial({ color: '#345e38', roughness: 1, flatShading: true }),
   ];
 
-  // Soft, overlapping low hills: the silhouette sits between the ballpark and far mountains.
+  // Compact LLWS-style outfield setting: a low grass berm and a close tree line.
+  // Keep the backdrop immediately beyond the fence so the replay stays focused on the play.
   const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
   const hillSpecs = [
-    // Close, low embankment behind the outfield: several overlapping mounds, not one flat ridge.
-    { x: -430, z: -410, sx: 300, sy: 28, sz: 115, color: '#66884a' },
-    { x: -120, z: -455, sx: 280, sy: 35, sz: 135, color: '#789657' },
-    { x: 205, z: -430, sx: 300, sy: 30, sz: 120, color: '#5f8046' },
-    { x: 510, z: -475, sx: 330, sy: 33, sz: 140, color: '#6b8a4e' },
-    // Larger wooded hills step back into the distance.
-    { x: -690, z: -650, sx: 410, sy: 42, sz: 190, color: '#638451' },
-    { x: -180, z: -760, sx: 500, sy: 52, sz: 230, color: '#718d56' },
-    { x: 390, z: -690, sx: 460, sy: 40, sz: 210, color: '#557a47' },
-    { x: 900, z: -820, sx: 520, sy: 48, sz: 250, color: '#66824e' },
-    { x: -1050, z: -900, sx: 480, sy: 52, sz: 270, color: '#718b59' },
+    { x: -300, z: -265, sx: 235, sy: 22, sz: 82, color: '#66884a' },
+    { x: -80, z: -285, sx: 245, sy: 27, sz: 95, color: '#789657' },
+    { x: 180, z: -270, sx: 245, sy: 24, sz: 88, color: '#5f8046' },
+    { x: 420, z: -300, sx: 250, sy: 22, sz: 92, color: '#6b8a4e' },
   ];
   hillSpecs.forEach((h) => {
     const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
@@ -481,13 +476,13 @@ export function buildOutfieldLandscape(): THREE.Group {
   });
 
   // Loose, uneven tree belts: clustered at the edges with gaps so the landscape remains open.
-  for (let i = 0; i < 118; i++) {
+  for (let i = 0; i < 76; i++) {
     const side = rand() > 0.5 ? 1 : -1;
     const along = rand();
-    const x = side * (85 + rand() * 690);
-    const z = -315 - along * 390 + (rand() - 0.5) * 75;
+    const x = side * (65 + rand() * 440);
+    const z = -205 - along * 210 + (rand() - 0.5) * 45;
     // Leave occasional open sight-lines through to the rolling hills.
-    if (rand() < 0.2 && Math.abs(x) < 650) continue;
+    if (rand() < 0.14 && Math.abs(x) < 420) continue;
     const scale = 0.7 + rand() * 1.25;
     const tree = new THREE.Group();
     tree.position.set(x, 0, z);
@@ -731,7 +726,7 @@ export const WALL_HEIGHT = 8;
  * The ballpark: padded wall, two tiers of seats with a crowd, a lit suite level, a roof edge
  * and light towers. Returns a group plus the sprite glow texture the caller owns nothing of.
  */
-export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
+export function buildStadium(): THREE.Group {
   const group = new THREE.Group();
   const path = wallPath();
   // Keep the full outfield wall, but concentrate the grandstand behind home plate.
@@ -807,42 +802,6 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   );
   group.add(strip);
 
-  // Light towers
-  const lampTexture = makeLampTexture();
-  const lampMaterial = new THREE.MeshBasicMaterial({ map: lampTexture, toneMapped: false });
-  const mastMaterial = new THREE.MeshStandardMaterial({ color: 0x39414c, roughness: 0.6, metalness: 0.3 });
-  const glowMaterial = new THREE.SpriteMaterial({ map: glowTexture, color: 0xffe3b0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.42 });
-  // Towers sit on the straights and arc, kept clear of dead-centre so the outfield camera is not looking through a mast
-  const leftStart = PATH_BACK;
-  const arcStart = PATH_BACK + PATH_SIDE;
-  const rightStart = arcStart + PATH_ARC + 1;
-  const towerIndexes = [2, 8, path.length - 9, path.length - 3];
-  towerIndexes.forEach((index) => {
-    const p = standPath[index];
-    const away = roofD + 12;
-    const x = p.x + p.nx * away;
-    const z = p.z + p.nz * away;
-    const tower = new THREE.Group();
-    tower.position.set(x, 0, z);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.6, 104, 10), mastMaterial);
-    mast.position.y = 52;
-    mast.castShadow = true;
-    tower.add(mast);
-    const bank = new THREE.Group();
-    bank.position.set(0, 106, 0);
-    const lamps = new THREE.Mesh(new THREE.PlaneGeometry(26, 13), lampMaterial);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(27.5, 14.5, 1.2), mastMaterial);
-    frame.position.z = -0.8;
-    bank.add(frame, lamps);
-    tower.add(bank);
-    group.add(tower);
-    // Aim the lamps at the infield; this has to happen once the bank is attached so its world position is right
-    bank.lookAt(0, 30, -60);
-    const glow = new THREE.Sprite(glowMaterial);
-    glow.scale.set(70, 46, 1);
-    glow.position.set(0, 106, 0);
-    tower.add(glow);
-  });
-
+  // No tall floodlight towers: the LLWS look is open, compact and centred on the diamond.
   return group;
 }
