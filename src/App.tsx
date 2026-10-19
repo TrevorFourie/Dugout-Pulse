@@ -146,6 +146,7 @@ const MainApp: React.FC = () => {
               {([
                 { id: 'playerDetails', label: 'Player Details', detail: 'Name and primary team', icon: UserPlus },
                 { id: 'teams', label: 'Teams', detail: 'Add and manage teams', icon: Shield },
+                { id: 'oppositionTeams', label: 'Opposition Teams', detail: 'Manage opponents and logos', icon: Shield },
                 { id: 'teamLists', label: 'Team Setup Lists', detail: 'Seasons, tournaments, ages', icon: Layers },
                 { id: 'scoring', label: 'Scoring', detail: 'Scoring rules', icon: Sliders },
                 { id: 'displayTheme', label: 'Display', detail: 'App theme', icon: Palette },
