@@ -55,10 +55,20 @@ export const Navigation: React.FC<NavigationProps> = ({
         style={{ paddingTop: activeTab === 'score' ? 'max(0.35rem, env(safe-area-inset-top))' : 'max(0.625rem, env(safe-area-inset-top))' }}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div
-            onClick={() => onSelectTab('dashboard')}
-            className="flex items-center gap-1.5 cursor-pointer group"
-          >
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => onOpenSettings()}
+              className="shrink-0 p-1 flex items-center rounded-lg hover:bg-slate-100 dark:hover:bg-[#252D38]"
+              title="Open Settings menu"
+              aria-label="Open Settings menu"
+            >
+              <Menu className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC]" />
+            </button>
+            <div
+              onClick={() => onSelectTab('dashboard')}
+              className="flex items-center gap-1.5 cursor-pointer group"
+            >
             <div
               className="w-9 h-9 rounded-xl overflow-hidden bg-[#18212D] dark:bg-[#252D38] flex items-center justify-center shadow-xs border border-slate-200 dark:border-[#354050] shrink-0 group-hover:scale-105 transition-transform"
               style={activeTab === 'score' ? { width: 30, height: 30, minWidth: 30 } : { width: 36, height: 36, minWidth: 36 }}
@@ -84,14 +94,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               <BookOpen className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC]" />
             </button>
 
-            <button
-              onClick={() => onOpenSettings()}
-              className="p-1 flex items-center"
-              title="Open Settings menu"
-              aria-label="Open Settings menu"
-            >
-              <Menu className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC]" />
-            </button>
           </div>
         </div>
       </header>
