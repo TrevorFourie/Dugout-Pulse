@@ -134,14 +134,17 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
     g.restore();
   };
 
-  // Foul territory: straight mowing bands
+  // Surrounding foul territory: natural, low-contrast turf rather than strong square mowing bands.
+  // This softens the visual edge where the baseball-specific field texture meets the wider meadow.
   g.fillStyle = PALETTE.base;
   g.fillRect(lo, lo, hi - lo, hi - lo);
-  for (let y = lo; y < hi; y += 1) {
-    g.fillStyle = mixColor(foulDark, foulLight, wave(y, 13));
-    g.fillRect(lo, y, hi - lo, 1.2);
+  for (let i = 0; i < 2600; i++) {
+    const x = lo + rand() * (hi - lo);
+    const y = lo + rand() * (hi - lo);
+    const dark = rand() > 0.5;
+    blob(g, x, y, 2 + rand() * 11, dark ? '10,40,18' : '210,255,170', 0.018 + rand() * 0.025);
   }
-  // Fair territory: rings around home plate
+  // Keep the distinctive mowing rings on the playable fair-territory surface.
   rings(fairPath);
 
   // Soft patches of lighter and darker turf
@@ -459,11 +462,11 @@ export function buildOutfieldLandscape(): THREE.Group {
   // Soft, overlapping low hills: the silhouette sits between the ballpark and far mountains.
   const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
   const hillSpecs = [
-    { x: -690, z: -1030, sx: 410, sy: 46, sz: 230, color: '#638451' },
-    { x: -180, z: -1230, sx: 500, sy: 58, sz: 270, color: '#718d56' },
-    { x: 390, z: -1100, sx: 460, sy: 42, sz: 240, color: '#557a47' },
-    { x: 900, z: -1350, sx: 520, sy: 54, sz: 300, color: '#66824e' },
-    { x: -1050, z: -1450, sx: 480, sy: 60, sz: 320, color: '#718b59' },
+    { x: -690, z: -650, sx: 410, sy: 42, sz: 190, color: '#638451' },
+    { x: -180, z: -760, sx: 500, sy: 52, sz: 230, color: '#718d56' },
+    { x: 390, z: -690, sx: 460, sy: 40, sz: 210, color: '#557a47' },
+    { x: 900, z: -820, sx: 520, sy: 48, sz: 250, color: '#66824e' },
+    { x: -1050, z: -900, sx: 480, sy: 52, sz: 270, color: '#718b59' },
   ];
   hillSpecs.forEach((h) => {
     const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
@@ -477,8 +480,8 @@ export function buildOutfieldLandscape(): THREE.Group {
   for (let i = 0; i < 118; i++) {
     const side = rand() > 0.5 ? 1 : -1;
     const along = rand();
-    const x = side * (260 + rand() * 690);
-    const z = -300 - along * 620 + (rand() - 0.5) * 95;
+    const x = side * (235 + rand() * 570);
+    const z = -285 - along * 390 + (rand() - 0.5) * 75;
     // Leave occasional open sight-lines through to the rolling hills.
     if (rand() < 0.2 && Math.abs(x) < 650) continue;
     const scale = 0.7 + rand() * 1.25;
@@ -749,15 +752,19 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const path = wallPath();
   // Keep the full outfield wall, but concentrate the grandstand behind home plate.
   // Seating fades down naturally along the foul lines instead of wrapping the entire field.
-  const STAND_SCALE = 0.82; // bring the grandstand closer to home plate without moving the outfield wall
+  const STAND_WIDTH = 0.64;
+  const STAND_DEPTH = 0.9;
   const standPath = path.map((p) => {
-    const t = Math.max(0, Math.min(1, (p.z + 55) / 65));
-    const fade = t * t * (3 - 2 * t);
+    // Seating is concentrated behind the plate and fades away quickly down each foul line.
+    // The wall remains full-sized and untouched.
+    const behindPlate = Math.max(0, Math.min(1, (p.z + 18) / 38));
+    const centrality = Math.max(0, 1 - Math.pow(Math.abs(p.x) / 190, 1.7));
+    const fade = smooth(behindPlate) * smooth(centrality);
     return {
       ...p,
-      x: p.x * STAND_SCALE,
-      z: p.z * STAND_SCALE,
-      length: p.length * STAND_SCALE,
+      x: p.x * STAND_WIDTH,
+      z: p.z * STAND_DEPTH,
+      length: p.length * STAND_WIDTH,
       taper: p.taper * fade,
     };
   });
@@ -787,7 +794,7 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   };
 
   // Lower deck
-  const LOWER = { rows: 9, tread: 2.5, rise: 1.7 };
+  const LOWER = { rows: 6, tread: 2.25, rise: 1.25 };
   const lowerTexture = makeCrowdTexture(41, '#27415e', 0.9, LOWER.rise / (LOWER.rise + LOWER.tread));
   const walkway: [number, number][] = [[0.9, WALL_HEIGHT], [3, WALL_HEIGHT]];
   const lower = new THREE.Mesh(
@@ -801,40 +808,18 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const lowerTopD = 3 + LOWER.rows * LOWER.tread;
   const lowerTopH = WALL_HEIGHT + LOWER.rows * LOWER.rise;
 
-  // Suite level
-  const windowTexture = makeWindowTexture();
-  const suites = new THREE.Mesh(
-    sweep(standPath, [[lowerTopD, lowerTopH], [lowerTopD + 2.5, lowerTopH], [lowerTopD + 2.5, lowerTopH + 4], [lowerTopD + 5, lowerTopH + 4]], 32, 8),
-    new THREE.MeshStandardMaterial({ map: windowTexture, emissiveMap: windowTexture, emissive: 0xffffff, emissiveIntensity: 0.85, roughness: 0.6, side: THREE.DoubleSide }),
-  );
-  suites.castShadow = true;
-  group.add(suites);
-
-  // Upper deck
-  const UPPER = { rows: 5, tread: 2.4, rise: 1.6 };
-  const upperD0 = lowerTopD + 5;
-  const upperH0 = lowerTopH + 4;
-  const upperTexture = makeCrowdTexture(77, '#1d3047', 0.8, UPPER.rise / (UPPER.rise + UPPER.tread));
-  const upper = new THREE.Mesh(
-    sweep(standPath, stairs(upperD0, upperH0, UPPER.rows, UPPER.tread, UPPER.rise), 40, UPPER.rise + UPPER.tread),
-    new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
-  );
-  upper.castShadow = true;
-  upper.receiveShadow = true;
-  group.add(upper);
-
-  // Roof edge with a lit strip
-  const roofD = upperD0 + UPPER.rows * UPPER.tread;
-  const roofH = upperH0 + UPPER.rows * UPPER.rise;
+  // One modest upper fascia/canopy edge instead of a second stadium deck.
+  const roofD = lowerTopD + 2.5;
+  const roofH = lowerTopH + 1.8;
   const fascia = new THREE.Mesh(
-    sweep(standPath, [[roofD, roofH], [roofD, roofH + 3], [roofD + 4, roofH + 3.3]], 40, 5),
-    new THREE.MeshStandardMaterial({ color: 0x2a3340, roughness: 0.7, side: THREE.DoubleSide }),
+    sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.6], [roofD + 2.5, roofH + 1.8]], 40, 5),
+    new THREE.MeshStandardMaterial({ color: 0x34404a, roughness: 0.82, side: THREE.DoubleSide }),
   );
   fascia.castShadow = true;
   group.add(fascia);
   const strip = new THREE.Mesh(
-    sweep(standPath, [[roofD - 0.05, roofH + 2], [roofD - 0.05, roofH + 2.6]], 40, 1),
-    new THREE.MeshBasicMaterial({ color: 0xfff0c8, toneMapped: false, side: THREE.DoubleSide }),
+    sweep(standPath, [[roofD - 0.05, roofH + 1.0], [roofD - 0.05, roofH + 1.35]], 40, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffe8bf, toneMapped: false, side: THREE.DoubleSide }),
   );
   group.add(strip);
 
