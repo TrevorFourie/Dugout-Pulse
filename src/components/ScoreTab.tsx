@@ -4298,6 +4298,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             liveGame.plays.find((p) => p.id === pendingHitPlay.playId)?.hitLocation
           }
           allowPlayChange={false}
+          allowSkip={!hitTapperEnabled || !isHitPlay(pendingHitPlay.code)}
+          showFieldViewToggle={!hitTapperEnabled}
           onSave={(loc, _code, rbiEarned) => {
             const runnerCode = pendingRunnerAfterHitRef.current;
             pendingRunnerAfterHitRef.current = null;
@@ -4513,6 +4515,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           isOpen={isDirectTapperOpen}
           playCode="single"
           allowPlayChange={true}
+          allowSkip={!hitTapperEnabled}
+          showFieldViewToggle={!hitTapperEnabled}
+          requirePlaySelection={true}
           onSave={(loc, chosenCode, rbiEarned) => {
             setIsDirectTapperOpen(false);
             pendingHitLocationRef.current = loc;
