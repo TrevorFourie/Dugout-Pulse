@@ -28,7 +28,7 @@ interface PitchingBoardProps {
 }
 
 const GRID_BTN =
-  'min-h-[92px] rounded-lg p-3 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
+  'h-[72px] min-h-[72px] max-h-[72px] box-border rounded-lg p-1.5 flex flex-col items-center justify-center text-center transition-colors active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed border border-slate-300/90 dark:border-[#354050] bg-white dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA] hover:border-[#00BFA5]/70 dark:hover:border-[#00D7BC]/70 hover:bg-slate-50 dark:hover:bg-[#2D3643] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246BFD] dark:focus-visible:ring-[#3478FF]';
 const CHIP_BTN =
   'rounded-full border px-3.5 py-2 text-xs font-semibold transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white text-slate-800 border-slate-300 hover:bg-slate-100 dark:bg-[#252D38] dark:text-[#FAFAFA] dark:border-[#465160] dark:hover:bg-[#354050]';
 
@@ -102,7 +102,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
             <button
               type="button"
               onClick={() => onAction({ type: 'BALL' })}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Ball</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">B</span>
@@ -116,7 +116,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                   onAction({ type: 'STRIKE' });
                 }
               }}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">
                 {state.strikes >= 2 ? 'Strike 3' : 'Strike'}
@@ -126,7 +126,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
             <button
               type="button"
               onClick={() => onAction({ type: 'FOUL' })}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Foul</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">F</span>
@@ -134,7 +134,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
             <button
               type="button"
               onClick={() => setInPlayOpen(true)}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">In Play</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">IP</span>
@@ -142,7 +142,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
 
             <button
               type="button"
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
               onClick={() => setWildPitchOpen(true)}
               title="Wild pitch: choose ball or strike and runner movement"
             >
@@ -152,7 +152,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
             <button 
               type="button"
               onClick={() => onAction( { type: 'BALK'} )}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
               title="Balk: no pitch, runners advance one base">
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Balk</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">BK</span>
@@ -160,7 +160,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
             <button 
               type="button"
               onClick={() => setPickoffOpen( true )}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
               title="Pickoff attempt / out: no pitch">
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Pickoff</span>
               <span className="mt-1 text-[10px] sm:text-[11px] font-semibold opacity-80">PO</span>
@@ -172,7 +172,7 @@ export const PitchingBoard: React.FC<PitchingBoardProps> = ({
                 setRunType(classifyRun(state) === 'unearned' ? 'unearned' : 'earned');
                 setRunOpen(true);
               }}
-              className={`${GRID_BTN} min-h-[72px] p-1.5`}
+              className={GRID_BTN}
               title="Run scored on a wild pitch, balk or steal"
             >
               <span className="text-[14px] sm:text-[15px] font-semibold leading-tight">Run</span>
