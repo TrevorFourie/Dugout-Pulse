@@ -100,7 +100,7 @@ const MainApp: React.FC = () => {
           />
         </div>
         {activeTab === 'games' && (
-          <GamesTab onNavigateToScore={() => setActiveTab('score')} />
+          <GamesTab onNavigateToScore={() => { setScoreView('score'); setActiveTab('score'); }} />
         )}
       </main>
       </>
