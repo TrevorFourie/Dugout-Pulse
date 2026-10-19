@@ -101,8 +101,6 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
 
   const grassLight = hexRgb(PALETTE.grassLight);
   const grassDark = hexRgb(PALETTE.grassDark);
-  const foulLight = hexRgb(PALETTE.foulLight);
-  const foulDark = hexRgb(PALETTE.foulDark);
   /** Smooth square wave: broad flat bands with soft edges, so the mowing reads as cut grass. */
   const wave = (distance: number, period: number) => {
     const s = Math.sin((distance / period) * Math.PI) * 4;
@@ -707,26 +705,6 @@ function makeWallTexture(): THREE.CanvasTexture {
   const texture = toTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.anisotropy = 4;
-  return texture;
-}
-
-/** Suite level: dark glass with warm lit windows. Used as both colour and emissive map. */
-function makeWindowTexture(): THREE.CanvasTexture {
-  const W = 512;
-  const H = 64;
-  const [canvas, g] = makeCanvas(W, H);
-  const rand = makeRng(33);
-  g.fillStyle = '#141b24';
-  g.fillRect(0, 0, W, H);
-  for (let x = 6; x < W; x += 32) {
-    const lit = rand() > 0.22;
-    g.fillStyle = lit ? `rgb(255,${190 + Math.floor(rand() * 40)},${120 + Math.floor(rand() * 50)})` : '#222c38';
-    g.fillRect(x, 14, 26, 36);
-    g.fillStyle = 'rgba(20,27,36,0.8)';
-    g.fillRect(x + 12, 14, 2, 36);
-  }
-  const texture = toTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return texture;
 }
 
