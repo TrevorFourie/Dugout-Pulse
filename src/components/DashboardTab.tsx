@@ -18,6 +18,7 @@ import {
 import { AppLogo } from './AppLogo';
 import { MilestoneTracker } from './MilestoneTracker';
 import { PerformanceCounter } from './PerformanceCounter';
+import { UpcomingGames } from './UpcomingGames';
 
 interface DashboardTabProps {
   onNavigateToScore: () => void;
@@ -159,6 +160,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Scheduled fixtures are separate from completed-game stats */}
+      <UpcomingGames compact />
 
       {/* Adaptive single-player Performance Counter */}
       <PerformanceCounter
