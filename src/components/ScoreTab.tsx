@@ -611,11 +611,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
         <div className="bg-white dark:bg-[#252D38] rounded-md p-6 border border-slate-200/80 dark:border-[#354050] shadow-md">
           <div className="mb-1">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
               LIVE SCOREKEEPING
             </span>
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-[#FAFAFA]">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-[#FAFAFA]">
             Start a New Game
           </h1>
           <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1 mb-5">
@@ -3057,7 +3057,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       <section className="rounded-md overflow-hidden text-white">
         <div className="flex items-start gap-2 pl-4 pr-2 pt-3 pb-3 bg-[#00BFA5] dark:bg-[#252D38]">
           <div className="min-w-0 flex-1">
-            <h2 className="text-[20px] leading-tight font-semibold tracking-tight truncate">
+            <h2 className="text-lg leading-tight font-semibold tracking-tight truncate">
               {isEditing ? `Edit ${opponentDisplay}` : opponentDisplay}
             </h2>
             <p className="truncate text-[13px] text-white">
@@ -3136,7 +3136,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
-                <span className="text-[16px] font-semibold tracking-tight whitespace-nowrap">Inning {currentInning} of {Math.max(settings.inningsPerGame, currentInning)}</span>
+                <span className="text-sm font-semibold tracking-tight whitespace-nowrap">Inning {currentInning} of {Math.max(settings.inningsPerGame, currentInning)}</span>
                 <button
                   type="button"
                   onClick={() => setViewedInning((inning) => Math.min(reachedInning, inning + 1))}
