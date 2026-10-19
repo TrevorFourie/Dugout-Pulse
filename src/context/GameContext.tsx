@@ -2090,6 +2090,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && data.settings) {
         setSettings((prev) => ({ ...prev, ...data.settings }));
       }
+      if (data && Array.isArray(data.upcomingGames)) {
+        localStorage.setItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames));
+      }
+      if (data && Array.isArray(data.oppositionTeams)) {
+        localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams));
+      }
       return { success: true, message: 'Season data successfully restored!' };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid JSON file';
