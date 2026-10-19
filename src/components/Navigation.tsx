@@ -7,7 +7,7 @@ import {
   BookOpen,
   FileText,
   Loader2,
-  Settings,
+  Menu,
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
@@ -87,9 +87,10 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               onClick={() => onOpenSettings()}
               className="p-1 flex items-center"
-              title="Settings and Player profiles"
+              title="Open Settings menu"
+              aria-label="Open Settings menu"
             >
-              <Settings className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC]" />
+              <Menu className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC]" />
             </button>
           </div>
         </div>
