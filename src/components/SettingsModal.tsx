@@ -6,7 +6,6 @@ import { AppLogo } from './AppLogo';
 import {
   X,
   Menu,
-  Settings,
   Sliders,
   Moon,
   Sun,
@@ -174,6 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSettingsSection(initialSection);
+      setIsSettingsMenuOpen(true);
       settingsContentRef.current?.scrollTo({ top: 0 });
     }
   }, [isOpen, initialSection]);
@@ -383,9 +383,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="p-2 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]">
-                <Settings className="w-5 h-5" />
-              </div>
               <div>
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
                   Preferences
