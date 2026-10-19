@@ -462,6 +462,12 @@ export function buildOutfieldLandscape(): THREE.Group {
   // Soft, overlapping low hills: the silhouette sits between the ballpark and far mountains.
   const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
   const hillSpecs = [
+    // Close, low embankment behind the outfield: several overlapping mounds, not one flat ridge.
+    { x: -430, z: -410, sx: 300, sy: 28, sz: 115, color: '#66884a' },
+    { x: -120, z: -455, sx: 280, sy: 35, sz: 135, color: '#789657' },
+    { x: 205, z: -430, sx: 300, sy: 30, sz: 120, color: '#5f8046' },
+    { x: 510, z: -475, sx: 330, sy: 33, sz: 140, color: '#6b8a4e' },
+    // Larger wooded hills step back into the distance.
     { x: -690, z: -650, sx: 410, sy: 42, sz: 190, color: '#638451' },
     { x: -180, z: -760, sx: 500, sy: 52, sz: 230, color: '#718d56' },
     { x: 390, z: -690, sx: 460, sy: 40, sz: 210, color: '#557a47' },
@@ -480,8 +486,8 @@ export function buildOutfieldLandscape(): THREE.Group {
   for (let i = 0; i < 118; i++) {
     const side = rand() > 0.5 ? 1 : -1;
     const along = rand();
-    const x = side * (235 + rand() * 570);
-    const z = -285 - along * 390 + (rand() - 0.5) * 75;
+    const x = side * (85 + rand() * 690);
+    const z = -315 - along * 390 + (rand() - 0.5) * 75;
     // Leave occasional open sight-lines through to the rolling hills.
     if (rand() < 0.2 && Math.abs(x) < 650) continue;
     const scale = 0.7 + rand() * 1.25;
