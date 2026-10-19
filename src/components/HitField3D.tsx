@@ -123,7 +123,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x9fb7a0, 280, 650);
+  scene.fog = new THREE.Fog(0x8dbfe0, 420, 1100);
   const camera = new THREE.PerspectiveCamera(50, 1, 1, 4000);
 
   /* sky and horizon follow the camera, so they never show parallax */
@@ -170,8 +170,11 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   // The meadow beyond the painted field has its own terrain texture and mid-distance landmarks.
   // This avoids the old hard visual jump from detailed turf to a single flat green plane.
   const farGroundTexture = makeFarGroundTexture();
+  // Keep the distant terrain under the camera even at maximum zoom and during a full orbit.
+  // The old 850-unit square could expose its edge when the camera moved around the field.
+  farGroundTexture.repeat.set(8, 8);
   const farGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(850, 850),
+    new THREE.PlaneGeometry(2400, 2400),
     new THREE.MeshStandardMaterial({ map: farGroundTexture, color: 0xffffff, roughness: 1 }),
   );
   farGround.rotation.x = -Math.PI / 2;
