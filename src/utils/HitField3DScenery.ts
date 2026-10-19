@@ -383,6 +383,124 @@ export function makeHorizonTexture(): THREE.CanvasTexture {
   return texture;
 }
 
+/**
+ * Textured meadow beyond the painted field. This bridges the gap between the ballpark and the
+ * distant horizon so the scene doesn't dissolve into one enormous, featureless green plane.
+ */
+export function makeFarGroundTexture(): THREE.CanvasTexture {
+  const SIZE = 1024;
+  const [canvas, g] = makeCanvas(SIZE, SIZE);
+  const rand = makeRng(63);
+  g.fillStyle = '#527f43';
+  g.fillRect(0, 0, SIZE, SIZE);
+
+  // Broad, overlapping meadow tones read as terrain from the normal replay camera.
+  const meadow = ['#60894a', '#47783f', '#709351', '#527f43', '#3f713b', '#789654'];
+  for (let i = 0; i < 230; i++) {
+    const x = rand() * SIZE;
+    const y = rand() * SIZE;
+    const rx = 18 + rand() * 105;
+    const ry = 12 + rand() * 70;
+    g.fillStyle = meadow[Math.floor(rand() * meadow.length)];
+    g.globalAlpha = 0.08 + rand() * 0.13;
+    g.beginPath();
+    g.ellipse(x, y, rx, ry, rand() * Math.PI, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+
+  // Fine mottling prevents the distant grass from looking like a single flat colour.
+  for (let i = 0; i < 18000; i++) {
+    const light = rand() > 0.54;
+    g.fillStyle = light ? 'rgba(196,218,145,0.09)' : 'rgba(22,55,27,0.10)';
+    const size = 1 + rand() * 4;
+    g.fillRect(rand() * SIZE, rand() * SIZE, size, size * (0.35 + rand() * 0.8));
+  }
+
+  // Small irregular shrub/tree marks in loose groves, not a repeated pattern.
+  for (let grove = 0; grove < 34; grove++) {
+    const cx = rand() * SIZE;
+    const cy = rand() * SIZE;
+    const count = 12 + Math.floor(rand() * 28);
+    for (let i = 0; i < count; i++) {
+      const x = cx + (rand() - 0.5) * 100;
+      const y = cy + (rand() - 0.5) * 80;
+      const r = 1.5 + rand() * 4;
+      g.fillStyle = rand() > 0.5 ? 'rgba(35,74,36,0.30)' : 'rgba(31,63,33,0.22)';
+      g.beginPath();
+      g.ellipse(x, y, r * 1.3, r, rand() * Math.PI, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  const texture = toTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  texture.anisotropy = 4;
+  return texture;
+}
+
+/**
+ * Low wooded ridges and scattered trees sit in the middle distance. They deliberately stay lower
+ * than the stands and light towers, adding a believable landscape without competing with the play.
+ */
+export function buildOutfieldLandscape(): THREE.Group {
+  const group = new THREE.Group();
+  const rand = makeRng(117);
+  const trunkGeometry = new THREE.CylinderGeometry(0.8, 1.25, 7, 7);
+  const crownGeometry = new THREE.IcosahedronGeometry(1, 1);
+  const trunkMaterial = new THREE.MeshStandardMaterial({ color: '#6e5138', roughness: 1 });
+  const crownMaterials = [
+    new THREE.MeshStandardMaterial({ color: '#3f6f3d', roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: '#527f45', roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: '#66884a', roughness: 1, flatShading: true }),
+    new THREE.MeshStandardMaterial({ color: '#345e38', roughness: 1, flatShading: true }),
+  ];
+
+  // Soft, overlapping low hills: the silhouette sits between the ballpark and far mountains.
+  const hillGeometry = new THREE.SphereGeometry(1, 28, 16);
+  const hillSpecs = [
+    { x: -690, z: -1030, sx: 410, sy: 46, sz: 230, color: '#638451' },
+    { x: -180, z: -1230, sx: 500, sy: 58, sz: 270, color: '#718d56' },
+    { x: 390, z: -1100, sx: 460, sy: 42, sz: 240, color: '#557a47' },
+    { x: 900, z: -1350, sx: 520, sy: 54, sz: 300, color: '#66824e' },
+    { x: -1050, z: -1450, sx: 480, sy: 60, sz: 320, color: '#718b59' },
+  ];
+  hillSpecs.forEach((h) => {
+    const hill = new THREE.Mesh(hillGeometry, new THREE.MeshStandardMaterial({ color: h.color, roughness: 1, flatShading: true }));
+    hill.scale.set(h.sx, h.sy, h.sz);
+    hill.position.set(h.x, -h.sy * 0.72, h.z);
+    hill.receiveShadow = true;
+    group.add(hill);
+  });
+
+  // Loose, uneven tree belts: clustered at the edges with gaps so the landscape remains open.
+  for (let i = 0; i < 118; i++) {
+    const side = rand() > 0.5 ? 1 : -1;
+    const along = rand();
+    const x = side * (260 + rand() * 690);
+    const z = -300 - along * 620 + (rand() - 0.5) * 95;
+    // Leave occasional open sight-lines through to the rolling hills.
+    if (rand() < 0.2 && Math.abs(x) < 650) continue;
+    const scale = 0.7 + rand() * 1.25;
+    const tree = new THREE.Group();
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(scale);
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.y = 3.5;
+    tree.add(trunk);
+    const crownCount = 2 + Math.floor(rand() * 3);
+    for (let c = 0; c < crownCount; c++) {
+      const crown = new THREE.Mesh(crownGeometry, crownMaterials[Math.floor(rand() * crownMaterials.length)]);
+      crown.position.set((rand() - 0.5) * 3.4, 6 + rand() * 4.2, (rand() - 0.5) * 3.4);
+      crown.scale.set(2.8 + rand() * 2.4, 3 + rand() * 3.5, 2.8 + rand() * 2.4);
+      crown.castShadow = true;
+      tree.add(crown);
+    }
+    group.add(tree);
+  }
+  return group;
+}
+
 /* ---------- soft sprites ---------- */
 
 export function makeRadialTexture(): THREE.CanvasTexture {
