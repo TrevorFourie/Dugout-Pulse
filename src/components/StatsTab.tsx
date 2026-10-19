@@ -168,10 +168,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
       {/* Title Header */}
       <div className="bg-white dark:bg-[#252D38] rounded-2xl p-5 border border-slate-200/80 dark:border-[#354050] shadow-xs flex items-center justify-between">
         <div>
-          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">
             PERFORMANCE ANALYTICS
           </span>
-          <h1 className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight mt-0.5">
+          <h1 className="text-base sm:text-lg font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight mt-0.5">
             Full Player Statistics & Breakdowns
           </h1>
         </div>
@@ -189,11 +189,11 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]" />
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-[#FAFAFA]">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-900 dark:text-[#FAFAFA]">
               Filter Stats
             </span>
             {isFilterActive && (
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-[#00D7BC]/15 text-[#007A6A] dark:text-[#00D7BC]">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-[#00D7BC]/15 text-[#007A6A] dark:text-[#00D7BC]">
                 Filtered: {filteredGames.length} of {playerGames.length} games
               </span>
             )}
@@ -212,7 +212,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
           <div className="min-w-0">
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Team</label>
+            <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">Team</label>
             <ThemedDropdown<string>
               ariaLabel="Filter stats by team"
               value={selectedTeam}
@@ -227,7 +227,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             />
           </div>
           <div className="min-w-0">
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Season</label>
+            <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">Season</label>
             <ThemedDropdown<string>
               ariaLabel="Filter stats by season"
               value={selectedSeason}
@@ -242,7 +242,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             />
           </div>
           <div className="min-w-0">
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Age Group</label>
+            <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">Age Group</label>
             <ThemedDropdown<string>
               ariaLabel="Filter stats by age group"
               value={selectedAgeGroup}
@@ -257,7 +257,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             />
           </div>
           <div className="min-w-0">
-            <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Tournament</label>
+            <label className="block text-[10px] font-semibold uppercase text-slate-400 mb-1">Tournament</label>
             <ThemedDropdown<string>
               ariaLabel="Filter stats by tournament"
               value={selectedTournament}
@@ -280,10 +280,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
       <div className="bg-white dark:bg-[#252D38] rounded-2xl border border-slate-200/80 dark:border-[#354050] shadow-xs overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#354050] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 dark:bg-[#1A2028]/60">
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
               Player Statistics
             </span>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">
               Calculated Season Totals
             </h3>
           </div>
@@ -310,95 +310,95 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">AVG</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">AVG</div>
+                  <div className="text-base sm:text-lg font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">OBP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.obp)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">OBP</div>
+                  <div className="text-base sm:text-lg font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.obp)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">SLG</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.slg)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">SLG</div>
+                  <div className="text-base sm:text-lg font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.slg)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">OPS</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.ops)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">OPS</div>
+                  <div className="text-base sm:text-lg font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatRate(batting.ops)}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-center">
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">H (Hits)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">H (Hits)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.h}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">HR (Home Runs)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">HR (Home Runs)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.hr}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">2B (Doubles)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">2B (Doubles)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.doubles}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">3B (Triples)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">3B (Triples)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.triples}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">RBI</div>
+                  <div className="text-[10px] font-semibold text-slate-400">RBI</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.rbi}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">R (Runs)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">R (Runs)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.r}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">BB (Walks)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">BB (Walks)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.bb}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">IBB</div>
+                  <div className="text-[10px] font-semibold text-slate-400">IBB</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.ibb}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SO (Strikeouts)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">SO (Strikeouts)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.so}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SB (Stolen Bases)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">SB (Stolen Bases)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.sb}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">CS (Caught Stealing)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">CS (Caught Stealing)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.cs}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">PA (Appearances)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">PA (Appearances)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.pa}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">AB (At Bats)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">AB (At Bats)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.ab}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">SH (Sac Bunts)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">SH (Sac Bunts)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.sh}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">TB</div>
+                  <div className="text-[10px] font-semibold text-slate-400">TB</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{batting.tb}</div>
                 </div>
               </div>
 
               {/* Handedness Splits */}
               <div className="pt-2 border-t border-slate-200 dark:border-[#354050] space-y-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
                   Pitcher Handedness Splits
                 </span>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-extrabold uppercase text-slate-400">
+                      <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-semibold uppercase text-slate-400">
                         <th className="py-2 pr-3">Split</th>
                         <th className="py-2 px-2 text-center">PA</th>
                         <th className="py-2 px-2 text-center">AB</th>
@@ -413,7 +413,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-[#354050] font-semibold">
                       <tr>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-extrabold">vs Righties (RHP)</td>
+                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-semibold">vs Righties (RHP)</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.pa}</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.ab}</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsRHP.h}</td>
@@ -425,7 +425,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                         <td className="py-2 pl-2 text-center">{seasonStats.splits.vsRHP.so}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-extrabold">vs Lefties (LHP)</td>
+                        <td className="py-2 pr-3 text-slate-900 dark:text-[#FAFAFA] font-semibold">vs Lefties (LHP)</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.pa}</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.ab}</td>
                         <td className="py-2 px-2 text-center">{seasonStats.splits.vsLHP.h}</td>
@@ -444,7 +444,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               {/* Spray Chart */}
               <div className="pt-3 border-t border-slate-200 dark:border-[#354050] space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] block">
                     Batting Spray Chart & Hit Direction
                   </span>
                 </div>
@@ -469,38 +469,38 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">IP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{pitching.ipDisplay}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">IP</div>
+                  <div className="text-base sm:text-lg font-semibold text-[#18212D] dark:text-[#FAFAFA]">{pitching.ipDisplay}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">ERA ({settings.inningsPerGame} Inn)</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatEraWhip(pitching.era)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">ERA ({settings.inningsPerGame} Inn)</div>
+                  <div className="text-base sm:text-lg font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatEraWhip(pitching.era)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">WHIP</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatEraWhip(pitching.whip)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">WHIP</div>
+                  <div className="text-base sm:text-lg font-semibold text-slate-800 dark:text-[#FAFAFA]">{formatEraWhip(pitching.whip)}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-center">
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">K (Strikeouts)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">K (Strikeouts)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.k}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">H (Hits Allowed)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">H (Hits Allowed)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.h}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">BB (Walks)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">BB (Walks)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.bb}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">ER (Earned Runs)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">ER (Earned Runs)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.er}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">Pitches</div>
+                  <div className="text-[10px] font-semibold text-slate-400">Pitches</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{pitching.pitches}</div>
                 </div>
               </div>
@@ -511,30 +511,30 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-2 text-center bg-slate-50 dark:bg-[#252D38]/40 p-3 rounded-xl border border-slate-200 dark:border-[#354050]">
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Fielding % (FPCT)</div>
-                  <div className="text-lg sm:text-xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(fielding.fpct)}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">Fielding % (FPCT)</div>
+                  <div className="text-base sm:text-lg font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(fielding.fpct)}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-extrabold uppercase text-slate-400">Total Chances</div>
-                  <div className="text-lg sm:text-xl font-semibold text-slate-800 dark:text-[#FAFAFA]">{fielding.chances}</div>
+                  <div className="text-[10px] font-semibold uppercase text-slate-400">Total Chances</div>
+                  <div className="text-base sm:text-lg font-semibold text-slate-800 dark:text-[#FAFAFA]">{fielding.chances}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-center">
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">PO (Putouts)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">PO (Putouts)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.po}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">A (Assists)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">A (Assists)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.a}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">E (Errors)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">E (Errors)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.e}</div>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/30 border border-slate-200 dark:border-[#354050]">
-                  <div className="text-[10px] font-extrabold text-slate-400">DP (Double Plays)</div>
+                  <div className="text-[10px] font-semibold text-slate-400">DP (Double Plays)</div>
                   <div className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">{fielding.dp}</div>
                 </div>
               </div>
@@ -549,11 +549,11 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
                 Deep Dive Breakdowns
               </span>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] mt-0.5">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA] mt-0.5">
               Stats by Tournament, Season, Age & Team
             </h3>
           </div>
@@ -598,7 +598,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-extrabold uppercase text-slate-400">
+                  <tr className="border-b border-slate-200 dark:border-[#354050] text-[10px] font-semibold uppercase text-slate-400">
                     <th className="py-2.5 pr-4">Group</th>
                     <th className="py-2.5 px-2 text-center">Games</th>
                     <th className="py-2.5 px-2 text-center">H</th>
@@ -613,7 +613,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                     const b = group.batting;
                     return (
                       <tr key={group.groupKey} className="hover:bg-slate-50 dark:hover:bg-[#252D38]/50 transition-colors">
-                        <td className="py-3 pr-4 text-slate-900 dark:text-[#FAFAFA] font-extrabold flex items-center gap-2">
+                        <td className="py-3 pr-4 text-slate-900 dark:text-[#FAFAFA] font-semibold flex items-center gap-2">
                           <span className="truncate max-w-[180px] sm:max-w-xs">{group.groupLabel}</span>
                         </td>
                         <td className="py-3 px-2 text-center">{group.gameCount}</td>
