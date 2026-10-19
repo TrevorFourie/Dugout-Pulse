@@ -139,8 +139,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newDefaultLineupSpot, setNewDefaultLineupSpot] = useState<number | undefined>(undefined);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
-  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId | null>(null);
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(true);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
   const [activePresetTab, setActivePresetTab] = useState<'seasons' | 'tournaments' | 'ageGroups'>('seasons');
@@ -172,11 +172,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setSettingsSection(initialSection);
+      // Enter Settings on the menu first. Do not select a page until the user chooses one.
+      setSettingsSection(null);
       setIsSettingsMenuOpen(true);
       settingsContentRef.current?.scrollTo({ top: 0 });
     }
-  }, [isOpen, initialSection]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -365,12 +366,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#1A2028] animate-in fade-in duration-150">
-        <div
-          className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] shadow-2xl overflow-hidden"
-          role="dialog"
-          aria-modal="true"
-        >
+      <div className="h-full min-h-0 flex-1 flex flex-col bg-white dark:bg-[#1A2028]">
+        <div className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] overflow-hidden">
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-200 dark:border-[#354050] flex items-center justify-between bg-slate-50 dark:bg-[#1A2028]/80">
             <div className="flex items-center gap-2 min-w-0">
@@ -388,7 +385,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Preferences
                 </span>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                  App & Scoring Settings
+                  Settings
                 </h2>
               </div>
             </div>
