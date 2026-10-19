@@ -5,6 +5,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { AppLogo } from './AppLogo';
 import {
   X,
+  ArrowLeft,
   Menu,
   Sliders,
   Moon,
@@ -92,7 +93,6 @@ type PresetKind = 'seasons' | 'tournaments' | 'ageGroups';
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
-  initialSection = 'playerDetails',
   onOpenSetupWizard,
 }) => {
   const {
@@ -390,10 +390,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              title="Back to app"
+              aria-label="Back to app"
               className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-[#D1D5DB]"
             >
-              <X className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
           </div>
 
