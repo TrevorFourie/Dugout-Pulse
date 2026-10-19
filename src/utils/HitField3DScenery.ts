@@ -152,12 +152,11 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
   }
 
   /* warning track along the wall, fair and foul sides */
+  // The warning track follows ONLY the curved outfield fence. Do not draw straight
+  // sand-coloured extensions down the foul lines into the scenery behind home plate.
   const trackPath = (inset: number) => {
     g.beginPath();
-    g.moveTo(28 + inset, 330);
-    g.lineTo(28 + inset, FENCE.cy);
     g.ellipse(FENCE.cx, FENCE.cy, FENCE.rx - inset, FENCE.ry - inset, 0, Math.PI, 2 * Math.PI);
-    g.lineTo(272 - inset, 330);
   };
   g.lineCap = 'butt';
   g.lineJoin = 'round';
@@ -189,14 +188,11 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
     let x: number;
     let y: number;
     const part = rand();
-    if (part < 0.64) {
-      const t = rand() * Math.PI;
-      x = FENCE.cx + (FENCE.rx - o) * Math.cos(t);
-      y = FENCE.cy - (FENCE.ry - o) * Math.sin(t);
-    } else {
-      x = (part < 0.82 ? 28 : 272) + (part < 0.82 ? o : -o);
-      y = FENCE.cy + rand() * (330 - FENCE.cy);
-    }
+    // Keep all warning-track rake marks on the outfield arc; never extend
+    // them along the foul lines or into the backstop scenery.
+    const t = rand() * Math.PI;
+    x = FENCE.cx + (FENCE.rx - o) * Math.cos(t);
+    y = FENCE.cy - (FENCE.ry - o) * Math.sin(t);
     g.fillStyle = rand() > 0.5 ? 'rgba(255,235,200,0.16)' : 'rgba(60,34,14,0.18)';
     g.fillRect(x, y, 0.5 + rand() * 0.6, 0.5 + rand() * 0.6);
   }
@@ -609,12 +605,12 @@ function wallPath(): PathPoint[] {
 function grandstandPath(): PathPoint[] {
   const points: { x: number; z: number }[] = [];
   const count = 56;
-  // Keep the permanent grandstand compact and shallow behind home plate.
-  // Its width/depth must not mirror the outfield arc and make the entire ballpark
-  // read as a symmetrical oval bowl.
+  // A broad, open horseshoe of permanent seating directly behind home plate.
+  // It is deliberately separate from the outfield fence, with stepped decks facing
+  // the diamond rather than a continuous oval bowl around the playing surface.
   for (let i = 0; i <= count; i++) {
     const t = (Math.PI * i) / count;
-    points.push({ x: -82 * Math.cos(t), z: 26 + 58 * Math.sin(t) });
+    points.push({ x: -96 * Math.cos(t), z: 30 + 66 * Math.sin(t) });
   }
   let length = 0;
   return points.map((p, i) => {
@@ -801,11 +797,33 @@ export function buildStadium(): THREE.Group {
   const lowerTopD = 3 + LOWER.rows * LOWER.tread;
   const lowerTopH = WALL_HEIGHT + LOWER.rows * LOWER.rise;
 
-  // One modest upper fascia/canopy edge instead of a second stadium deck.
-  const roofD = lowerTopD + 2.5;
-  const roofH = lowerTopH + 1.8;
+  // Upper seating deck, set back above a visible concourse/fascia so the structure
+  // reads as a real ballpark grandstand rather than one thin curved strip.
+  const upperRows = 4;
+  const upperTread = 2.1;
+  const upperRise = 1.35;
+  const upperTexture = makeCrowdTexture(73, '#354b66', 0.88, upperRise / (upperRise + upperTread));
+  const upper = new THREE.Mesh(
+    sweep(
+      standPath,
+      [
+        [lowerTopD + 1.5, lowerTopH + 1.1],
+        [lowerTopD + 3.2, lowerTopH + 1.1],
+        ...stairs(lowerTopD + 3.2, lowerTopH + 1.1, upperRows, upperTread, upperRise).slice(1),
+      ],
+      40,
+      upperRise + upperTread,
+    ),
+    new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
+  );
+  upper.castShadow = true;
+  upper.receiveShadow = true;
+  group.add(upper);
+
+  const roofD = lowerTopD + 3.2 + upperRows * upperTread + 2.2;
+  const roofH = lowerTopH + 1.1 + upperRows * upperRise + 1.8;
   const fascia = new THREE.Mesh(
-    sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.6], [roofD + 2.5, roofH + 1.8]], 40, 5),
+    sweep(standPath, [[roofD, roofH], [roofD, roofH + 1.8], [roofD + 3, roofH + 2]], 40, 5),
     new THREE.MeshStandardMaterial({ color: 0x34404a, roughness: 0.82, side: THREE.DoubleSide }),
   );
   fascia.castShadow = true;
