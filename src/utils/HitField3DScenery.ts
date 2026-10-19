@@ -596,6 +596,36 @@ function wallPath(): PathPoint[] {
   });
 }
 
+/** A separate, open grandstand arc behind home plate. It is not a loop around the field. */
+function grandstandPath(): PathPoint[] {
+  const points: { x: number; z: number }[] = [];
+  const count = 56;
+  for (let i = 0; i <= count; i++) {
+    const t = (Math.PI * i) / count;
+    points.push({ x: -122 * Math.cos(t), z: 40 + 100 * Math.sin(t) });
+  }
+  let length = 0;
+  return points.map((p, i) => {
+    const a = points[Math.max(0, i - 1)];
+    const b = points[Math.min(points.length - 1, i + 1)];
+    let tx = b.x - a.x;
+    let tz = b.z - a.z;
+    const len = Math.hypot(tx, tz) || 1;
+    tx /= len;
+    tz /= len;
+    let nx = tz;
+    let nz = -tx;
+    // The seating's outward normal must point away from the playing field.
+    if (nx * p.x + nz * (p.z + 40) < 0) {
+      nx = -nx;
+      nz = -nz;
+    }
+    if (i) length += Math.hypot(p.x - a.x, p.z - a.z);
+    const edgeFade = smooth(Math.min(1, i / 8)) * smooth(Math.min(1, (count - i) / 8));
+    return { ...p, nx, nz, length, taper: edgeFade };
+  });
+}
+
 /** A ribbon swept along the wall path. `profile` is [outward distance, height] pairs. */
 function sweep(path: PathPoint[], profile: [number, number][], uScale: number, vScale: number): THREE.BufferGeometry {
   const positions: number[] = [];
@@ -711,32 +741,26 @@ export const WALL_HEIGHT = 8;
  */
 export function buildStadium(): THREE.Group {
   const group = new THREE.Group();
-  const path = wallPath();
-  // The wall follows the baseball outfield arc. Seating is built OUTSIDE that wall,
-  // concentrated behind home plate and tapering along the foul lines; never scale it inward.
-  const standPath = path.map((p) => {
-    // Preserve the real wall footprint. The sweep profile grows outward along the
-    // path's outward normal, so the grandstand cannot intrude onto the playing field.
-    const behindPlate = Math.max(0, Math.min(1, (p.z + 18) / 38));
-    const centrality = Math.max(0, 1 - Math.pow(Math.abs(p.x) / 190, 1.7));
-    const fade = smooth(behindPlate) * smooth(centrality);
-    return {
-      ...p,
-      taper: p.taper * fade,
-    };
-  });
+  const fullPath = wallPath();
+  // The outfield fence is only the curved arc between the foul poles. Do not connect it
+  // to the backstop with side walls: that creates the continuous oval stadium silhouette.
+  const fenceStart = PATH_BACK + PATH_SIDE;
+  const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
+  // Permanent seating is a separate open horseshoe behind home plate, not a bowl around
+  // the outfield. The berm beyond the outfield fence is built by buildOutfieldLandscape().
+  const standPath = grandstandPath();
 
   // Wall
   const wallTexture = makeWallTexture();
   const wall = new THREE.Mesh(
-    sweep(path, [[0, 0], [0, WALL_HEIGHT - 0.9]], 64, 8),
+    sweep(fencePath, [[0, 0], [0, WALL_HEIGHT - 0.9]], 64, 8),
     new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.85, side: THREE.DoubleSide }),
   );
   wall.castShadow = true;
   wall.receiveShadow = true;
   group.add(wall);
   const cap = new THREE.Mesh(
-    sweep(path, [[-0.5, WALL_HEIGHT - 0.9], [-0.5, WALL_HEIGHT], [0.9, WALL_HEIGHT]], 10, 1),
+    sweep(fencePath, [[-0.5, WALL_HEIGHT - 0.9], [-0.5, WALL_HEIGHT], [0.9, WALL_HEIGHT]], 10, 1),
     new THREE.MeshStandardMaterial({ color: 0xf5c93a, roughness: 0.5, emissive: 0x6b4d00, emissiveIntensity: 0.5, side: THREE.DoubleSide }),
   );
   cap.castShadow = true;
