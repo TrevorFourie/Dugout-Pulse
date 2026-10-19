@@ -154,6 +154,8 @@ interface GameContextType {
   saveGame: (finalResult: string) => void;
   discardLiveGame: () => void;
   startEditingSavedGame: (gameId: string) => boolean;
+  /** Resume a completed game in normal live-scoring mode, without entering historical edit mode. */
+  reopenSavedGame: (gameId: string) => boolean;
   cancelEditing: () => void;
   deleteSavedGame: (gameId: string) => void;
   updateLiveGameDetails: (
@@ -205,6 +207,7 @@ const STORAGE_KEYS = {
   GAMES: 'baseball_hub_games_v1',
   LIVE_GAME: 'baseball_hub_live_game_v1',
   EDITING_GAME_ID: 'baseball_hub_editing_game_id_v1',
+  REOPENED_GAME_ID: 'baseball_hub_reopened_game_id_v1',
   PROFILES: 'baseball_hub_profiles_v1',
   SETTINGS: 'baseball_hub_settings_v1',
   SAVED_OPPONENTS: 'baseball_hub_saved_opponents_v1',
@@ -314,6 +317,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [games, setGames] = useState<Game[]>([]);
   const [liveGame, setLiveGame] = useState<Game | null>(null);
   const [editingGameId, setEditingGameId] = useState<string | null>(null);
+  const [reopenedGameId, setReopenedGameId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<PlayerProfile[]>([DEFAULT_PROFILE]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [savedOpponents, setSavedOpponents] = useState<string[]>([]);
@@ -373,6 +377,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedEditingId = localStorage.getItem(STORAGE_KEYS.EDITING_GAME_ID);
       if (storedEditingId) {
         setEditingGameId(JSON.parse(storedEditingId));
+      }
+      const storedReopenedId = localStorage.getItem(STORAGE_KEYS.REOPENED_GAME_ID);
+      if (storedReopenedId) {
+        setReopenedGameId(JSON.parse(storedReopenedId));
       }
 
       const storedProfiles = localStorage.getItem(STORAGE_KEYS.PROFILES);
@@ -500,6 +508,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
   }, [editingGameId, isLoading]);
+
+  // Persist which completed game is being continued so a reload does not turn it into a duplicate.
+  useEffect(() => {
+    if (isLoading) return;
+    if (reopenedGameId) {
+      localStorage.setItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.REOPENED_GAME_ID);
+    }
+  }, [reopenedGameId, isLoading]);
 
   // Save profiles
   useEffect(() => {
@@ -1058,6 +1076,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setLiveGame(newGame);
       setEditingGameId(null);
+      setReopenedGameId(null);
       triggerHaptic();
     },
     [activeProfile, triggerHaptic, saveOpponent, saveTournament, saveAgeGroup, saveSeason]
@@ -1894,13 +1913,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Commit the completed game to localStorage in the same operation as the React state
     // update. This prevents a Save + unmount/navigation from ever losing the finished game.
+    const existingGameId = editingGameId ?? reopenedGameId;
+    const completedGame = existingGameId ? { ...gameToSave, id: existingGameId } : gameToSave;
     setGames((prevGames) => {
       let updated: Game[];
-      if (editingGameId) {
-        updated = prevGames.map((g) => (g.id === editingGameId ? gameToSave : g));
-        if (!updated.some((g) => g.id === editingGameId)) updated.push(gameToSave);
+      if (existingGameId) {
+        updated = prevGames.map((g) => (g.id === existingGameId ? completedGame : g));
+        if (!updated.some((g) => g.id === existingGameId)) updated.push(completedGame);
       } else {
-        updated = [...prevGames, gameToSave];
+        updated = [...prevGames, completedGame];
       }
       const sorted = sortGames(updated, 'oldestFirst');
       try {
@@ -1914,18 +1935,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       localStorage.removeItem(STORAGE_KEYS.LIVE_GAME);
       localStorage.removeItem(STORAGE_KEYS.EDITING_GAME_ID);
+      localStorage.removeItem(STORAGE_KEYS.REOPENED_GAME_ID);
     } catch (storageError) {
       console.error('Failed to clear completed live-game state locally:', storageError);
     }
     setLiveGame(null);
     setEditingGameId(null);
+    setReopenedGameId(null);
     triggerHaptic();
-  }, [liveGame, editingGameId, triggerHaptic, saveOpponent, saveTournament, saveAgeGroup, saveSeason]);
+  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveOpponent, saveTournament, saveAgeGroup, saveSeason]);
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
     setLiveGame(null);
     setEditingGameId(null);
+    setReopenedGameId(null);
     triggerHaptic();
   }, [triggerHaptic]);
 
@@ -1942,16 +1966,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Deep clone target game
       setLiveGame(JSON.parse(JSON.stringify(targetGame)));
       setEditingGameId(gameId);
+      setReopenedGameId(null);
       triggerHaptic();
       return true;
     },
     [games, liveGame, editingGameId, triggerHaptic]
   );
 
+  // Re-open a completed game for continued live scoring (separate from Edit Game).
+  const reopenSavedGame = useCallback(
+    (gameId: string): boolean => {
+      if (liveGame) return false;
+      const targetGame = games.find((g) => g.id === gameId);
+      if (!targetGame) return false;
+      const resumedGame = {
+        ...JSON.parse(JSON.stringify(targetGame)) as Game,
+        finalResult: '',
+      };
+      setLiveGame(resumedGame);
+      setEditingGameId(null);
+      setReopenedGameId(gameId);
+      setResumePromptPending(false);
+      triggerHaptic();
+      return true;
+    },
+    [games, liveGame, triggerHaptic]
+  );
+
   // Cancel editing saved game (restores unchanged)
   const cancelEditing = useCallback(() => {
     setLiveGame(null);
     setEditingGameId(null);
+    setReopenedGameId(null);
     triggerHaptic();
   }, [triggerHaptic]);
 
@@ -1960,6 +2006,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGames((prev) => prev.filter((g) => g.id !== gameId));
     setLiveGame((prev) => (prev?.id === gameId ? null : prev));
     setEditingGameId((prev) => (prev === gameId ? null : prev));
+    setReopenedGameId((prev) => (prev === gameId ? null : prev));
   }, []);
 
   // Profile management
@@ -2054,6 +2101,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
+    setReopenedGameId(null);
     setProfiles([DEFAULT_PROFILE]);
     setSettings(DEFAULT_SETTINGS);
     setHiddenTournaments([]);
@@ -2188,6 +2236,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveGame,
         discardLiveGame,
         startEditingSavedGame,
+        reopenSavedGame,
         cancelEditing,
         deleteSavedGame,
         updateLiveGameDetails,
