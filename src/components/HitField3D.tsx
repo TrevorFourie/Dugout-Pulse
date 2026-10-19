@@ -123,7 +123,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xc99aa0, 520, 2300);
+  scene.fog = new THREE.Fog(0xc99aa0, 360, 1050);
   const camera = new THREE.PerspectiveCamera(50, 1, 1, 4000);
 
   /* sky and horizon follow the camera, so they never show parallax */
@@ -171,7 +171,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   // This avoids the old hard visual jump from detailed turf to a single flat green plane.
   const farGroundTexture = makeFarGroundTexture();
   const farGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(6000, 6000),
+    new THREE.PlaneGeometry(1800, 1800),
     new THREE.MeshStandardMaterial({ map: farGroundTexture, color: 0xffffff, roughness: 1 }),
   );
   farGround.rotation.x = -Math.PI / 2;
@@ -180,8 +180,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   scene.add(farGround);
   scene.add(buildOutfieldLandscape());
 
-  const glowTexture = makeRadialTexture();
-  scene.add(buildStadium(glowTexture));
+  scene.add(buildStadium());
   const poleMaterial = new THREE.MeshStandardMaterial({ color: 0xf5c93a, roughness: 0.45, emissive: 0x6b4d00, emissiveIntensity: 0.4 });
   FOUL_POLES.forEach((pole) => {
     const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 30, 10), poleMaterial);
