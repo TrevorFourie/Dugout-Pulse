@@ -634,6 +634,13 @@ export const WALL_HEIGHT = 8;
 export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const group = new THREE.Group();
   const path = wallPath();
+  // Keep the full outfield wall, but concentrate the grandstand behind home plate.
+  // Seating fades down naturally along the foul lines instead of wrapping the entire field.
+  const standPath = path.map((p) => {
+    const t = Math.max(0, Math.min(1, (p.z + 55) / 65));
+    const fade = t * t * (3 - 2 * t);
+    return { ...p, taper: p.taper * fade };
+  });
 
   // Wall
   const wallTexture = makeWallTexture();
@@ -664,7 +671,7 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const lowerTexture = makeCrowdTexture(41, '#27415e', 0.9, LOWER.rise / (LOWER.rise + LOWER.tread));
   const walkway: [number, number][] = [[0.9, WALL_HEIGHT], [3, WALL_HEIGHT]];
   const lower = new THREE.Mesh(
-    sweep(path, [...walkway, ...stairs(3, WALL_HEIGHT, LOWER.rows, LOWER.tread, LOWER.rise).slice(1)], 40, LOWER.rise + LOWER.tread),
+    sweep(standPath, [...walkway, ...stairs(3, WALL_HEIGHT, LOWER.rows, LOWER.tread, LOWER.rise).slice(1)], 40, LOWER.rise + LOWER.tread),
     new THREE.MeshStandardMaterial({ map: lowerTexture, roughness: 0.95, side: THREE.DoubleSide }),
   );
   lower.castShadow = true;
@@ -677,19 +684,19 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   // Suite level
   const windowTexture = makeWindowTexture();
   const suites = new THREE.Mesh(
-    sweep(path, [[lowerTopD, lowerTopH], [lowerTopD + 2.5, lowerTopH], [lowerTopD + 2.5, lowerTopH + 8], [lowerTopD + 5, lowerTopH + 8]], 32, 8),
+    sweep(standPath, [[lowerTopD, lowerTopH], [lowerTopD + 2.5, lowerTopH], [lowerTopD + 2.5, lowerTopH + 4], [lowerTopD + 5, lowerTopH + 4]], 32, 8),
     new THREE.MeshStandardMaterial({ map: windowTexture, emissiveMap: windowTexture, emissive: 0xffffff, emissiveIntensity: 0.85, roughness: 0.6, side: THREE.DoubleSide }),
   );
   suites.castShadow = true;
   group.add(suites);
 
   // Upper deck
-  const UPPER = { rows: 8, tread: 2.4, rise: 2 };
+  const UPPER = { rows: 5, tread: 2.4, rise: 1.6 };
   const upperD0 = lowerTopD + 5;
-  const upperH0 = lowerTopH + 8;
+  const upperH0 = lowerTopH + 4;
   const upperTexture = makeCrowdTexture(77, '#1d3047', 0.8, UPPER.rise / (UPPER.rise + UPPER.tread));
   const upper = new THREE.Mesh(
-    sweep(path, stairs(upperD0, upperH0, UPPER.rows, UPPER.tread, UPPER.rise), 40, UPPER.rise + UPPER.tread),
+    sweep(standPath, stairs(upperD0, upperH0, UPPER.rows, UPPER.tread, UPPER.rise), 40, UPPER.rise + UPPER.tread),
     new THREE.MeshStandardMaterial({ map: upperTexture, roughness: 0.95, side: THREE.DoubleSide }),
   );
   upper.castShadow = true;
@@ -700,13 +707,13 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const roofD = upperD0 + UPPER.rows * UPPER.tread;
   const roofH = upperH0 + UPPER.rows * UPPER.rise;
   const fascia = new THREE.Mesh(
-    sweep(path, [[roofD, roofH], [roofD, roofH + 5], [roofD + 6, roofH + 5.5]], 40, 5),
+    sweep(standPath, [[roofD, roofH], [roofD, roofH + 3], [roofD + 4, roofH + 3.3]], 40, 5),
     new THREE.MeshStandardMaterial({ color: 0x2a3340, roughness: 0.7, side: THREE.DoubleSide }),
   );
   fascia.castShadow = true;
   group.add(fascia);
   const strip = new THREE.Mesh(
-    sweep(path, [[roofD - 0.05, roofH + 3.4], [roofD - 0.05, roofH + 4.2]], 40, 1),
+    sweep(standPath, [[roofD - 0.05, roofH + 2], [roofD - 0.05, roofH + 2.6]], 40, 1),
     new THREE.MeshBasicMaterial({ color: 0xfff0c8, toneMapped: false, side: THREE.DoubleSide }),
   );
   group.add(strip);
@@ -720,7 +727,7 @@ export function buildStadium(glowTexture: THREE.Texture): THREE.Group {
   const leftStart = PATH_BACK;
   const arcStart = PATH_BACK + PATH_SIDE;
   const rightStart = arcStart + PATH_ARC + 1;
-  const towerIndexes = [leftStart + 3, leftStart + 12, arcStart + 12, arcStart + 24, arcStart + 60, arcStart + 72, rightStart + 1, rightStart + 10];
+  const towerIndexes = [2, 8, path.length - 9, path.length - 3];
   towerIndexes.forEach((index) => {
     const p = path[index];
     const away = roofD + 16;
