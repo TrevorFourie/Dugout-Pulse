@@ -1376,8 +1376,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             return;
                           }
                           if (renamedVenue !== venue) {
-                            updateSettings({ venues: (settings.venues || []).map((item) => item === venue ? renamedVenue : item) });
-                            setStatusMessage({ text: `Venue "${venue}" renamed to "${renamedVenue}".`, isError: false });
+                            const updatedVenues = (settings.venues || []).map((item) => item === venue ? renamedVenue : item);
+                            updateSettings({ venues: updatedVenues });
+                            // Keep previously scheduled games in sync with the renamed master venue.
+                            try {
+                              const upcomingGamesKey = 'dugoutPulse.upcomingGames.v1';
+                              const storedGames = localStorage.getItem(upcomingGamesKey);
+                              if (storedGames) {
+                                const parsedGames = JSON.parse(storedGames);
+                                if (Array.isArray(parsedGames)) {
+                                  const updatedGames = parsedGames.map((game) =>
+                                    game && typeof game.venue === 'string' && game.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
+                                      ? { ...game, venue: renamedVenue }
+                                      : game
+                                  );
+                                  localStorage.setItem(upcomingGamesKey, JSON.stringify(updatedGames));
+                                }
+                              }
+                              window.dispatchEvent(new CustomEvent('dugout-pulse-venue-renamed', {
+                                detail: { oldName: venue, newName: renamedVenue },
+                              }));
+                              setStatusMessage({ text: `Venue "${venue}" renamed to "${renamedVenue}" across saved venues and scheduled games.`, isError: false });
+                            } catch {
+                              setStatusMessage({ text: 'Venue name updated, but scheduled games could not be synchronized on this device. Please reopen Upcoming Games and check them.', isError: true });
+                            }
                           }
                           setEditingVenue(null);
                           setEditingVenueValue('');
