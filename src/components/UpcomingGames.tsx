@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useGame } from '../context/GameContext';
+import { ThemedDropdown } from './ThemedDropdown';
 import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield } from 'lucide-react';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
@@ -7,6 +9,8 @@ const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
 interface ScheduledGame {
   id: string;
   opponent: string;
+  playerTeamId?: string;
+  playerTeamName?: string;
   date: string;
   time?: string;
   isHome: boolean;
@@ -34,11 +38,19 @@ const readJson = <T,>(key: string, fallback: T): T => {
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  const { activeProfile } = useGame();
+  const playerTeams = useMemo(() => {
+    const savedTeams = activeProfile.teams || [];
+    if (savedTeams.length) return savedTeams;
+    return activeProfile.teamName ? [{ id: 'primary-team', name: activeProfile.teamName, isDefault: true, logo: undefined }] : [];
+  }, [activeProfile.teams, activeProfile.teamName]);
+  const defaultPlayerTeam = playerTeams.find((team) => team.isDefault) || playerTeams[0];
   const [games, setGames] = useState<ScheduledGame[]>(() => readJson(GAMES_KEY, []));
   const [teams, setTeams] = useState<OppositionTeam[]>(() => readJson(OPPOSITION_TEAMS_KEY, []));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
+  const [playerTeamId, setPlayerTeamId] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [isHome, setIsHome] = useState(true);
@@ -70,6 +82,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const resetForm = () => {
     setEditingId(null);
     setOpponent('');
+    setPlayerTeamId(defaultPlayerTeam?.id || '');
     setDate('');
     setTime('');
     setIsHome(true);
@@ -81,6 +94,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const startEdit = (game: ScheduledGame) => {
     setEditingId(game.id);
     setOpponent(game.opponent);
+    setPlayerTeamId(game.playerTeamId || playerTeams.find((team) => team.name === game.playerTeamName)?.id || defaultPlayerTeam?.id || '');
     setDate(game.date);
     setTime(game.time || '');
     setIsHome(game.isHome);
@@ -92,9 +106,11 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     if (!opponent.trim() || !date) return;
+    const selectedPlayerTeam = playerTeams.find((team) => team.id === playerTeamId) || defaultPlayerTeam;
     const nextGame: ScheduledGame = {
       id: editingId || `scheduled_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       opponent: opponent.trim(),
+      ...(selectedPlayerTeam ? { playerTeamId: selectedPlayerTeam.id, playerTeamName: selectedPlayerTeam.name } : {}),
       date,
       ...(time ? { time } : {}),
       isHome,
@@ -124,7 +140,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
             <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{upcoming.length} scheduled {upcoming.length === 1 ? 'game' : 'games'}</p>
           </div>
         </div>
-        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
+        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setPlayerTeamId(defaultPlayerTeam?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{showForm ? 'Cancel' : 'Add Game'}
         </button>
       </div>
@@ -132,9 +148,12 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
       {showForm && (
         <form onSubmit={save} className="space-y-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#1A2028]/70">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Opposition Team *
-              <input required value={opponent} onChange={(e) => setOpponent(e.target.value)} list="dugout-opposition-team-options" placeholder="e.g. Benoni Indians" className={`${inputClass} mt-1`} />
-              <datalist id="dugout-opposition-team-options">{teams.map((team) => <option key={team.id} value={team.name} />)}</datalist>
+            {playerTeams.length > 0 && <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Player's Team *
+              <ThemedDropdown<string> value={playerTeamId || undefined} onChange={(next) => setPlayerTeamId(next || '')} options={playerTeams.map((team) => ({ value: team.id, label: team.name }))} placeholder="Select player's team" allowClear={false} ariaLabel="Player's team for this game" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
+            </label>}
+            <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Opposition Team *
+              <ThemedDropdown<string> value={opponent || undefined} onChange={(next) => setOpponent(next || '')} options={teams.map((team) => ({ value: team.name, label: team.name }))} placeholder="Select opposition team" allowClear={false} ariaLabel="Opposition team" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
+              <input required value={opponent} onChange={(e) => setOpponent(e.target.value)} placeholder="Or type opposition team" className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Date *
               <input required type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1`} />
@@ -171,6 +190,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
           <div className="space-y-2">
             {upcoming.map((game) => {
               const logo = logos.get(game.opponent.trim().toLocaleLowerCase());
+              const playerTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName) || (!game.playerTeamName ? defaultPlayerTeam : undefined);
+              const playerTeamName = game.playerTeamName || playerTeam?.name;
               const gameDate = new Date(`${game.date}T00:00:00`);
               return (
                 <article key={game.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#354050] dark:bg-[#1A2028]/60">
@@ -178,7 +199,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
                     {logo ? <img src={logo} alt={`${game.opponent} logo`} className="h-full w-full object-contain p-1" /> : <Shield className="h-5 w-5 text-slate-400 dark:text-[#6B7280]" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">{game.isHome ? 'vs' : '@'} {game.opponent}</p>
+                    <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">{playerTeam?.logo && <img src={playerTeam.logo} alt={`${playerTeamName || playerTeam.name} logo`} className="h-4 w-4 shrink-0 rounded-sm bg-white object-contain" />}<span className="truncate">{playerTeamName ? `${playerTeamName} ${game.isHome ? 'vs' : '@'} ${game.opponent}` : `${game.isHome ? 'vs' : '@'} ${game.opponent}`}</span></p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                       <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                       {game.time && <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{game.time}</span>}
