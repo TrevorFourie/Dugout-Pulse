@@ -405,6 +405,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         message="Dugout Pulse needs Android notification permission to remind you about upcoming games. Tap Try Again to request permission. If Android no longer shows the request, open your phone's Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here and enable Game Reminders."
         confirmLabel="Try Again"
         cancelLabel="Not Now"
+        secondaryLabel="Open Notification Settings"
+        onSecondary={() => { void openAppNotificationSettings(); }}
         onCancel={() => setShowNotificationPermissionModal(false)}
         onConfirm={async () => {
           const granted = await requestGameNotificationPermission();
