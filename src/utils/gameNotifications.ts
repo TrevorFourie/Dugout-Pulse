@@ -83,3 +83,14 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
 
   localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify(nextIds));
 };
+
+/** Resync directly from device storage, including when the Upcoming Games screen is not mounted. */
+export const syncStoredGameReminders = async (enabled: boolean): Promise<void> => {
+  try {
+    const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
+    const games = raw ? JSON.parse(raw) as GameReminder[] : [];
+    await syncGameReminders(Array.isArray(games) ? games : [], enabled);
+  } catch (error) {
+    throw error;
+  }
+};
