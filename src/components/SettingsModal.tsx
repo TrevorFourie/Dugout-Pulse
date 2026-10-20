@@ -32,7 +32,7 @@ import {
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
-import { checkGameNotificationPermission, getGameNotificationDiagnostics, openExactAlarmSettings, requestGameNotificationPermission, scheduleTestGameNotification, syncStoredGameReminders } from '../utils/gameNotifications';
+import { checkGameNotificationPermission, getGameNotificationDiagnostics, openAppNotificationSettings, openExactAlarmSettings, requestGameNotificationPermission, scheduleTestGameNotification, syncStoredGameReminders } from '../utils/gameNotifications';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{

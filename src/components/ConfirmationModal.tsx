@@ -10,6 +10,8 @@ interface ConfirmationModalProps {
   variant?: 'danger' | 'primary' | 'warning';
   onConfirm: () => void;
   onCancel: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -21,6 +23,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   variant = 'primary',
   onConfirm,
   onCancel,
+  secondaryLabel,
+  onSecondary,
 }) => {
   if (!isOpen) return null;
 
@@ -74,6 +78,15 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <X className="w-4 h-4" />
             {cancelLabel}
           </button>
+          {secondaryLabel && onSecondary && (
+            <button
+              type="button"
+              onClick={onSecondary}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#354050] font-semibold text-sm text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors"
+            >
+              {secondaryLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}

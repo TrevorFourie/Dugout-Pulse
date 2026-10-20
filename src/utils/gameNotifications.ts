@@ -212,3 +212,15 @@ export const syncStoredGameReminders = async (enabled: boolean): Promise<void> =
     throw error;
   }
 };
+
+/** Open Android's per-application notification controls (including Huawei's Allow notifications switch). */
+export const openAppNotificationSettings = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return false;
+  try {
+    // Android resolves this intent to the installed app's notification settings page.
+    window.location.href = 'intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.trevor.dugoutpulse;end';
+    return true;
+  } catch {
+    return false;
+  }
+};

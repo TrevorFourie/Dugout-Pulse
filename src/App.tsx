@@ -11,7 +11,7 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
-import { checkGameNotificationPermission, requestGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
+import { checkGameNotificationPermission, openAppNotificationSettings, requestGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
 import { ConfirmationModal } from './components/ConfirmationModal';
 
 const MainApp: React.FC = () => {
@@ -92,6 +92,8 @@ const MainApp: React.FC = () => {
         message="Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications. Tap Try Again to request permission. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app."
         confirmLabel="Try Again"
         cancelLabel="Not Now"
+        secondaryLabel="Open Notification Settings"
+        onSecondary={() => { void openAppNotificationSettings(); }}
         onCancel={() => setShowNotificationPermissionModal(false)}
         onConfirm={async () => {
           const granted = await requestGameNotificationPermission();
