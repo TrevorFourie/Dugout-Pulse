@@ -70,7 +70,7 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
       id,
       title: 'Upcoming game reminder',
       body: `Your team plays against ${game.opponent} on ${weekday} at ${game.time}. Remember to get ready!`,
-      schedule: { at, allowWhileIdle: false },
+      schedule: { at, allowWhileIdle: true },
       extra: { type: 'dugout-pulse-game-reminder', gameId: game.id },
     }];
   });
