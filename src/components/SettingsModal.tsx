@@ -153,7 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
   const [notificationPermissionMessage, setNotificationPermissionMessage] = useState(
-    'Dugout Pulse needs Android notification permission to remind you about upcoming games. Tap Try Again to request permission. If Android no longer shows the request, open your phone\'s Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here and enable Game Reminders.\n\nOn some phones (Huawei, Honor, Xiaomi, Oppo, Vivo, etc.) also check Settings → Notifications → Privacy → Permissions Manager and allow Notifications for Dugout Pulse. The normal “Allow notifications” switch can be ON while that extra setting still blocks every reminder.',
+    'Game reminders need notification permission. Tap Try Again to request it. If no permission prompt appears, open Settings → Apps → Dugout Pulse → Notifications and allow notifications. Some phones also have an extra privacy or permissions screen that can block delivery even when the main switch is on.',
   );
   const [notificationDiagnostics, setNotificationDiagnostics] = useState<GameNotificationDiagnostics | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
@@ -430,7 +430,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               /* keep existing message */
             }
             setStatusMessage({
-              text: 'Notifications are still blocked. Allow them in Android Settings (and on Huawei/Honor also check Privacy → Permissions Manager), then enable Game Reminders again.',
+              text: 'Notifications are still blocked. Allow them in your phone's notification settings, then try enabling Game Reminders again.',
               isError: true,
             });
             return;
@@ -1568,13 +1568,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                                 When this switch is on, every upcoming game is included by default; turn off a game's bell to exclude it. When off, only games with their bell enabled send a reminder. New games follow the same rule.
                               </p>
-                              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
-                                <p className="font-semibold">Huawei / Honor (and similar phones)</p>
+                              <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-[11px] leading-relaxed text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
+                                <p className="font-semibold text-slate-800 dark:text-[#FAFAFA]">If reminders don’t appear with the app closed</p>
                                 <p className="mt-1">
-                                  Even when “Allow notifications” is ON, open{' '}
-                                  <strong>Settings → Notifications → Privacy → Permissions Manager</strong>{' '}
-                                  and allow Notifications for Dugout Pulse. This app cannot detect that extra switch. If the test notification never appears, that setting is usually the cause.
+                                  Some Android phones restrict apps after they are closed. Battery optimisation, app launch / auto-start controls, or an extra privacy / permissions screen can stop a scheduled reminder even when “Allow notifications” is on. Dugout Pulse does not need to stay open and does not run a continuous background process; the phone must allow a short wake at reminder time.
                                 </p>
+                                <ol className="mt-2 list-decimal space-y-1 pl-4">
+                                  <li>Apps → Dugout Pulse → Notifications → allow notifications and any relevant categories.</li>
+                                  <li>Apps → Dugout Pulse → Battery → choose Unrestricted / No restrictions / Don’t optimise, if available.</li>
+                                  <li>Battery / App launch / Startup management → allow auto-launch or background activity, if those options exist.</li>
+                                  <li>Check any Notifications → Privacy → Permissions manager (or similar) screen and allow notifications for Dugout Pulse.</li>
+                                  <li>Use <strong>Send Test Notification</strong>, fully close the app, and wait about 15–20 seconds.</li>
+                                </ol>
+                                <p className="mt-2 text-[10px] text-slate-500 dark:text-[#9CA3AF]">These extra controls are more common on some manufacturer Android versions (for example Huawei, Honor, Vivo, Xiaomi and Oppo). Menu names vary by phone.</p>
                               </div>
                               <div className="mt-4 flex flex-wrap gap-2">
                                 <button type="button" onClick={async () => {
@@ -1591,12 +1597,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <button type="button" onClick={async () => {
                                   try {
                                     await scheduleTestGameNotification();
-                                    setStatusMessage({ text: 'Test notification scheduled for 10 seconds from now. Leave the app closed and check your phone.', isError: false });
+                                    setStatusMessage({ text: 'Test notification scheduled for about 10 seconds from now. Leave the app fully closed for about 15–20 seconds. If nothing appears, the phone may be blocking delivery even if permission looks allowed.', isError: false });
                                   } catch (error) {
                                     setStatusMessage({ text: error instanceof Error ? error.message : 'Could not schedule a test notification.', isError: true });
                                   }
                                 }} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419]">
                                   Send Test Notification
+                                </button>
+                                <button type="button" onClick={async () => {
+                                  await openAppNotificationSettings();
+                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
+                                  Open Notification Settings
                                 </button>
                                 <button type="button" onClick={async () => {
                                   try {
@@ -1613,19 +1624,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </div>
                               {notificationDiagnostics && (
                                 <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB] space-y-1">
-                                  <p>Effective notification status: <strong>{notificationDiagnostics.displayPermission}</strong></p>
-                                  <p>Android app notifications enabled: <strong>{notificationDiagnostics.systemNotificationsEnabled === null ? 'not available' : notificationDiagnostics.systemNotificationsEnabled ? 'yes' : 'no'}</strong></p>
-                                  <p>Default notification channel importance: <strong>{notificationDiagnostics.defaultChannelImportance === null ? 'not available' : `${notificationDiagnostics.defaultChannelImportance}${notificationDiagnostics.defaultChannelImportance === 0 ? ' (blocked)' : ''}`}</strong></p>
-                                  <p>Exact alarm access: <strong>{notificationDiagnostics.exactAlarmPermission}</strong></p>
-                                  <p>Pending game reminders: <strong>{notificationDiagnostics.pendingReminderCount}</strong></p>
-                                  {notificationDiagnostics.manufacturer && (
-                                    <p>Device manufacturer: <strong>{notificationDiagnostics.manufacturer}</strong></p>
-                                  )}
-                                  {notificationDiagnostics.isRestrictedOem && (
-                                    <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                                      This device may block notifications in an extra Privacy / Permissions Manager screen even when the status above says allowed.
-                                    </p>
-                                  )}
+                                  <p>Notification permission: <strong>{notificationDiagnostics.displayPermission === 'granted' ? 'Allowed' : notificationDiagnostics.displayPermission === 'denied' ? 'Blocked — open notification settings' : notificationDiagnostics.displayPermission}</strong></p>
+                                  <p>Phone allows app notifications: <strong>{notificationDiagnostics.systemNotificationsEnabled === null ? 'Could not check' : notificationDiagnostics.systemNotificationsEnabled ? 'Yes' : 'No — check app notification settings'}</strong></p>
+                                  <p>Reminder notification channel: <strong>{notificationDiagnostics.defaultChannelImportance === null ? 'Could not verify' : notificationDiagnostics.defaultChannelImportance === 0 ? 'Blocked — enable the default notification channel' : 'Enabled'}</strong></p>
+                                  <p>Alarms & reminders access: <strong>{notificationDiagnostics.exactAlarmPermission === 'granted' ? 'Allowed' : notificationDiagnostics.exactAlarmPermission === 'denied' ? 'Not allowed' : notificationDiagnostics.exactAlarmPermission}</strong></p>
+                                  <p>Scheduled game reminders: <strong>{notificationDiagnostics.pendingReminderCount}</strong></p>
                                   <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-[#9CA3AF]">
                                     {notificationDiagnostics.oemHelpText}
                                   </p>
