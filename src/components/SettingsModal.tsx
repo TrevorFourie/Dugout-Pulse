@@ -345,7 +345,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return;
     }
     try {
-      const dataUrl = await resizeImage(file);
+      // Keep per-team logos smaller than player photos so multiple teams fit comfortably in local storage.
+      const dataUrl = await resizeImage(file, 128);
+      const teamExists = (activeProfile.teams || []).some((team) => team.id === teamId);
+      if (!teamExists) {
+        setStatusMessage({ text: 'Could not find that team. Close Settings and try again.', isError: true });
+        return;
+      }
       updatePlayerTeam(activeProfile.id, teamId, { logo: dataUrl });
       setStatusMessage({ text: 'Team logo updated!', isError: false });
     } catch (err) {
