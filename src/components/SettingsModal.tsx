@@ -347,7 +347,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       // Keep per-team logos smaller than player photos so multiple teams fit comfortably in local storage.
       const dataUrl = await resizeImage(file, 128);
-      const teamExists = (activeProfile.teams || []).some((team) => team.id === teamId);
+      const teamExists = (activeProfile.teams || []).some((team) => team.id === teamId)
+        || (!(activeProfile.teams || []).length && teamId === 'primary-team' && Boolean(activeProfile.teamName));
       if (!teamExists) {
         setStatusMessage({ text: 'Could not find that team. Close Settings and try again.', isError: true });
         return;
