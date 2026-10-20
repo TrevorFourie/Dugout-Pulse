@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
-import { requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
+import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
@@ -112,6 +112,11 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     const allGamesEnabled = settings.gameRemindersEnabled === true;
     const currentlyEnabled = allGamesEnabled ? !game.reminderOptOut : Boolean(game.reminderMinutes);
     if (!currentlyEnabled) {
+      const alreadyGranted = await checkGameNotificationPermission();
+      if (!alreadyGranted) {
+        setPermissionPromptGame(game);
+        return;
+      }
       const granted = await requestGameNotificationPermission();
       if (!granted) {
         setPermissionPromptGame(game);
