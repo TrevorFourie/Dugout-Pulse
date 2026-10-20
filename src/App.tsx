@@ -9,7 +9,7 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
-import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell } from 'lucide-react';
+import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell, MapPin } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
 import {
   buildNotificationBlockedMessage,
@@ -230,6 +230,7 @@ const MainApp: React.FC = () => {
                 { id: 'teams', label: 'Teams', detail: 'Add and manage teams', icon: Shield },
                 { id: 'oppositionTeams', label: 'Opposition Teams', detail: 'Manage opponents and logos', icon: Shield },
                 { id: 'teamLists', label: 'Team Setup Lists', detail: 'Seasons, tournaments, ages', icon: Layers },
+                { id: 'venue', label: 'Venues', detail: 'Manage ballparks and fields', icon: MapPin },
                 { id: 'scoring', label: 'Scoring', detail: 'Scoring rules', icon: Sliders },
                 { id: 'displayTheme', label: 'Display', detail: 'App theme', icon: Palette },
                 { id: 'notifications', label: 'Notifications', detail: 'Upcoming game reminders', icon: Bell },
