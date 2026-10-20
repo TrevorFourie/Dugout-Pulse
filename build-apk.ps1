@@ -36,25 +36,40 @@ if ($LASTEXITCODE -gt 7) {
 
 Set-Location $WorkDir
 
-# Capacitor 7 Android dependencies require JDK 21. Prefer an installed JDK 21
-# even when JAVA_HOME currently points at Java 17.
+# Capacitor 7 Android dependencies require JDK 21. Check common JDK and Android Studio
+# locations, including per-user installs and environment variables.
 $javaCandidates = @()
-if ($env:JAVA_HOME) { $javaCandidates += $env:JAVA_HOME }
+foreach ($envPath in @($env:JAVA_HOME, $env:JDK_HOME, $env:ANDROID_STUDIO_JDK)) {
+    if ($envPath) { $javaCandidates += $envPath }
+}
+$programFiles = $env:ProgramFiles
+$localPrograms = Join-Path $env:LOCALAPPDATA "Programs"
 $javaCandidates += @(
-    "C:\Program Files\Eclipse Adoptium\jdk-21*",
-    "C:\Program Files\Java\jdk-21*",
-    "C:\Program Files\Microsoft\jdk-21*",
-    "C:\Program Files\Android\Android Studio\jbr"
+    "$programFiles\Eclipse Adoptium\jdk-21*",
+    "$programFiles\Java\jdk-21*",
+    "$programFiles\Microsoft\jdk-21*",
+    "$programFiles\Android\Android Studio*\jbr",
+    "$localPrograms\Android Studio*\jbr",
+    "$localPrograms\Eclipse Adoptium\jdk-21*",
+    "$programFiles\JetBrains\Toolbox\apps\AndroidStudio\*\*\jbr"
 )
+# Also discover Android Studio installations in the standard Android folder.
+$androidInstallRoot = Join-Path $programFiles "Android"
+if (Test-Path $androidInstallRoot) {
+    $javaCandidates += Get-ChildItem -Path $androidInstallRoot -Directory -Filter "Android Studio*" -ErrorAction SilentlyContinue |
+        ForEach-Object { Join-Path $_.FullName "jbr" }
+}
 $selectedJavaHome = $null
-foreach ($candidate in $javaCandidates) {
-    $foundPaths = Get-Item $candidate -ErrorAction SilentlyContinue
+$checkedJavaHomes = @()
+foreach ($candidate in ($javaCandidates | Select-Object -Unique)) {
+    $foundPaths = Get-Item -Path $candidate -ErrorAction SilentlyContinue
     foreach ($found in $foundPaths) {
+        if (-not $found.PSIsContainer) { continue }
         $javaExe = Join-Path $found.FullName "bin\java.exe"
         if (-not (Test-Path $javaExe)) { continue }
-        # Windows PowerShell 5.1 treats Java's normal stderr version output as
-        # NativeCommandError when ErrorActionPreference is Stop. Temporarily allow
-        # that output; validate the actual version text below instead.
+        $checkedJavaHomes += $found.FullName
+        # Windows PowerShell 5.1 can surface stderr from java -version as a
+        # NativeCommandError, so capture it without terminating the script.
         $previousErrorActionPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = "Continue"
@@ -70,7 +85,13 @@ foreach ($candidate in $javaCandidates) {
     if ($selectedJavaHome) { break }
 }
 if (-not $selectedJavaHome) {
-    throw "JDK 21 is required for Capacitor 7 Android builds. Install JDK 21 or update Android Studio, then rerun this script."
+    if ($checkedJavaHomes.Count -gt 0) {
+        Write-Host "Java installations checked (none were JDK 21):" -ForegroundColor Yellow
+        $checkedJavaHomes | ForEach-Object { Write-Host "  $_" -ForegroundColor Yellow }
+    } else {
+        Write-Host "No Java installations were found in the common JDK/Android Studio locations." -ForegroundColor Yellow
+    }
+    throw "JDK 21 is required for Capacitor 7 Android builds. Install JDK 21 (for example, Eclipse Temurin 21 x64), then rerun this script. Java 17 cannot compile this Android plugin."
 }
 $env:JAVA_HOME = $selectedJavaHome
 $env:PATH = "$(Join-Path $env:JAVA_HOME 'bin');$env:PATH"
