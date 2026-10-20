@@ -11,7 +11,8 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
-import { syncStoredGameReminders } from './utils/gameNotifications';
+import { checkGameNotificationPermission, requestGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
+import { ConfirmationModal } from './components/ConfirmationModal';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
@@ -31,6 +32,26 @@ const MainApp: React.FC = () => {
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
+  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
+
+  // If reminders are enabled but Android blocks notifications, prompt on launch/return.
+  useEffect(() => {
+    let disposed = false;
+    const checkReminderPermission = async () => {
+      if (settings.gameRemindersEnabled !== true) return;
+      const allowed = await checkGameNotificationPermission();
+      if (!disposed && !allowed) setShowNotificationPermissionModal(true);
+    };
+    void checkReminderPermission();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void checkReminderPermission();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [settings.gameRemindersEnabled]);
 
   // Android may remove scheduled alarms when exact-alarm access changes. Rebuild
   // reminders on launch and whenever the app returns to the foreground.
@@ -65,6 +86,21 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
+      <ConfirmationModal
+        isOpen={showNotificationPermissionModal}
+        title="Notifications are blocked"
+        message="Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications. Tap Try Again to request permission. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app."
+        confirmLabel="Try Again"
+        cancelLabel="Not Now"
+        onCancel={() => setShowNotificationPermissionModal(false)}
+        onConfirm={async () => {
+          const granted = await requestGameNotificationPermission();
+          if (granted) {
+            setShowNotificationPermissionModal(false);
+            void syncStoredGameReminders(true);
+          }
+        }}
+      />
       <>
       <Navigation
         activeTab={activeTab}
