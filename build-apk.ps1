@@ -36,21 +36,36 @@ if ($LASTEXITCODE -gt 7) {
 
 Set-Location $WorkDir
 
-if (-not $env:JAVA_HOME) {
-    $defaultJdkPaths = @(
-        "C:\Program Files\Eclipse Adoptium\jdk-17*",
-        "C:\Program Files\Java\jdk-17*",
-        "C:\Program Files\Microsoft\jdk-17*",
-        "C:\Program Files\Android\Android Studio\jbr"
-    )
-    foreach ($path in $defaultJdkPaths) {
-        $found = Get-Item $path -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($found) {
-            $env:JAVA_HOME = $found.FullName
+# Capacitor 7 Android dependencies require JDK 21. Prefer an installed JDK 21
+# even when JAVA_HOME currently points at Java 17.
+$javaCandidates = @()
+if ($env:JAVA_HOME) { $javaCandidates += $env:JAVA_HOME }
+$javaCandidates += @(
+    "C:\Program Files\Eclipse Adoptium\jdk-21*",
+    "C:\Program Files\Java\jdk-21*",
+    "C:\Program Files\Microsoft\jdk-21*",
+    "C:\Program Files\Android\Android Studio\jbr"
+)
+$selectedJavaHome = $null
+foreach ($candidate in $javaCandidates) {
+    $foundPaths = Get-Item $candidate -ErrorAction SilentlyContinue
+    foreach ($found in $foundPaths) {
+        $javaExe = Join-Path $found.FullName "bin\java.exe"
+        if (-not (Test-Path $javaExe)) { continue }
+        $versionOutput = (& $javaExe -version 2>&1 | Out-String)
+        if ($versionOutput -match 'version "21([."]|$)' -or $versionOutput -match 'openjdk 21') {
+            $selectedJavaHome = $found.FullName
             break
         }
     }
+    if ($selectedJavaHome) { break }
 }
+if (-not $selectedJavaHome) {
+    throw "JDK 21 is required for Capacitor 7 Android builds. Install JDK 21 or update Android Studio, then rerun this script."
+}
+$env:JAVA_HOME = $selectedJavaHome
+$env:PATH = "$(Join-Path $env:JAVA_HOME 'bin');$env:PATH"
+Write-Host "Using Java 21: $env:JAVA_HOME" -ForegroundColor Green
 
 if (-not $env:ANDROID_HOME) {
     $defaultSdk = "$env:LOCALAPPDATA\Android\Sdk"
@@ -76,26 +91,7 @@ if (-not (Test-Path "android")) {
 Write-Host "Syncing Capacitor..." -ForegroundColor Cyan
 npx cap sync android
 
-Write-Host "Applying Java 17 compatibility..." -ForegroundColor Cyan
-$gradleFiles = Get-ChildItem -Path "android" -Recurse -File -Include "*.gradle","*.gradle.kts" -ErrorAction SilentlyContinue
-foreach ($file in $gradleFiles) {
-    try {
-        $raw = Get-Content -Path $file.FullName -Raw -ErrorAction SilentlyContinue
-        if ($raw) {
-            $orig = $raw
-            $raw = $raw -replace "JavaVersion\.VERSION_21", "JavaVersion.VERSION_17"
-            $raw = $raw -replace "JavaVersion\.VERSION_22", "JavaVersion.VERSION_17"
-            $raw = $raw -replace "VERSION_21", "VERSION_17"
-            $raw = $raw -replace "VERSION_22", "VERSION_17"
-            $raw = $raw -replace "jvmTarget = '21'", "jvmTarget = '17'"
-            $raw = $raw -replace "sourceCompatibility = 21", "sourceCompatibility = 17"
-            $raw = $raw -replace "targetCompatibility = 21", "targetCompatibility = 17"
-            if ($raw -ne $orig) {
-                Set-Content -Path $file.FullName -Value $raw -NoNewline
-            }
-        }
-    } catch {}
-}
+Write-Host "Keeping Capacitor 7 Java 21 compatibility settings..." -ForegroundColor Cyan
 
 $gradleProperties = "android\gradle.properties"
 if (Test-Path $gradleProperties) {
@@ -152,7 +148,7 @@ if (-not $Release) {
     Write-Host "`nPreparing WhatsApp install package from the debug AAB..." -ForegroundColor Cyan
 
     if (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
-        throw "Java 17 was not found. Install/configure Java 17 before running bundletool."
+        throw "JDK 21 was not found. Install/configure Java 21 before running bundletool."
     }
 
     $toolsDir = Join-Path $PublishBase "tools"
