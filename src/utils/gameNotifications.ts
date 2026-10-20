@@ -37,6 +37,60 @@ const notificationIdFor = (gameId: string): number => {
   return 1_000_000_000 + (Math.abs(hash) % 1_000_000_000);
 };
 
+export interface GameNotificationDiagnostics {
+  displayPermission: string;
+  exactAlarmPermission: string;
+  pendingReminderCount: number;
+}
+
+export const getGameNotificationDiagnostics = async (): Promise<GameNotificationDiagnostics> => {
+  if (!Capacitor.isNativePlatform()) {
+    return { displayPermission: 'not available in browser', exactAlarmPermission: 'not available in browser', pendingReminderCount: 0 };
+  }
+  const [permission, pending] = await Promise.all([
+    LocalNotifications.checkPermissions(),
+    LocalNotifications.getPending(),
+  ]);
+  let exactAlarmPermission = 'not applicable';
+  if (Capacitor.getPlatform() === 'android') {
+    try {
+      exactAlarmPermission = (await LocalNotifications.checkExactNotificationSetting()).exact_alarm;
+    } catch {
+      exactAlarmPermission = 'check failed';
+    }
+  }
+  return {
+    displayPermission: permission.display,
+    exactAlarmPermission,
+    pendingReminderCount: pending.notifications.filter((item) => item.extra?.type === 'dugout-pulse-game-reminder').length,
+  };
+};
+
+export const openExactAlarmSettings = async (): Promise<string> => {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return 'not applicable';
+  const before = await LocalNotifications.checkExactNotificationSetting();
+  if (before.exact_alarm === 'granted') return 'granted';
+  await LocalNotifications.changeExactNotificationSetting();
+  return (await LocalNotifications.checkExactNotificationSetting()).exact_alarm;
+};
+
+export const scheduleTestGameNotification = async (): Promise<void> => {
+  if (!Capacitor.isNativePlatform()) throw new Error('Test notifications are only available in the installed Android app.');
+  const permission = await LocalNotifications.checkPermissions();
+  if (permission.display !== 'granted') throw new Error('Android notification permission is denied. Allow notifications for Dugout Pulse in phone settings first.');
+  const id = 1_999_999_999;
+  try { await LocalNotifications.cancel({ notifications: [{ id }] }); } catch { /* no previous test notification */ }
+  await LocalNotifications.schedule({
+    notifications: [{
+      id,
+      title: 'Dugout Pulse test notification',
+      body: 'Notifications are reaching your phone. Game reminder scheduling can now be tested separately.',
+      schedule: { at: new Date(Date.now() + 10_000), allowWhileIdle: true },
+      extra: { type: 'dugout-pulse-test' },
+    }],
+  });
+};
+
 export const requestGameNotificationPermission = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) return false;
   try {
