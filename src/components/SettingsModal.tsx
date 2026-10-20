@@ -1572,7 +1572,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </div>
                               {notificationDiagnostics && (
                                 <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
-                                  <p>Notification permission: <strong>{notificationDiagnostics.displayPermission}</strong></p>
+                                  <p>Effective notification status: <strong>{notificationDiagnostics.displayPermission}</strong></p>
+                                  <p>Android app notifications enabled: <strong>{notificationDiagnostics.systemNotificationsEnabled === null ? 'not available' : notificationDiagnostics.systemNotificationsEnabled ? 'yes' : 'no'}</strong></p>
+                                  <p>Default notification channel importance: <strong>{notificationDiagnostics.defaultChannelImportance === null ? 'not available' : `${notificationDiagnostics.defaultChannelImportance}${notificationDiagnostics.defaultChannelImportance === 0 ? ' (blocked)' : ''}`}</strong></p>
                                   <p>Exact alarm access: <strong>{notificationDiagnostics.exactAlarmPermission}</strong></p>
                                   <p>Pending game reminders: <strong>{notificationDiagnostics.pendingReminderCount}</strong></p>
                                 </div>
