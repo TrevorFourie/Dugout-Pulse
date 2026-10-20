@@ -142,7 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
-  const [notificationDiagnostics, setNotificationDiagnostics] = useState<{ displayPermission: string; exactAlarmPermission: string; pendingReminderCount: number } | null>(null);
+  const [notificationDiagnostics, setNotificationDiagnostics] = useState<{ displayPermission: string; systemNotificationsEnabled: boolean | null; defaultChannelImportance: number | null; exactAlarmPermission: string; pendingReminderCount: number } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
