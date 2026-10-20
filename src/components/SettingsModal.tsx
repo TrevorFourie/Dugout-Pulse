@@ -495,7 +495,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
-                      Team Logo / Player Image
+                      Player Logo / Image
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
