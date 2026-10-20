@@ -32,7 +32,7 @@ import {
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
-import { requestGameNotificationPermission } from '../utils/gameNotifications';
+import { requestGameNotificationPermission, syncStoredGameReminders } from '../utils/gameNotifications';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -1488,7 +1488,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   onClick={async () => {
                                     if (settings.gameRemindersEnabled === true) {
                                       updateSettings({ gameRemindersEnabled: false });
-                                      setStatusMessage({ text: 'Game reminders disabled. Scheduled reminders have been cancelled.', isError: false });
+                                      void syncStoredGameReminders(false).catch(() => setStatusMessage({ text: 'Could not cancel every reminder. Check notification settings on your device.', isError: true }));
+                                      setStatusMessage({ text: 'Game reminders disabled.', isError: false });
                                       return;
                                     }
                                     const granted = await requestGameNotificationPermission();
@@ -1497,6 +1498,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       return;
                                     }
                                     updateSettings({ gameRemindersEnabled: true });
+                                     void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Reminders are enabled, but some could not be scheduled. Check notification permissions.', isError: true }));
                                     setStatusMessage({ text: 'Game reminders enabled. Games with a selected reminder will be scheduled.', isError: false });
                                   }}
                                   className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
