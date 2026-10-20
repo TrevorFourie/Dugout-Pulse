@@ -96,9 +96,12 @@ Write-Host "Keeping Capacitor 7 Java 21 compatibility settings..." -ForegroundCo
 $gradleProperties = "android\gradle.properties"
 if (Test-Path $gradleProperties) {
     $props = Get-Content -Path $gradleProperties -Raw -ErrorAction SilentlyContinue
-    if (-not ($props -match "org.gradle.java.home")) {
-        $escapedJavaHome = $env:JAVA_HOME -replace "\\", "/"
-        Add-Content -Path $gradleProperties -Value "`norg.gradle.java.home=$escapedJavaHome"
+    $escapedJavaHome = $env:JAVA_HOME -replace "\\", "/"
+    if ($props -match "(?m)^\s*org\.gradle\.java\.home\s*=.*$") {
+        $props = [regex]::Replace($props, "(?m)^\s*org\.gradle\.java\.home\s*=.*$", "org.gradle.java.home=$escapedJavaHome")
+        Set-Content -Path $gradleProperties -Value $props -NoNewline
+    } else {
+        Add-Content -Path $gradleProperties -Value "\`norg.gradle.java.home=$escapedJavaHome"
     }
 }
 
