@@ -57,9 +57,12 @@ const getEffectiveNotificationEnablement = async (): Promise<{
   ]);
   const defaultChannel = channelResult.channels.find((channel) => channel.id === 'default');
   const defaultChannelImportance = defaultChannel?.importance ?? null;
-  // Android IMPORTANCE_NONE is 0. A blocked default channel prevents game reminders
-  // even when the app-wide notification switch is enabled.
-  const channelEnabled = defaultChannelImportance === null || defaultChannelImportance > 0;
+  // The Local Notifications plugin posts on its "default" channel unless a
+  // notification explicitly selects another one. Fail closed if that channel
+  // cannot be read: treating a missing channel as enabled can report "granted"
+  // even though the notification path has not been verified.
+  // Android IMPORTANCE_NONE is 0 and means the channel is blocked.
+  const channelEnabled = defaultChannelImportance !== null && defaultChannelImportance > 0;
   return {
     enabled: system.value && channelEnabled,
     systemNotificationsEnabled: system.value,
