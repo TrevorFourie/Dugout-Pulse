@@ -121,6 +121,20 @@ if (-not (Test-Path "android")) {
 Write-Host "Syncing Capacitor..." -ForegroundColor Cyan
 npx cap sync android
 
+# Exact game reminders need Android's Alarms & reminders permission on Android 12+.
+# Android is generated inside the isolated work directory, so ensure the permission
+# is present after every clean Capacitor platform generation/sync.
+$manifestPath = "android\app\src\main\AndroidManifest.xml"
+if (-not (Test-Path $manifestPath)) {
+    throw "AndroidManifest.xml was not found after Capacitor sync: $manifestPath"
+}
+$manifest = Get-Content -Path $manifestPath -Raw
+if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
+    $manifest = $manifest -replace '(<manifest\b[^>]*>)', ('$1' + [Environment]::NewLine + '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />')
+    Set-Content -Path $manifestPath -Value $manifest -NoNewline
+    Write-Host "Added SCHEDULE_EXACT_ALARM permission for Android reminders." -ForegroundColor Green
+}
+
 Write-Host "Keeping Capacitor 7 Java 21 compatibility settings..." -ForegroundColor Cyan
 
 $gradleProperties = "android\gradle.properties"
