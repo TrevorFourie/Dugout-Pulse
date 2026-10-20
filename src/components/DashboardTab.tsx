@@ -162,7 +162,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* Scheduled fixtures are separate from completed-game stats */}
-      <UpcomingGames compact />
+      <UpcomingGames compact nextOnly />
 
       {/* Adaptive single-player Performance Counter */}
       <PerformanceCounter
