@@ -32,7 +32,7 @@ import {
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
-import { requestGameNotificationPermission, syncStoredGameReminders } from '../utils/gameNotifications';
+import { getGameNotificationDiagnostics, openExactAlarmSettings, requestGameNotificationPermission, scheduleTestGameNotification, syncStoredGameReminders } from '../utils/gameNotifications';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -142,6 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
+  const [notificationDiagnostics, setNotificationDiagnostics] = useState<{ displayPermission: string; exactAlarmPermission: string; pendingReminderCount: number } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
@@ -1529,6 +1530,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                                 When this switch is on, every upcoming game is included by default; turn off a game's bell to exclude it. When off, only games with their bell enabled send a reminder. New games follow the same rule.
                               </p>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <button type="button" onClick={async () => {
+                                  try {
+                                    const diagnostics = await getGameNotificationDiagnostics();
+                                    setNotificationDiagnostics(diagnostics);
+                                    setStatusMessage({ text: 'Notification status checked. Review the permission and pending reminder details below.', isError: false });
+                                  } catch (error) {
+                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not check notification status.', isError: true });
+                                  }
+                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
+                                  Check Notification Status
+                                </button>
+                                <button type="button" onClick={async () => {
+                                  try {
+                                    await scheduleTestGameNotification();
+                                    setStatusMessage({ text: 'Test notification scheduled for 10 seconds from now. Leave the app closed and check your phone.', isError: false });
+                                  } catch (error) {
+                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not schedule a test notification.', isError: true });
+                                  }
+                                }} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419]">
+                                  Send Test Notification
+                                </button>
+                                <button type="button" onClick={async () => {
+                                  try {
+                                    const exact = await openExactAlarmSettings();
+                                    const diagnostics = await getGameNotificationDiagnostics();
+                                    setNotificationDiagnostics(diagnostics);
+                                    setStatusMessage({ text: exact === 'granted' ? 'Exact alarms are allowed. Return to Upcoming Games and save the reminder again.' : 'Android Alarms & reminders access is not yet allowed. Enable it in the screen Android opened, return here, then check status again.', isError: exact !== 'granted' });
+                                  } catch (error) {
+                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not open exact alarm settings.', isError: true });
+                                  }
+                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
+                                  Check / Enable Alarms & Reminders
+                                </button>
+                              </div>
+                              {notificationDiagnostics && (
+                                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
+                                  <p>Notification permission: <strong>{notificationDiagnostics.displayPermission}</strong></p>
+                                  <p>Exact alarm access: <strong>{notificationDiagnostics.exactAlarmPermission}</strong></p>
+                                  <p>Pending game reminders: <strong>{notificationDiagnostics.pendingReminderCount}</strong></p>
+                                </div>
+                              )}
                             </div>
               </div>
             )}
