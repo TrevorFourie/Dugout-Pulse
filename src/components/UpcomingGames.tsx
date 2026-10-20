@@ -212,7 +212,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     const hours = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `Starts in ${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`;
+    return `${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`;
   };
 
   return (
@@ -328,18 +328,18 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-[#354050] dark:bg-[#252D38]">
                       {logo ? <img src={logo} alt={`${game.opponent} logo`} className="h-full w-full object-contain p-1" /> : <Shield className="h-5 w-5 text-slate-400 dark:text-[#6B7280]" />}
                     </div>
+
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">{game.isHome ? 'vs' : '@'} {game.opponent}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                        <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                        {game.time && <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{game.time}</span>}
+                        <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} @ {game.time}</span>
                         {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.venue}</span>}
+                        {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.gameType}</span>}
                       </div>
-                      {nextOnly && <p className="mt-1 text-[11px] font-semibold tabular-nums text-[#007A6A] dark:text-[#00D7BC]" aria-live="off">{formatCountdown(game)}</p>}
-                      {game.notes && <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{game.notes}</p>}
                     </div>
                   </div>
                   <div className="mt-1 flex justify-end gap-1">
+                    {nextOnly && <p className="py-1 pt-1 mt-1 rounded-xl text-[13px] border border-[#00BFA5] font-semibold bg-[#00BFA5]/20 flex-1 items-center justify-self-center text-center tabular-nums text-[#007A6A] dark:text-[#00D7BC]" aria-live="off">{formatCountdown(game)}</p>}
                     <button
                       type="button"
                       onClick={() => toggleGameReminder(game)}

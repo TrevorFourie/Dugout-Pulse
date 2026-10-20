@@ -269,10 +269,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <ChevronRight className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC] group-hover:translate-x-1 transition-transform" />
       </button>
 
-      <footer className="mt-8 border-t border-slate-800/50 py-6 text-center text-xs text-slate-500">
-        <p>© 2026 Dugout Pulse . All rights reserved.</p>
-        <p className="mt-1 opacity-75">Offline Scorekeeper • Build {__BUILD_ID__}</p>
-      </footer>
     </div>
   );
 };

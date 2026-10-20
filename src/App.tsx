@@ -247,6 +247,7 @@ const MainApp: React.FC = () => {
             </nav>
             <div className="shrink-0 border-t border-slate-200 px-4 py-3 text-center dark:border-[#354050]">
               <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">© 2026 Dugout Pulse. All rights reserved.</p>
+              <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] opacity-75">Offline Scorekeeper • Build {__BUILD_ID__}</p>
             </div>
           </aside>
         </div>
