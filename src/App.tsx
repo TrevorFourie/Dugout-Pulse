@@ -23,8 +23,8 @@ import { ConfirmationModal } from './components/ConfirmationModal';
 const DEFAULT_BLOCKED_MESSAGE =
   'Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications.\n\n' +
   '1. Tap Try Again to request permission.\n' +
-  '2. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app.\n\n' +
-  'On some phones (Huawei, Honor, Xiaomi, Oppo, Vivo, etc.) also check Settings → Notifications → Privacy → Permissions Manager and allow Notifications for Dugout Pulse. The normal “Allow notifications” switch can be ON while that extra setting still blocks every reminder.';
+  '2. If Android does not show a permission prompt, open Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app.\n\n' +
+  'If notifications appear allowed but reminders still do not arrive, check battery optimisation, app launch / auto-start controls, and any extra privacy or permissions screen on your phone. Some restrictions cannot be detected by the app.';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
