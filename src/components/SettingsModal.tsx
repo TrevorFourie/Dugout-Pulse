@@ -1477,7 +1477,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     Game Reminders
                                   </h3>
                                   <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
-                                    Allow scheduled notifications for upcoming games. Reminders are handled by Android; Dugout Pulse does not need to keep running in the background.
+                                    Turn this on to receive reminders for every upcoming game. Turn it off to receive reminders only for games you enable individually with the bell icon. Android schedules reminders, so the app does not need to stay open.
                                   </p>
                                 </div>
                                 <button
@@ -1489,7 +1489,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     if (settings.gameRemindersEnabled === true) {
                                       updateSettings({ gameRemindersEnabled: false });
                                       void syncStoredGameReminders(false).catch(() => setStatusMessage({ text: 'Could not cancel every reminder. Check notification settings on your device.', isError: true }));
-                                      setStatusMessage({ text: 'Game reminders disabled.', isError: false });
+                                      setStatusMessage({ text: 'All-game reminders are off. Individual game reminders remain available.', isError: false });
                                       return;
                                     }
                                     const granted = await requestGameNotificationPermission();
@@ -1499,7 +1499,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     }
                                     updateSettings({ gameRemindersEnabled: true });
                                      void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Reminders are enabled, but some could not be scheduled. Check notification permissions.', isError: true }));
-                                    setStatusMessage({ text: 'Game reminders enabled. Games with a selected reminder will be scheduled.', isError: false });
+                                    setStatusMessage({ text: 'All upcoming games will send a reminder one hour before start unless you turn off that game’s bell.', isError: false });
                                   }}
                                   className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
                                 >
@@ -1507,7 +1507,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </button>
                               </div>
                               <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                                Individual reminder times are selected when adding or editing each game. Only games with a reminder selected will notify you.
+                                When this switch is on, every upcoming game is included by default; turn off a game's bell to exclude it. When off, only games with their bell enabled send a reminder. New games follow the same rule.
                               </p>
                             </div>
               </div>
