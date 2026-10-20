@@ -100,6 +100,22 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     }
   };
 
+  const toggleGameReminder = (game: ScheduledGame) => {
+    if (!game.time) {
+      setMessage('Add a start time to this game before enabling its reminder.');
+      return;
+    }
+    const reminderMinutes = game.reminderMinutes ? 0 : 60;
+    persist(games.map((item) => item.id === game.id
+      ? { ...item, ...(reminderMinutes ? { reminderMinutes } : { reminderMinutes: undefined }) }
+      : item));
+    setMessage(reminderMinutes
+      ? (settings.gameRemindersEnabled === true
+        ? `Reminder enabled for ${game.opponent} (1 hour before).`
+        : `Reminder saved for ${game.opponent}. Enable game reminders in Settings to receive it.`)
+      : `Reminder disabled for ${game.opponent}.`);
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setOpponent('');
@@ -285,6 +301,14 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                     </div>
                   </div>
                   <div className="mt-1 flex justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleGameReminder(game)}
+                      disabled={!game.time}
+                      aria-label={game.reminderMinutes ? `Disable reminder for ${game.opponent}` : `Enable reminder for ${game.opponent}`}
+                      title={!game.time ? 'Add a start time to enable a reminder' : game.reminderMinutes ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
+                      className={`rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${game.reminderMinutes ? 'bg-[#E6FBF8] text-[#007A6A] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]' : 'text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]'}`}
+                    ><Bell className="h-3.5 w-3.5" /></button>
                     <button type="button" onClick={() => startEdit(game)} aria-label={`Edit game against ${game.opponent}`} title="Edit upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-3.5 w-3.5" /></button>
                     <button type="button" onClick={() => persist(games.filter((item) => item.id !== game.id))} aria-label={`Delete game against ${game.opponent}`} title="Delete upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
