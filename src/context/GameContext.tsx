@@ -922,6 +922,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ageGroup: teamData.ageGroup?.trim(),
         season: teamData.season?.trim(),
         tournament: teamData.tournament?.trim(),
+        logo: teamData.logo,
         isDefault: Boolean(teamData.isDefault),
       };
 
