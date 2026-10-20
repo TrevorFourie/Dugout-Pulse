@@ -142,7 +142,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   today.setHours(0, 0, 0, 0);
   const upcoming = sortedGames.filter((game) => {
     const gameDate = new Date(`${game.date}T00:00:00`);
-    return !Number.isNaN(gameDate.getTime()) && gameDate >= today;
+    if (Number.isNaN(gameDate.getTime()) || gameDate < today) return false;
+    if (!game.time) return true;
+    const gameDateTime = new Date(`${game.date}T${game.time}:00`);
+    return !Number.isNaN(gameDateTime.getTime()) && gameDateTime.getTime() >= clockNow;
   });
   const displayedGames = nextOnly ? upcoming.slice(0, 1) : upcoming;
   const formatCountdown = (game: ScheduledGame) => {
