@@ -47,10 +47,15 @@ export const getGameNotificationDiagnostics = async (): Promise<GameNotification
   if (!Capacitor.isNativePlatform()) {
     return { displayPermission: 'not available in browser', exactAlarmPermission: 'not available in browser', pendingReminderCount: 0 };
   }
-  const [permission, pending] = await Promise.all([
+  const [permission, enabled, pending] = await Promise.all([
     LocalNotifications.checkPermissions(),
+    LocalNotifications.areEnabled(),
     LocalNotifications.getPending(),
   ]);
+  // On Android 12 and older, checkPermissions() can report "granted"
+  // even when the user has disabled all notifications for this app in Android Settings.
+  // areEnabled() checks the effective system-level notification setting.
+  const displayPermission = enabled.value ? permission.display : 'denied';
   let exactAlarmPermission = 'not applicable';
   if (Capacitor.getPlatform() === 'android') {
     try {
@@ -60,7 +65,7 @@ export const getGameNotificationDiagnostics = async (): Promise<GameNotification
     }
   }
   return {
-    displayPermission: permission.display,
+    displayPermission,
     exactAlarmPermission,
     pendingReminderCount: pending.notifications.filter((item) => item.extra?.type === 'dugout-pulse-game-reminder').length,
   };
@@ -76,8 +81,11 @@ export const openExactAlarmSettings = async (): Promise<string> => {
 
 export const scheduleTestGameNotification = async (): Promise<void> => {
   if (!Capacitor.isNativePlatform()) throw new Error('Test notifications are only available in the installed Android app.');
-  const permission = await LocalNotifications.checkPermissions();
-  if (permission.display !== 'granted') throw new Error('Android notification permission is denied. Allow notifications for Dugout Pulse in phone settings first.');
+  const [permission, enabled] = await Promise.all([
+    LocalNotifications.checkPermissions(),
+    LocalNotifications.areEnabled(),
+  ]);
+  if (permission.display !== 'granted' || !enabled.value) throw new Error('Android notifications are disabled for Dugout Pulse. Open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications first.');
   const id = 1_999_999_999;
   try { await LocalNotifications.cancel({ notifications: [{ id }] }); } catch { /* no previous test notification */ }
   await LocalNotifications.schedule({
@@ -94,7 +102,11 @@ export const scheduleTestGameNotification = async (): Promise<void> => {
 export const checkGameNotificationPermission = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) return false;
   try {
-    return (await LocalNotifications.checkPermissions()).display === 'granted';
+    const [permission, enabled] = await Promise.all([
+      LocalNotifications.checkPermissions(),
+      LocalNotifications.areEnabled(),
+    ]);
+    return permission.display === 'granted' && enabled.value;
   } catch {
     return false;
   }
@@ -105,7 +117,10 @@ export const requestGameNotificationPermission = async (): Promise<boolean> => {
   try {
     let permission = await LocalNotifications.checkPermissions();
     if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
-    return permission.display === 'granted';
+    if (permission.display !== 'granted') return false;
+    // Runtime permission can be "granted" while the user has disabled notifications
+    // globally for the app in Android Settings.
+    return (await LocalNotifications.areEnabled()).value;
   } catch {
     return false;
   }
@@ -144,8 +159,11 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
   }
 
   if (schedule.length) {
-    const permission = await LocalNotifications.checkPermissions();
-    if (permission.display !== 'granted') {
+    const [permission, enabled] = await Promise.all([
+      LocalNotifications.checkPermissions(),
+      LocalNotifications.areEnabled(),
+    ]);
+    if (permission.display !== 'granted' || !enabled.value) {
       localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify({}));
       return;
     }
