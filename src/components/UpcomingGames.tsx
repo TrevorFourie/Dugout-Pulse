@@ -38,7 +38,7 @@ const readJson = <T,>(key: string, fallback: T): T => {
 
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
-export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> = ({ compact = false, nextOnly = false }) => {
   const { activeProfile, allTournaments } = useGame();
   const playerTeams = useMemo(() => {
     const savedTeams = activeProfile.teams || [];
@@ -61,6 +61,13 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const [venue, setVenue] = useState('');
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
+  const [clockNow, setClockNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!nextOnly) return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [nextOnly]);
 
   useEffect(() => {
     setGames(readJson<ScheduledGame[]>(GAMES_KEY, []));
@@ -137,6 +144,25 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
     const gameDate = new Date(`${game.date}T00:00:00`);
     return !Number.isNaN(gameDate.getTime()) && gameDate >= today;
   });
+  const displayedGames = nextOnly ? upcoming.slice(0, 1) : upcoming;
+  const formatCountdown = (game: ScheduledGame) => {
+    if (!game.time) {
+      const targetDay = new Date(`${game.date}T00:00:00`);
+      const todayDay = new Date();
+      todayDay.setHours(0, 0, 0, 0);
+      const days = Math.round((targetDay.getTime() - todayDay.getTime()) / 86400000);
+      return days <= 0 ? 'Today · time not set' : days === 1 ? 'Tomorrow · time not set' : `In ${days} days · time not set`;
+    }
+    const target = new Date(`${game.date}T${game.time}:00`).getTime();
+    const remaining = target - clockNow;
+    if (remaining <= 0) return 'Game time reached';
+    const totalSeconds = Math.floor(remaining / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `Starts in ${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`;
+  };
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-[#354050] dark:bg-[#252D38]">
@@ -147,7 +173,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">Upcoming Games</h2>
-            <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{upcoming.length} scheduled {upcoming.length === 1 ? 'game' : 'games'}</p>
+            <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{nextOnly ? (upcoming.length ? 'Next scheduled game' : 'No games scheduled') : `${upcoming.length} scheduled ${upcoming.length === 1 ? 'game' : 'games'}`}</p>
           </div>
         </div>
         <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
@@ -193,7 +219,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
       )}
 
       <div className={compact ? 'p-3' : 'p-4'}>
-        {upcoming.length === 0 ? (
+        {displayedGames.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 px-3 py-6 text-center dark:border-[#354050]">
             <CalendarDays className="mx-auto h-5 w-5 text-slate-400 dark:text-[#6B7280]" />
             <p className="mt-2 text-xs font-medium text-slate-700 dark:text-[#D1D5DB]">No upcoming games scheduled</p>
@@ -201,7 +227,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
           </div>
         ) : (
           <div className="space-y-2">
-            {upcoming.map((game) => {
+            {displayedGames.map((game) => {
               const logo = logos.get(game.opponent.trim().toLocaleLowerCase());
               const playerTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName) || (!game.playerTeamName ? defaultPlayerTeam : undefined);
               const playerTeamName = game.playerTeamName || playerTeam?.name;
@@ -218,6 +244,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
                       {game.time && <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{game.time}</span>}
                       {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.venue}</span>}
                     </div>
+                    {nextOnly && <p className="mt-1 text-[11px] font-semibold tabular-nums text-[#007A6A] dark:text-[#00D7BC]" aria-live="off">{formatCountdown(game)}</p>}
                     {game.notes && <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{game.notes}</p>}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
