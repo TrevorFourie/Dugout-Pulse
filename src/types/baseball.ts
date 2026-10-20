@@ -205,6 +205,7 @@ export interface PlayerTeam {
   ageGroup?: string; // e.g. "12U"
   season?: string; // e.g. "Spring 2026"
   tournament?: string; // e.g. "Triple Crown Classic"
+  logo?: string; // Team logo, separate from the player's profile logo
   isDefault?: boolean;
 }
 
