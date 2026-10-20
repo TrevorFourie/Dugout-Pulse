@@ -165,6 +165,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newTournamentInput, setNewTournamentInput] = useState('');
   const [newAgeGroupInput, setNewAgeGroupInput] = useState('');
   const [newVenueInput, setNewVenueInput] = useState('');
+  const [editingVenue, setEditingVenue] = useState<string | null>(null);
+  const [editingVenueValue, setEditingVenueValue] = useState('');
 
   // Teams management state
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -1361,24 +1363,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {(settings.venues || []).map((venue) => (
-                        <div key={venue} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/40">
-                          <MapPin className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-                          <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{venue}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateSettings({ venues: (settings.venues || []).filter((item) => item !== venue) });
-                              setStatusMessage({ text: `Venue "${venue}" removed.`, isError: false });
-                            }}
-                            aria-label={`Remove ${venue}`}
-                            title="Remove venue"
-                            className="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-[#FF5252]/15"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                      {(settings.venues || []).map((venue) => {
+                        const isEditingVenue = editingVenue === venue;
+                        const saveVenueEdit = () => {
+                          const renamedVenue = editingVenueValue.trim();
+                          if (!renamedVenue) {
+                            setStatusMessage({ text: 'Venue name cannot be empty.', isError: true });
+                            return;
+                          }
+                          if ((settings.venues || []).some((item) => item !== venue && item.toLowerCase() === renamedVenue.toLowerCase())) {
+                            setStatusMessage({ text: 'A venue with that name already exists.', isError: true });
+                            return;
+                          }
+                          if (renamedVenue !== venue) {
+                            updateSettings({ venues: (settings.venues || []).map((item) => item === venue ? renamedVenue : item) });
+                            setStatusMessage({ text: `Venue "${venue}" renamed to "${renamedVenue}".`, isError: false });
+                          }
+                          setEditingVenue(null);
+                          setEditingVenueValue('');
+                        };
+                        return (
+                          <div key={venue} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/40">
+                            <MapPin className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                            {isEditingVenue ? (
+                              <>
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  value={editingVenueValue}
+                                  onChange={(e) => setEditingVenueValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      saveVenueEdit();
+                                    } else if (e.key === 'Escape') {
+                                      setEditingVenue(null);
+                                      setEditingVenueValue('');
+                                    }
+                                  }}
+                                  aria-label={`Edit venue name ${venue}`}
+                                  className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={saveVenueEdit}
+                                  aria-label={`Save venue name ${venue}`}
+                                  title="Save venue name"
+                                  className="rounded-lg p-2 text-teal-600 hover:bg-teal-50 dark:text-[#00D7BC] dark:hover:bg-teal-950/40"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingVenue(null); setEditingVenueValue(''); }}
+                                  aria-label="Cancel venue edit"
+                                  title="Cancel"
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#354050]"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{venue}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingVenue(venue); setEditingVenueValue(venue); }}
+                                  aria-label={`Edit ${venue}`}
+                                  title="Edit venue"
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#007A6A] dark:text-[#9CA3AF] dark:hover:bg-[#354050] dark:hover:text-[#00D7BC]"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateSettings({ venues: (settings.venues || []).filter((item) => item !== venue) });
+                                    if (editingVenue === venue) { setEditingVenue(null); setEditingVenueValue(''); }
+                                    setStatusMessage({ text: `Venue "${venue}" removed.`, isError: false });
+                                  }}
+                                  aria-label={`Remove ${venue}`}
+                                  title="Remove venue"
+                                  className="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-[#FF5252]/15"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
