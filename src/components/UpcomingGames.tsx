@@ -81,6 +81,34 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setTeams(readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, []));
   }, []);
 
+  // Reflect venue renames immediately if Upcoming Games is still mounted.
+  useEffect(() => {
+    const handleVenueRenamed = (event: Event) => {
+      const detail = (event as CustomEvent<{ oldName: string; newName: string }>).detail;
+      if (!detail?.oldName || !detail?.newName) return;
+      setGames((current) => {
+        const next = current.map((game) =>
+          game.venue?.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
+            ? { ...game, venue: detail.newName }
+            : game
+        );
+        try {
+          localStorage.setItem(GAMES_KEY, JSON.stringify(next));
+        } catch {
+          setMessage('Venue was renamed, but scheduled games could not be saved. Please check your device storage.');
+        }
+        return next;
+      });
+      setVenue((current) =>
+        current.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
+          ? detail.newName
+          : current
+      );
+    };
+    window.addEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
+    return () => window.removeEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
+  }, []);
+
   useEffect(() => {
     if (isLoading) return;
     void syncGameReminders(games, settings.gameRemindersEnabled === true).catch(() => {
