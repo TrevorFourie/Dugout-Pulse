@@ -290,6 +290,7 @@ export interface AppSettings {
   activePlayerId: string;
   pitchCountLimit: number; // default 85 (youth/highschool limit)
   trackHitLocation?: boolean; // default true - enables hit direction tapper prompt during batting
+  gameRemindersEnabled?: boolean; // master switch for local upcoming-game notifications; defaults off
 }
 
 export interface BattingStats {
