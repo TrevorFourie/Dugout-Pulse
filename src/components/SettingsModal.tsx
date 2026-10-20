@@ -673,6 +673,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ageGroup: activeProfile.defaultAgeGroup || '',
                             season: activeProfile.defaultSeason || '',
                             tournament: activeProfile.defaultTournament || '',
+                            logo: undefined,
                             isDefault: true,
                           },
                         ]
