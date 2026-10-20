@@ -332,6 +332,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleTeamLogoFile = async (e: React.ChangeEvent<HTMLInputElement>, teamId: string) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setStatusMessage({ text: 'Please choose an image file (PNG, JPG, etc.).', isError: true });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setStatusMessage({ text: 'That image is too large. Please choose one under 10 MB.', isError: true });
+      return;
+    }
+    try {
+      const dataUrl = await resizeImage(file);
+      updatePlayerTeam(activeProfile.id, teamId, { logo: dataUrl });
+      setStatusMessage({ text: 'Team logo updated!', isError: false });
+    } catch (err) {
+      setStatusMessage({ text: err instanceof Error ? err.message : 'Could not use that image.', isError: true });
+    }
+  };
+
   const handleExportBackup = async () => {
     const ok = await exportJsonBackup({
       games,
@@ -739,6 +760,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {team.logo && <img src={team.logo} alt={`${team.name} logo`} className="h-8 w-8 rounded-md border border-slate-200 bg-white object-contain p-0.5 dark:border-[#354050] dark:bg-[#1A2028]" />}
                             <span className="font-extrabold text-sm text-slate-900 dark:text-[#FAFAFA] truncate">
                               {team.name}
                             </span>
@@ -773,6 +795,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                         </div>
 
+                        <div className="flex flex-wrap items-center gap-1 shrink-0">
+                          <input id={`team-logo-${team.id}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleTeamLogoFile(e, team.id)} />
+                          <button type="button" onClick={() => document.getElementById(`team-logo-${team.id}`)?.click()} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#354050]" title={`${team.logo ? 'Change' : 'Upload'} ${team.name} logo`}>{team.logo ? 'Change Logo' : 'Upload Logo'}</button>
+                          {team.logo && <button type="button" onClick={() => { updatePlayerTeam(activeProfile.id, team.id, { logo: undefined }); setStatusMessage({ text: 'Team logo removed.', isError: false }); }} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#354050]">Remove Logo</button>}
+                        </div>
                         {/* Actions */}
                         <div className="flex items-center gap-1 shrink-0">
                           {!team.isDefault && (
