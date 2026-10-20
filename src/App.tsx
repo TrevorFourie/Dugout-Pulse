@@ -11,9 +11,10 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
+import { syncStoredGameReminders } from './utils/gameNotifications';
 
 const MainApp: React.FC = () => {
-  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame } = useGame();
+  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
 
   // A recovered in-progress game must be shown immediately on app startup.
@@ -30,6 +31,22 @@ const MainApp: React.FC = () => {
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
+
+  // Android may remove scheduled alarms when exact-alarm access changes. Rebuild
+  // reminders on launch and whenever the app returns to the foreground.
+  useEffect(() => {
+    const syncReminders = () => {
+      void syncStoredGameReminders(settings.gameRemindersEnabled === true).catch(() => {
+        // The Notifications settings panel exposes detailed diagnostics for recovery.
+      });
+    };
+    syncReminders();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncReminders();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [settings.gameRemindersEnabled]);
 
   // The app hamburger opens only the sliding drawer. A settings page is opened only after selection.
   const handleOpenSettings = () => setIsSettingsMenuOpen(true);
