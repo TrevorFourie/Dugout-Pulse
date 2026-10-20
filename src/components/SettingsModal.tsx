@@ -32,7 +32,7 @@ import {
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
-import { getGameNotificationDiagnostics, openExactAlarmSettings, requestGameNotificationPermission, scheduleTestGameNotification, syncStoredGameReminders } from '../utils/gameNotifications';
+import { checkGameNotificationPermission, getGameNotificationDiagnostics, openExactAlarmSettings, requestGameNotificationPermission, scheduleTestGameNotification, syncStoredGameReminders } from '../utils/gameNotifications';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -1511,6 +1511,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       updateSettings({ gameRemindersEnabled: false });
                                       void syncStoredGameReminders(false).catch(() => setStatusMessage({ text: 'Could not cancel every reminder. Check notification settings on your device.', isError: true }));
                                       setStatusMessage({ text: 'All-game reminders are off. Individual game reminders remain available.', isError: false });
+                                      return;
+                                    }
+                                    const alreadyGranted = await checkGameNotificationPermission();
+                                    if (!alreadyGranted) {
+                                      setShowNotificationPermissionModal(true);
                                       return;
                                     }
                                     const granted = await requestGameNotificationPermission();
