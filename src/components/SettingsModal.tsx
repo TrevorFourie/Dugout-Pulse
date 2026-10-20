@@ -768,9 +768,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     return (
                       <div
                         key={team.id}
-                        className="min-w-0 w-full p-3 rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#252D38]/40 flex flex-col gap-3 transition-colors hover:border-slate-300"
+                        className="grid min-w-0 w-full grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 dark:border-[#354050] dark:bg-[#252D38]/40"
                       >
-                        <div className="min-w-0 w-full flex items-start gap-3">
+                        <div className="grid min-w-0 w-full grid-cols-[3rem_minmax(0,1fr)] items-start gap-3">
                           {(teamLogoPreviews[team.id] || team.logo) ? (
                             <img src={teamLogoPreviews[team.id] || team.logo} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => setStatusMessage({ text: `The ${team.name} logo image could not be displayed. Please try a different image.`, isError: true })} />
                           ) : (
@@ -813,7 +813,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         </div>
 
-                        <div className="w-full flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-[#354050] pt-2">
+                        <div className="flex w-full min-w-0 flex-col gap-2 border-t border-slate-100 pt-2 dark:border-[#354050] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-1">
                             <input id={`team-logo-${team.id}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleTeamLogoFile(e, team.id)} />
                             <button type="button" onClick={() => document.getElementById(`team-logo-${team.id}`)?.click()} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#354050]" title={`${team.logo ? 'Change' : 'Upload'} ${team.name} logo`}>{team.logo ? 'Change Logo' : 'Upload Logo'}</button>
