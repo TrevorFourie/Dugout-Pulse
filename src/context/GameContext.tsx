@@ -290,6 +290,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   activePlayerId: 'default-player',
   pitchCountLimit: 85,
   trackHitLocation: true,
+  gameRemindersEnabled: false,
 };
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
