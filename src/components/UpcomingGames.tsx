@@ -272,8 +272,25 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Start Time
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${inputClass} mt-1`} />
             </label>
-            <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Venue
-              <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Field / stadium" className={`${inputClass} mt-1`} />
+            <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Venue
+              <ThemedDropdown<string>
+                value={venue && (settings.venues || []).includes(venue) ? venue : undefined}
+                onChange={(next) => setVenue(next || '')}
+                options={(settings.venues || []).map((savedVenue) => ({ value: savedVenue, label: savedVenue }))}
+                placeholder={(settings.venues || []).length ? 'Select saved venue' : 'No saved venues yet'}
+                allowClear={true}
+                ariaLabel="Venue"
+                className="mt-1 w-full"
+                buttonClassName="!rounded-lg !py-2 !text-xs !font-normal"
+              />
+              <input
+                value={venue}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="Or type a venue / field"
+                aria-label="Or type a venue / field"
+                className={`${inputClass} mt-1`}
+              />
+              {!(settings.venues || []).length && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add saved venues in Settings → Venues to select them here.</span>}
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Reminder (optional)
               <span className="relative mt-1 block">
