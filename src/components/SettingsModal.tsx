@@ -141,6 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newDefaultLineupSpot, setNewDefaultLineupSpot] = useState<number | undefined>(undefined);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
@@ -397,6 +398,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <>
+      <ConfirmationModal
+        isOpen={showNotificationPermissionModal}
+        title="Allow game notifications"
+        message="Dugout Pulse needs Android notification permission to remind you about upcoming games. Tap Try Again to request permission. If Android no longer shows the request, open your phone's Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here and enable Game Reminders."
+        confirmLabel="Try Again"
+        cancelLabel="Not Now"
+        onCancel={() => setShowNotificationPermissionModal(false)}
+        onConfirm={async () => {
+          const granted = await requestGameNotificationPermission();
+          if (!granted) {
+            setStatusMessage({ text: 'Notifications are still blocked. Allow them in Android Settings, then enable Game Reminders again.', isError: true });
+            return;
+          }
+          setShowNotificationPermissionModal(false);
+          updateSettings({ gameRemindersEnabled: true });
+          void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Permission was granted, but reminders could not be scheduled. Please try again.', isError: true }));
+          setStatusMessage({ text: 'All upcoming games will send a reminder one hour before start unless you turn off that game’s bell.', isError: false });
+        }}
+      />
       <div className="h-full min-h-0 flex-1 flex flex-col bg-white dark:bg-[#1A2028]">
         <div className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] overflow-hidden">
           {/* Header */}
@@ -1494,11 +1514,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     }
                                     const granted = await requestGameNotificationPermission();
                                     if (!granted) {
-                                      setStatusMessage({ text: 'Allow notifications in the installed Android app to enable game reminders.', isError: true });
+                                      setShowNotificationPermissionModal(true);
                                       return;
                                     }
                                     updateSettings({ gameRemindersEnabled: true });
-                                     void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Reminders are enabled, but some could not be scheduled. Check notification permissions.', isError: true }));
+                                    void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Reminders are enabled, but some could not be scheduled. Check notification permissions.', isError: true }));
                                     setStatusMessage({ text: 'All upcoming games will send a reminder one hour before start unless you turn off that game’s bell.', isError: false });
                                   }}
                                   className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
