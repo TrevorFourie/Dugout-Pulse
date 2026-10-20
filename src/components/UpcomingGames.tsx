@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
-import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
+import { syncGameReminders } from '../utils/gameNotifications';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -17,6 +18,7 @@ interface ScheduledGame {
   isHome: boolean;
   venue?: string;
   notes?: string;
+  reminderMinutes?: number;
 }
 
 interface OppositionTeam {
@@ -39,7 +41,7 @@ const readJson = <T,>(key: string, fallback: T): T => {
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> = ({ compact = false, nextOnly = false }) => {
-  const { activeProfile, allTournaments } = useGame();
+  const { activeProfile, allTournaments, settings, isLoading } = useGame();
   const playerTeams = useMemo(() => {
     const savedTeams = activeProfile.teams || [];
     if (savedTeams.length) return savedTeams;
@@ -60,6 +62,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [isHome, setIsHome] = useState(true);
   const [venue, setVenue] = useState('');
   const [notes, setNotes] = useState('');
+  const [reminderMinutes, setReminderMinutes] = useState(0);
   const [message, setMessage] = useState('');
   const [clockNow, setClockNow] = useState(() => Date.now());
 
@@ -73,6 +76,13 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setGames(readJson<ScheduledGame[]>(GAMES_KEY, []));
     setTeams(readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, []));
   }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    void syncGameReminders(games, settings.gameRemindersEnabled === true).catch(() => {
+      setMessage('Could not update game reminders. Check notification permissions in Android settings.');
+    });
+  }, [games, settings.gameRemindersEnabled, isLoading]);
 
   const sortedGames = useMemo(
     () => [...games].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')),
@@ -101,6 +111,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setIsHome(true);
     setVenue('');
     setNotes('');
+    setReminderMinutes(0);
     setShowForm(false);
   };
 
@@ -116,6 +127,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setIsHome(game.isHome);
     setVenue(game.venue || '');
     setNotes(game.notes || '');
+    setReminderMinutes(game.reminderMinutes || 0);
     setShowForm(true);
   };
 
@@ -133,6 +145,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       isHome,
       ...(venue.trim() ? { venue: venue.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      ...(reminderMinutes ? { reminderMinutes } : {}),
     };
     persist(editingId ? games.map((game) => game.id === editingId ? nextGame : game) : [...games, nextGame]);
     resetForm();
@@ -179,7 +192,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{nextOnly ? (upcoming.length ? 'Next scheduled game' : 'No games scheduled') : `${upcoming.length} scheduled ${upcoming.length === 1 ? 'game' : 'games'}`}</p>
           </div>
         </div>
-        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
+        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setReminderMinutes(0); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{showForm ? 'Cancel' : 'Add Game'}
         </button>
       </div>
@@ -205,6 +218,19 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Venue
               <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Field / stadium" className={`${inputClass} mt-1`} />
+            </label>
+            <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Reminder (optional)
+              <span className="relative mt-1 block">
+                <Bell className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <select value={reminderMinutes} disabled={!time} onChange={(e) => setReminderMinutes(Number(e.target.value))} className={`${inputClass} pl-8 disabled:cursor-not-allowed disabled:opacity-50`}>
+                  <option value={0}>No reminder</option>
+                  <option value={1440}>1 day before</option>
+                  <option value={120}>2 hours before</option>
+                  <option value={60}>1 hour before</option>
+                </select>
+              </span>
+              {!time && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a start time to schedule a reminder.</span>}
+              {time && settings.gameRemindersEnabled !== true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Enable game reminders in Settings for notifications to be delivered.</span>}
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-2">
