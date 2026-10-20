@@ -8,6 +8,7 @@ export interface GameReminder {
   time?: string;
   venue?: string;
   reminderMinutes?: number | null;
+  reminderOptOut?: boolean;
 }
 
 const REMINDER_IDS_KEY = 'dugoutPulse.gameReminderIds.v1';
@@ -53,19 +54,26 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
 
   const previousIds = readReminderIds();
   const nextIds: ReminderIdMap = {};
-  const schedule = enabled ? games.flatMap((game) => {
-    const at = getReminderTime(game);
+  const schedule = games.flatMap((game) => {
+    // Master ON means every game is enabled unless explicitly opted out.
+    // Master OFF means only games individually selected for a reminder are enabled.
+    if (enabled && game.reminderOptOut) return [];
+    const reminderMinutes = enabled ? (game.reminderMinutes || 60) : game.reminderMinutes;
+    if (!reminderMinutes) return [];
+    const at = getReminderTime({ ...game, reminderMinutes });
     if (!at) return [];
     const id = notificationIdFor(game.id);
     nextIds[game.id] = id;
+    const gameDate = new Date(`${game.date}T00:00:00`);
+    const weekday = gameDate.toLocaleDateString(undefined, { weekday: 'long' });
     return [{
       id,
-      title: `Upcoming game: ${game.opponent}`,
-      body: `${game.time} · ${new Date(`${game.date}T00:00:00`).toLocaleDateString()} ${game.venue ? `· ${game.venue}` : ''}`.trim(),
+      title: 'Upcoming game reminder',
+      body: `Your team plays against ${game.opponent} on ${weekday} at ${game.time}. Remember to get ready!`,
       schedule: { at, allowWhileIdle: false },
       extra: { type: 'dugout-pulse-game-reminder', gameId: game.id },
     }];
-  }) : [];
+  });
 
   const cancelIds = Object.values(previousIds).map((id) => ({ id }));
   if (cancelIds.length) {
