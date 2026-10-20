@@ -113,6 +113,8 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Building web assets..." -ForegroundColor Cyan
 npm run build
 
+npx cap sync
+
 if (-not (Test-Path "android")) {
     Write-Host "Adding Android platform..." -ForegroundColor Yellow
     npx cap add android

@@ -11,8 +11,20 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
-import { checkGameNotificationPermission, openAppNotificationSettings, requestGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
+import {
+  buildNotificationBlockedMessage,
+  checkGameNotificationPermission,
+  openAppNotificationSettings,
+  requestGameNotificationPermission,
+  syncStoredGameReminders,
+} from './utils/gameNotifications';
 import { ConfirmationModal } from './components/ConfirmationModal';
+
+const DEFAULT_BLOCKED_MESSAGE =
+  'Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications.\n\n' +
+  '1. Tap Try Again to request permission.\n' +
+  '2. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app.\n\n' +
+  'On some phones (Huawei, Honor, Xiaomi, Oppo, Vivo, etc.) also check Settings → Notifications → Privacy → Permissions Manager and allow Notifications for Dugout Pulse. The normal “Allow notifications” switch can be ON while that extra setting still blocks every reminder.';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
@@ -33,6 +45,7 @@ const MainApp: React.FC = () => {
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
   const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
+  const [notificationBlockedMessage, setNotificationBlockedMessage] = useState(DEFAULT_BLOCKED_MESSAGE);
 
   // If reminders are enabled but Android blocks notifications, prompt on launch/return.
   useEffect(() => {
@@ -40,7 +53,15 @@ const MainApp: React.FC = () => {
     const checkReminderPermission = async () => {
       if (settings.gameRemindersEnabled !== true) return;
       const allowed = await checkGameNotificationPermission();
-      if (!disposed && !allowed) setShowNotificationPermissionModal(true);
+      if (!disposed && !allowed) {
+        try {
+          const message = await buildNotificationBlockedMessage();
+          if (!disposed) setNotificationBlockedMessage(message);
+        } catch {
+          if (!disposed) setNotificationBlockedMessage(DEFAULT_BLOCKED_MESSAGE);
+        }
+        setShowNotificationPermissionModal(true);
+      }
     };
     void checkReminderPermission();
     const onVisibilityChange = () => {
@@ -89,7 +110,7 @@ const MainApp: React.FC = () => {
       <ConfirmationModal
         isOpen={showNotificationPermissionModal}
         title="Notifications are blocked"
-        message="Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications. Tap Try Again to request permission. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app."
+        message={notificationBlockedMessage}
         confirmLabel="Try Again"
         cancelLabel="Not Now"
         secondaryLabel="Open Notification Settings"
@@ -100,6 +121,12 @@ const MainApp: React.FC = () => {
           if (granted) {
             setShowNotificationPermissionModal(false);
             void syncStoredGameReminders(true);
+          } else {
+            try {
+              setNotificationBlockedMessage(await buildNotificationBlockedMessage());
+            } catch {
+              setNotificationBlockedMessage(DEFAULT_BLOCKED_MESSAGE);
+            }
           }
         }}
       />
