@@ -80,7 +80,7 @@ const CustomNumberInput: React.FC<{
   );
 };
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'scoring' | 'displayTheme' | 'players' | 'data';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -1462,46 +1462,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]/40">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">
-                    <Bell className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-                    Game Reminders
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
-                    Allow scheduled notifications for upcoming games. Reminders are handled by Android; Dugout Pulse does not need to keep running in the background.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.gameRemindersEnabled === true}
-                  aria-label="Enable notifications for all game reminders"
-                  onClick={async () => {
-                    if (settings.gameRemindersEnabled === true) {
-                      updateSettings({ gameRemindersEnabled: false });
-                      setStatusMessage({ text: 'Game reminders disabled. Scheduled reminders have been cancelled.', isError: false });
-                      return;
-                    }
-                    const granted = await requestGameNotificationPermission();
-                    if (!granted) {
-                      setStatusMessage({ text: 'Allow notifications in the installed Android app to enable game reminders.', isError: true });
-                      return;
-                    }
-                    updateSettings({ gameRemindersEnabled: true });
-                    setStatusMessage({ text: 'Game reminders enabled. Games with a selected reminder will be scheduled.', isError: false });
-                  }}
-                  className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
-                >
-                  <span className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform ${settings.gameRemindersEnabled === true ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-              <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                Individual reminder times are selected when adding or editing each game. Only games with a reminder selected will notify you.
-              </p>
-            </div>
+            
 
+              </div>
+            )}
+
+            {settingsSection === 'notifications' && (
+              <div className="space-y-6">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]/40">
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">
+                                    <Bell className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
+                                    Game Reminders
+                                  </h3>
+                                  <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
+                                    Allow scheduled notifications for upcoming games. Reminders are handled by Android; Dugout Pulse does not need to keep running in the background.
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={settings.gameRemindersEnabled === true}
+                                  aria-label="Enable notifications for all game reminders"
+                                  onClick={async () => {
+                                    if (settings.gameRemindersEnabled === true) {
+                                      updateSettings({ gameRemindersEnabled: false });
+                                      setStatusMessage({ text: 'Game reminders disabled. Scheduled reminders have been cancelled.', isError: false });
+                                      return;
+                                    }
+                                    const granted = await requestGameNotificationPermission();
+                                    if (!granted) {
+                                      setStatusMessage({ text: 'Allow notifications in the installed Android app to enable game reminders.', isError: true });
+                                      return;
+                                    }
+                                    updateSettings({ gameRemindersEnabled: true });
+                                    setStatusMessage({ text: 'Game reminders enabled. Games with a selected reminder will be scheduled.', isError: false });
+                                  }}
+                                  className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
+                                >
+                                  <span className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform ${settings.gameRemindersEnabled === true ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                              <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
+                                Individual reminder times are selected when adding or editing each game. Only games with a reminder selected will notify you.
+                              </p>
+                            </div>
               </div>
             )}
 
