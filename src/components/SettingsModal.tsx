@@ -28,6 +28,7 @@ import {
   Palette,
   ListOrdered,
   Bell,
+  MapPin,
 } from 'lucide-react';
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
@@ -90,7 +91,7 @@ const CustomNumberInput: React.FC<{
   );
 };
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -163,6 +164,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newSeasonInput, setNewSeasonInput] = useState('');
   const [newTournamentInput, setNewTournamentInput] = useState('');
   const [newAgeGroupInput, setNewAgeGroupInput] = useState('');
+  const [newVenueInput, setNewVenueInput] = useState('');
 
   // Teams management state
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -1302,6 +1304,84 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
+              </div>
+            )}
+
+            {settingsSection === 'venue' && (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+                    <MapPin className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
+                    Venues
+                  </h3>
+                  <p className="mb-4 text-xs text-slate-500 dark:text-[#9CA3AF]">
+                    Save the ballparks and fields where your team plays. You can manage this list here for use in game scheduling.
+                  </p>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const venue = newVenueInput.trim();
+                      if (!venue) return;
+                      const currentVenues = settings.venues || [];
+                      if (currentVenues.some((item) => item.toLowerCase() === venue.toLowerCase())) {
+                        setStatusMessage({ text: 'That venue is already in your list.', isError: true });
+                        return;
+                      }
+                      updateSettings({ venues: [...currentVenues, venue] });
+                      setNewVenueInput('');
+                      setStatusMessage({ text: `Venue "${venue}" added.`, isError: false });
+                    }}
+                    className="flex flex-col gap-2 sm:flex-row"
+                  >
+                    <input
+                      type="text"
+                      value={newVenueInput}
+                      onChange={(e) => setNewVenueInput(e.target.value)}
+                      placeholder="Venue or field name"
+                      aria-label="Venue or field name"
+                      className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newVenueInput.trim()}
+                      className="flex shrink-0 items-center justify-center gap-1 rounded-xl bg-[#00BFA5] px-3.5 py-2.5 text-xs font-semibold text-[#18212D] shadow-xs hover:bg-[#00AD96] disabled:opacity-50 dark:bg-[#00D7BC] dark:text-[#101419]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Venue
+                    </button>
+                  </form>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-[#9CA3AF]">
+                    Saved Venues ({(settings.venues || []).length})
+                  </div>
+                  {(settings.venues || []).length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-[#354050] dark:text-[#9CA3AF]">
+                      No venues saved yet. Add your first venue above.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(settings.venues || []).map((venue) => (
+                        <div key={venue} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/40">
+                          <MapPin className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                          <span className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{venue}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSettings({ venues: (settings.venues || []).filter((item) => item !== venue) });
+                              setStatusMessage({ text: `Venue "${venue}" removed.`, isError: false });
+                            }}
+                            aria-label={`Remove ${venue}`}
+                            title="Remove venue"
+                            className="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-[#FF5252]/15"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
