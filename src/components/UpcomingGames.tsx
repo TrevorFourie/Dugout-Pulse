@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
-import { syncGameReminders } from '../utils/gameNotifications';
+import { requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -19,6 +19,7 @@ interface ScheduledGame {
   venue?: string;
   notes?: string;
   reminderMinutes?: number;
+  reminderOptOut?: boolean;
 }
 
 interface OppositionTeam {
@@ -100,20 +101,30 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     }
   };
 
-  const toggleGameReminder = (game: ScheduledGame) => {
+  const toggleGameReminder = async (game: ScheduledGame) => {
     if (!game.time) {
       setMessage('Add a start time to this game before enabling its reminder.');
       return;
     }
-    const reminderMinutes = game.reminderMinutes ? 0 : 60;
-    persist(games.map((item) => item.id === game.id
-      ? { ...item, ...(reminderMinutes ? { reminderMinutes } : { reminderMinutes: undefined }) }
-      : item));
-    setMessage(reminderMinutes
-      ? (settings.gameRemindersEnabled === true
-        ? `Reminder enabled for ${game.opponent} (1 hour before).`
-        : `Reminder saved for ${game.opponent}. Enable game reminders in Settings to receive it.`)
-      : `Reminder disabled for ${game.opponent}.`);
+
+    const allGamesEnabled = settings.gameRemindersEnabled === true;
+    const currentlyEnabled = allGamesEnabled ? !game.reminderOptOut : Boolean(game.reminderMinutes);
+    if (!currentlyEnabled) {
+      const granted = await requestGameNotificationPermission();
+      if (!granted) {
+        setMessage('Allow notifications for Dugout Pulse in Android settings to receive game reminders.');
+        return;
+      }
+    }
+
+    persist(games.map((item) => {
+      if (item.id !== game.id) return item;
+      if (allGamesEnabled) {
+        return { ...item, reminderOptOut: currentlyEnabled ? true : false };
+      }
+      return { ...item, reminderMinutes: currentlyEnabled ? undefined : 60, reminderOptOut: false };
+    }));
+    // The bell itself reflects the choice; avoid success pop-ups for every tap.
   };
 
   const resetForm = () => {
@@ -162,6 +173,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       ...(venue.trim() ? { venue: venue.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(reminderMinutes ? { reminderMinutes } : {}),
+      ...(editingId && games.find((game) => game.id === editingId)?.reminderOptOut ? { reminderOptOut: true } : {}),
     };
     persist(editingId ? games.map((game) => game.id === editingId ? nextGame : game) : [...games, nextGame]);
     resetForm();
@@ -246,7 +258,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                 </select>
               </span>
               {!time && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a start time to schedule a reminder.</span>}
-              {time && settings.gameRemindersEnabled !== true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Enable game reminders in Settings for notifications to be delivered.</span>}
+              {time && settings.gameRemindersEnabled === true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">All games are reminded by default. Use the bell on a game to opt out.</span>}
+              {time && settings.gameRemindersEnabled !== true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">This game can have its own reminder even when all-game reminders are off.</span>}
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -305,9 +318,9 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       type="button"
                       onClick={() => toggleGameReminder(game)}
                       disabled={!game.time}
-                      aria-label={game.reminderMinutes ? `Disable reminder for ${game.opponent}` : `Enable reminder for ${game.opponent}`}
-                      title={!game.time ? 'Add a start time to enable a reminder' : game.reminderMinutes ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
-                      className={`rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${game.reminderMinutes ? 'bg-[#E6FBF8] text-[#007A6A] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]' : 'text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]'}`}
+                      aria-label={(settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? `Disable reminder for ${game.opponent}` : `Enable reminder for ${game.opponent}`}
+                      title={!game.time ? 'Add a start time to enable a reminder' : (settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
+                      className={`rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${(settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? 'bg-[#E6FBF8] text-[#007A6A] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]' : 'text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]'}`}
                     ><Bell className="h-3.5 w-3.5" /></button>
                     <button type="button" onClick={() => startEdit(game)} aria-label={`Edit game against ${game.opponent}`} title="Edit upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-3.5 w-3.5" /></button>
                     <button type="button" onClick={() => persist(games.filter((item) => item.id !== game.id))} aria-label={`Delete game against ${game.opponent}`} title="Delete upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-3.5 w-3.5" /></button>
