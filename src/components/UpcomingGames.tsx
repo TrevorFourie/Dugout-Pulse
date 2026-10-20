@@ -321,7 +321,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                   <div className="flex min-w-0 items-center gap-2">
                     {playerTeam?.logo && <img src={playerTeam.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
                     <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                      {playerTeamName || 'Player team'}
+                      {playerTeamName || 'Player team'} 
                     </p>
                   </div>
                   <div className="mt-2 flex items-start gap-3">
