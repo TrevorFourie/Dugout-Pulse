@@ -110,20 +110,10 @@ export const isRestrictedNotificationManufacturer = (manufacturer: string | null
  * IMPORTANT: Android / Capacitor cannot read Huawei's Privacy Manager switch.
  * This text is guidance only — it is not a live detection of that setting.
  */
-export const getOemNotificationHelpText = (manufacturer: string | null | undefined): string => {
-  if (isRestrictedNotificationManufacturer(manufacturer)) {
-    const brand = (manufacturer || 'your phone').replace(/^\w/, (c) => c.toUpperCase());
-    return (
-      `On ${brand} devices you MUST also check: Settings → Notifications → Privacy → Permissions Manager ` +
-      `(path may appear as Notifications & status bar → Privacy → Permissions manager) and set Notifications to Allow for Dugout Pulse. ` +
-      `The normal “Allow notifications” switch and this app’s status check can both say OK while Privacy Manager still blocks every reminder. ` +
-      `There is no Android API that can detect that Privacy Manager deny — use Send Test Notification to confirm delivery.`
-    );
-  }
+export const getOemNotificationHelpText = (_manufacturer: string | null | undefined): string => {
   return (
-    'If Allow notifications is already ON and reminders still do not appear, open Android Settings → Apps → Dugout Pulse → Notifications and confirm every category is allowed. ' +
-    'On Huawei / Honor also open Settings → Notifications → Privacy → Permissions Manager and allow Notifications for Dugout Pulse — that extra switch can block reminders while the normal toggle stays ON. ' +
-    'Use Send Test Notification; if it never appears, Privacy Manager (or another OEM block) is the likely cause.'
+    'If notifications are allowed but reminders do not appear, check the app notification categories, battery optimisation, app launch / auto-start settings, and any extra privacy or permissions manager on your phone. ' +
+    'Android does not provide a reliable way for this app to detect every manufacturer-specific restriction. Use Send Test Notification with the app fully closed to check actual delivery.'
   );
 };
 
