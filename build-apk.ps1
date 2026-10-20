@@ -129,10 +129,26 @@ if (-not (Test-Path $manifestPath)) {
     throw "AndroidManifest.xml was not found after Capacitor sync: $manifestPath"
 }
 $manifest = Get-Content -Path $manifestPath -Raw
+$manifestChanged = $false
+
+# Explicitly declare Android 13+ notification runtime permission in the final app
+# manifest. The generated Capacitor/plugin manifest must not be assumed to supply it.
+# Without this declaration, Android can omit the app's Notifications permission
+# from App info, while older Android permission checks may still say "granted".
+if ($manifest -notmatch 'android\.permission\.POST_NOTIFICATIONS') {
+    $manifest = $manifest -replace '(<manifest\b[^>]*>)', ('$1' + [Environment]::NewLine + '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />')
+    $manifestChanged = $true
+    Write-Host "Added POST_NOTIFICATIONS permission for Android 13+." -ForegroundColor Green
+}
+
 if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
     $manifest = $manifest -replace '(<manifest\b[^>]*>)', ('$1' + [Environment]::NewLine + '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />')
-    Set-Content -Path $manifestPath -Value $manifest -NoNewline
+    $manifestChanged = $true
     Write-Host "Added SCHEDULE_EXACT_ALARM permission for Android reminders." -ForegroundColor Green
+}
+
+if ($manifestChanged) {
+    Set-Content -Path $manifestPath -Value $manifest -NoNewline
 }
 
 Write-Host "Keeping Capacitor 7 Java 21 compatibility settings..." -ForegroundColor Cyan
