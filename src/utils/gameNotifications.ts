@@ -91,6 +91,15 @@ export const scheduleTestGameNotification = async (): Promise<void> => {
   });
 };
 
+export const checkGameNotificationPermission = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    return (await LocalNotifications.checkPermissions()).display === 'granted';
+  } catch {
+    return false;
+  }
+};
+
 export const requestGameNotificationPermission = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) return false;
   try {
