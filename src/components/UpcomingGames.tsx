@@ -48,13 +48,13 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const defaultPlayerTeam = playerTeams.find((team) => team.isDefault) || playerTeams[0];
   const [gameType, setGameType] = useState(defaultPlayerTeam?.tournament || allTournaments[0] || 'League');
   const gameTypes = useMemo(() => Array.from(new Set([...(allTournaments || []), ...playerTeams.map((team) => team.tournament).filter((value): value is string => Boolean(value?.trim()))])), [allTournaments, playerTeams]);
-  const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || '').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
+  const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
   const [games, setGames] = useState<ScheduledGame[]>(() => readJson(GAMES_KEY, []));
   const [teams, setTeams] = useState<OppositionTeam[]>(() => readJson(OPPOSITION_TEAMS_KEY, []));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
-  const [playerTeamId, setPlayerTeamId] = useState(defaultPlayerTeam?.id || '');
+  const [playerTeamId, setPlayerTeamId] = useState(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || '');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [isHome, setIsHome] = useState(true);
@@ -88,7 +88,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
     setOpponent('');
     const nextType = defaultPlayerTeam?.tournament || allTournaments[0] || 'League';
     setGameType(nextType);
-    setPlayerTeamId(playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
+    setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
     setDate('');
     setTime('');
     setIsHome(true);
@@ -103,7 +103,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
     const existingTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName);
     const nextType = game.gameType || existingTeam?.tournament || defaultPlayerTeam?.tournament || allTournaments[0] || 'League';
     setGameType(nextType);
-    setPlayerTeamId((existingTeam && (existingTeam.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase() ? existingTeam.id : undefined) || playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
+    setPlayerTeamId((existingTeam && (existingTeam.tournament || 'League').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase() ? existingTeam.id : undefined) || playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
     setDate(game.date);
     setTime(game.time || '');
     setIsHome(game.isHome);
@@ -150,7 +150,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
             <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{upcoming.length} scheduled {upcoming.length === 1 ? 'game' : 'games'}</p>
           </div>
         </div>
-        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
+        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{showForm ? 'Cancel' : 'Add Game'}
         </button>
       </div>
