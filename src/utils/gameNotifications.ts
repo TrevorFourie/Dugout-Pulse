@@ -39,23 +39,47 @@ const notificationIdFor = (gameId: string): number => {
 
 export interface GameNotificationDiagnostics {
   displayPermission: string;
+  systemNotificationsEnabled: boolean | null;
+  defaultChannelImportance: number | null;
   exactAlarmPermission: string;
   pendingReminderCount: number;
 }
 
+/** Check both the app-wide notification switch and the channel used by game reminders. */
+const getEffectiveNotificationEnablement = async (): Promise<{
+  enabled: boolean;
+  systemNotificationsEnabled: boolean;
+  defaultChannelImportance: number | null;
+}> => {
+  const [system, channelResult] = await Promise.all([
+    LocalNotifications.areEnabled(),
+    LocalNotifications.listChannels().catch(() => ({ channels: [] })),
+  ]);
+  const defaultChannel = channelResult.channels.find((channel) => channel.id === 'default');
+  const defaultChannelImportance = defaultChannel?.importance ?? null;
+  // Android IMPORTANCE_NONE is 0. A blocked default channel prevents game reminders
+  // even when the app-wide notification switch is enabled.
+  const channelEnabled = defaultChannelImportance === null || defaultChannelImportance > 0;
+  return {
+    enabled: system.value && channelEnabled,
+    systemNotificationsEnabled: system.value,
+    defaultChannelImportance,
+  };
+}
+
 export const getGameNotificationDiagnostics = async (): Promise<GameNotificationDiagnostics> => {
   if (!Capacitor.isNativePlatform()) {
-    return { displayPermission: 'not available in browser', exactAlarmPermission: 'not available in browser', pendingReminderCount: 0 };
+    return { displayPermission: 'not available in browser', systemNotificationsEnabled: null, defaultChannelImportance: null, exactAlarmPermission: 'not available in browser', pendingReminderCount: 0 };
   }
-  const [permission, enabled, pending] = await Promise.all([
+  const [permission, enablement, pending] = await Promise.all([
     LocalNotifications.checkPermissions(),
-    LocalNotifications.areEnabled(),
+    getEffectiveNotificationEnablement(),
     LocalNotifications.getPending(),
   ]);
   // On Android 12 and older, checkPermissions() can report "granted"
   // even when the user has disabled all notifications for this app in Android Settings.
   // areEnabled() checks the effective system-level notification setting.
-  const displayPermission = enabled.value ? permission.display : 'denied';
+  const displayPermission = enablement.enabled ? permission.display : 'denied';
   let exactAlarmPermission = 'not applicable';
   if (Capacitor.getPlatform() === 'android') {
     try {
@@ -66,6 +90,8 @@ export const getGameNotificationDiagnostics = async (): Promise<GameNotification
   }
   return {
     displayPermission,
+    systemNotificationsEnabled: enablement.systemNotificationsEnabled,
+    defaultChannelImportance: enablement.defaultChannelImportance,
     exactAlarmPermission,
     pendingReminderCount: pending.notifications.filter((item) => item.extra?.type === 'dugout-pulse-game-reminder').length,
   };
@@ -81,11 +107,11 @@ export const openExactAlarmSettings = async (): Promise<string> => {
 
 export const scheduleTestGameNotification = async (): Promise<void> => {
   if (!Capacitor.isNativePlatform()) throw new Error('Test notifications are only available in the installed Android app.');
-  const [permission, enabled] = await Promise.all([
+  const [permission, enablement] = await Promise.all([
     LocalNotifications.checkPermissions(),
-    LocalNotifications.areEnabled(),
+    getEffectiveNotificationEnablement(),
   ]);
-  if (permission.display !== 'granted' || !enabled.value) throw new Error('Android notifications are disabled for Dugout Pulse. Open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications first.');
+  if (permission.display !== 'granted' || !enablement.enabled) throw new Error('Android notifications are disabled for Dugout Pulse. Open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications first.');
   const id = 1_999_999_999;
   try { await LocalNotifications.cancel({ notifications: [{ id }] }); } catch { /* no previous test notification */ }
   await LocalNotifications.schedule({
@@ -102,11 +128,11 @@ export const scheduleTestGameNotification = async (): Promise<void> => {
 export const checkGameNotificationPermission = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) return false;
   try {
-    const [permission, enabled] = await Promise.all([
+    const [permission, enablement] = await Promise.all([
       LocalNotifications.checkPermissions(),
-      LocalNotifications.areEnabled(),
+      getEffectiveNotificationEnablement(),
     ]);
-    return permission.display === 'granted' && enabled.value;
+    return permission.display === 'granted' && enablement.enabled;
   } catch {
     return false;
   }
@@ -120,7 +146,7 @@ export const requestGameNotificationPermission = async (): Promise<boolean> => {
     if (permission.display !== 'granted') return false;
     // Runtime permission can be "granted" while the user has disabled notifications
     // globally for the app in Android Settings.
-    return (await LocalNotifications.areEnabled()).value;
+    return (await getEffectiveNotificationEnablement()).enabled;
   } catch {
     return false;
   }
@@ -159,11 +185,11 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
   }
 
   if (schedule.length) {
-    const [permission, enabled] = await Promise.all([
+    const [permission, enablement] = await Promise.all([
       LocalNotifications.checkPermissions(),
-      LocalNotifications.areEnabled(),
+      getEffectiveNotificationEnablement(),
     ]);
-    if (permission.display !== 'granted' || !enabled.value) {
+    if (permission.display !== 'granted' || !enablement.enabled) {
       localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify({}));
       return;
     }
