@@ -11,6 +11,7 @@ interface ScheduledGame {
   opponent: string;
   playerTeamId?: string;
   playerTeamName?: string;
+  gameType?: string;
   date: string;
   time?: string;
   isHome: boolean;
@@ -38,19 +39,22 @@ const readJson = <T,>(key: string, fallback: T): T => {
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
-  const { activeProfile } = useGame();
+  const { activeProfile, allTournaments } = useGame();
   const playerTeams = useMemo(() => {
     const savedTeams = activeProfile.teams || [];
     if (savedTeams.length) return savedTeams;
     return activeProfile.teamName ? [{ id: 'primary-team', name: activeProfile.teamName, isDefault: true, logo: undefined }] : [];
   }, [activeProfile.teams, activeProfile.teamName]);
   const defaultPlayerTeam = playerTeams.find((team) => team.isDefault) || playerTeams[0];
+  const [gameType, setGameType] = useState(defaultPlayerTeam?.tournament || allTournaments[0] || 'League');
+  const gameTypes = useMemo(() => Array.from(new Set([...(allTournaments || []), ...playerTeams.map((team) => team.tournament).filter((value): value is string => Boolean(value?.trim()))])), [allTournaments, playerTeams]);
+  const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || '').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
   const [games, setGames] = useState<ScheduledGame[]>(() => readJson(GAMES_KEY, []));
   const [teams, setTeams] = useState<OppositionTeam[]>(() => readJson(OPPOSITION_TEAMS_KEY, []));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
-  const [playerTeamId, setPlayerTeamId] = useState('');
+  const [playerTeamId, setPlayerTeamId] = useState(defaultPlayerTeam?.id || '');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [isHome, setIsHome] = useState(true);
@@ -82,7 +86,9 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const resetForm = () => {
     setEditingId(null);
     setOpponent('');
-    setPlayerTeamId(defaultPlayerTeam?.id || '');
+    const nextType = defaultPlayerTeam?.tournament || allTournaments[0] || 'League';
+    setGameType(nextType);
+    setPlayerTeamId(playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
     setDate('');
     setTime('');
     setIsHome(true);
@@ -94,7 +100,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
   const startEdit = (game: ScheduledGame) => {
     setEditingId(game.id);
     setOpponent(game.opponent);
-    setPlayerTeamId(game.playerTeamId || playerTeams.find((team) => team.name === game.playerTeamName)?.id || defaultPlayerTeam?.id || '');
+    const existingTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName);
+    const nextType = game.gameType || existingTeam?.tournament || defaultPlayerTeam?.tournament || allTournaments[0] || 'League';
+    setGameType(nextType);
+    setPlayerTeamId((existingTeam && (existingTeam.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase() ? existingTeam.id : undefined) || playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || '');
     setDate(game.date);
     setTime(game.time || '');
     setIsHome(game.isHome);
@@ -105,12 +114,13 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!opponent.trim() || !date) return;
-    const selectedPlayerTeam = playerTeams.find((team) => team.id === playerTeamId) || defaultPlayerTeam;
+    if (!opponent.trim() || !date || !gameType || !teamsForGameType.some((team) => team.id === playerTeamId)) return;
+    const selectedPlayerTeam = teamsForGameType.find((team) => team.id === playerTeamId);
     const nextGame: ScheduledGame = {
       id: editingId || `scheduled_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       opponent: opponent.trim(),
       ...(selectedPlayerTeam ? { playerTeamId: selectedPlayerTeam.id, playerTeamName: selectedPlayerTeam.name } : {}),
+      gameType,
       date,
       ...(time ? { time } : {}),
       isHome,
@@ -140,7 +150,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
             <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{upcoming.length} scheduled {upcoming.length === 1 ? 'game' : 'games'}</p>
           </div>
         </div>
-        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setPlayerTeamId(defaultPlayerTeam?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
+        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{showForm ? 'Cancel' : 'Add Game'}
         </button>
       </div>
@@ -148,11 +158,14 @@ export const UpcomingGames: React.FC<{ compact?: boolean }> = ({ compact = false
       {showForm && (
         <form onSubmit={save} className="space-y-3 border-b border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#1A2028]/70">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {playerTeams.length > 0 && <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Player's Team *
-              <ThemedDropdown<string> value={playerTeamId || undefined} onChange={(next) => setPlayerTeamId(next || '')} options={playerTeams.map((team) => ({ value: team.id, label: team.name }))} placeholder="Select player's team" allowClear={false} ariaLabel="Player's team for this game" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
-            </label>}
+            <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Type *
+              <ThemedDropdown<string> value={gameType || undefined} onChange={(next) => { const nextType = next || ''; setGameType(nextType); setPlayerTeamId(playerTeams.find((team) => (team.tournament || '').trim().toLocaleLowerCase() === nextType.trim().toLocaleLowerCase())?.id || ''); }} options={gameTypes.map((type) => ({ value: type, label: type }))} placeholder="Select game type" allowClear={false} ariaLabel="Game type" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
+            </label>
+            <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Player's Team *
+              <ThemedDropdown<string> value={playerTeamId || undefined} onChange={(next) => setPlayerTeamId(next || '')} options={teamsForGameType.map((team) => ({ value: team.id, label: team.name, logo: team.logo }))} placeholder="Select player's team" allowClear={false} ariaLabel="Player's team for this game" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
+            </label>
             <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Opposition Team *
-              <ThemedDropdown<string> value={opponent || undefined} onChange={(next) => setOpponent(next || '')} options={teams.map((team) => ({ value: team.name, label: team.name }))} placeholder="Select opposition team" allowClear={false} ariaLabel="Opposition team" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
+              <ThemedDropdown<string> value={opponent || undefined} onChange={(next) => setOpponent(next || '')} options={teams.map((team) => ({ value: team.name, label: team.name, logo: team.logo }))} placeholder="Select opposition team" allowClear={false} ariaLabel="Opposition team" className="mt-1 w-full" buttonClassName="!rounded-lg !py-2 !text-xs !font-normal" />
               <input required value={opponent} onChange={(e) => setOpponent(e.target.value)} placeholder="Or type opposition team" className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Date *
