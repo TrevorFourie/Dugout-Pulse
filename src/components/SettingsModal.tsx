@@ -430,7 +430,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               /* keep existing message */
             }
             setStatusMessage({
-              text: 'Notifications are still blocked. Allow them in your phone's notification settings, then try enabling Game Reminders again.',
+              text: "Notifications are still blocked. Allow them in your phone's notification settings, then try enabling Game Reminders again.",
               isError: true,
             });
             return;
