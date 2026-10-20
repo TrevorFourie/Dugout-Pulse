@@ -52,7 +52,16 @@ foreach ($candidate in $javaCandidates) {
     foreach ($found in $foundPaths) {
         $javaExe = Join-Path $found.FullName "bin\java.exe"
         if (-not (Test-Path $javaExe)) { continue }
-        $versionOutput = (& $javaExe -version 2>&1 | Out-String)
+        # Windows PowerShell 5.1 treats Java's normal stderr version output as
+        # NativeCommandError when ErrorActionPreference is Stop. Temporarily allow
+        # that output; validate the actual version text below instead.
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $versionOutput = (& $javaExe -version 2>&1 | Out-String)
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
         if ($versionOutput -match 'version "21([."]|$)' -or $versionOutput -match 'openjdk 21') {
             $selectedJavaHome = $found.FullName
             break
