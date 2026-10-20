@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
 import { requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
+import { ConfirmationModal } from './ConfirmationModal';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -65,6 +66,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [notes, setNotes] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState(0);
   const [message, setMessage] = useState('');
+  const [permissionPromptGame, setPermissionPromptGame] = useState<ScheduledGame | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     if (!currentlyEnabled) {
       const granted = await requestGameNotificationPermission();
       if (!granted) {
-        setMessage('Allow notifications for Dugout Pulse in Android settings to receive game reminders.');
+        setPermissionPromptGame(game);
         return;
       }
     }
@@ -209,6 +211,25 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   };
 
   return (
+    <>
+    <ConfirmationModal
+      isOpen={Boolean(permissionPromptGame)}
+      title="Allow game notifications"
+      message="Dugout Pulse needs Android notification permission to send this game reminder. Tap Try Again to show the permission request. If Android no longer shows the request, open your phone's Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here."
+      confirmLabel="Try Again"
+      cancelLabel="Not Now"
+      onCancel={() => setPermissionPromptGame(null)}
+      onConfirm={async () => {
+        const target = permissionPromptGame;
+        const granted = await requestGameNotificationPermission();
+        if (!granted) {
+          setMessage('Notifications are still blocked. Allow them in Android Settings, then tap the game bell again.');
+          return;
+        }
+        setPermissionPromptGame(null);
+        if (target) await toggleGameReminder(target);
+      }}
+    />
     <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-[#354050] dark:bg-[#252D38]">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-[#354050]">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -333,5 +354,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
         {message && <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-[#D4626D]">{message}</p>}
       </div>
     </section>
+    </>
   );
 };
