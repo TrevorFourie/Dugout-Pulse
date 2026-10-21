@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SplashScreen } from '@capacitor/splash-screen';
+import mobileSplashSrc from '../splash-source/splash-mobile.png';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -94,11 +95,18 @@ const MainApp: React.FC = () => {
   if (isLoading) {
     return (
       <div
-        className="h-full w-full flex items-center justify-center overflow-hidden"
-        style={{ backgroundColor: '#121923', color: '#FAFAFA' }}
+        className="fixed inset-0 h-full w-full overflow-hidden"
+        style={{ backgroundColor: '#121923' }}
         aria-label="Loading Dugout Pulse"
       >
-        <AppLogo variant="logo" className="w-40 h-40 object-contain" />
+        <img
+          src={mobileSplashSrc}
+          alt="Dugout Pulse"
+          className="block h-full w-full object-cover"
+          fetchPriority="high"
+          decoding="sync"
+          draggable={false}
+        />
       </div>
     );
   }
