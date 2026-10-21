@@ -298,6 +298,28 @@ $launchStyle = @'
 '@
 $styles = $styles.Replace($match.Value, $launchStyle)
 Set-Content -LiteralPath $stylesPath -Value $styles -Encoding UTF8
+
+# Android 12+ prefers values-v31 resources over values/styles.xml. Apply the same
+# launch theme there so Android 12–14 use the Dugout Pulse splash icon.
+$stylesV31Dir = Join-Path $androidRes "values-v31"
+if (-not (Test-Path $stylesV31Dir)) {
+    New-Item -ItemType Directory -Path $stylesV31Dir -Force | Out-Null
+}
+$stylesV31Path = Join-Path $stylesV31Dir "styles.xml"
+if (Test-Path $stylesV31Path) {
+    $stylesV31 = Get-Content -LiteralPath $stylesV31Path -Raw
+} else {
+    $stylesV31 = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n<resources>`r`n</resources>`r`n"
+}
+$matchV31 = [regex]::Match($stylesV31, $pattern)
+if ($matchV31.Success) {
+    $stylesV31 = $stylesV31.Replace($matchV31.Value, $launchStyle)
+} elseif ($stylesV31 -match '</resources>') {
+    $stylesV31 = $stylesV31 -replace '</resources>', ($launchStyle + [Environment]::NewLine + '</resources>')
+} else {
+    throw "Could not add launch theme to $stylesV31Path"
+}
+Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 Write-Host "Android launcher icons and splash resources generated." -ForegroundColor Green
 
 
