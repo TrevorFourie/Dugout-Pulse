@@ -1,6 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import mobileSplashImage from '../splash-source/splash-mobile.png';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -20,35 +18,6 @@ import { StartGamePicker } from './components/StartGamePicker';
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
-  const [showMobileSplash, setShowMobileSplash] = useState(() => Capacitor.isNativePlatform());
-  const [mobileSplashReady, setMobileSplashReady] = useState(false);
-
-  useEffect(() => {
-    if (!showMobileSplash) return;
-    let cancelled = false;
-    const image = new Image();
-    image.src = mobileSplashImage;
-    const revealSplash = async () => {
-      try {
-        if (typeof image.decode === 'function') await image.decode();
-        else if (!image.complete) {
-          await new Promise<void>((resolve, reject) => {
-            image.onload = () => resolve();
-            image.onerror = () => reject(new Error('Mobile splash image failed to load'));
-          });
-        }
-        if (!cancelled) {
-          setMobileSplashReady(true);
-          window.setTimeout(() => setShowMobileSplash(false), 1800);
-        }
-      } catch {
-        if (!cancelled) setShowMobileSplash(false);
-      }
-    };
-    void revealSplash();
-    return () => { cancelled = true; };
-  }, [showMobileSplash]);
-
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
     if (resumePromptPending && liveGame) {
@@ -140,11 +109,6 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
-      {showMobileSplash && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#121923]" aria-label="Dugout Pulse splash screen">
-          {mobileSplashReady && <img src={mobileSplashImage} alt="Dugout Pulse" className="h-full w-full object-cover" />}
-        </div>
-      )}
       <NotificationBlockedModal
         isOpen={showBlocked}
         onClose={() => {
