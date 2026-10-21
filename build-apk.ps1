@@ -547,7 +547,14 @@ if ($noActionBarV31Match.Success) {
     Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 }
 
-foreach ($themeFile in @($stylesPath, $stylesV31Path)) {
+# Validate the main theme file and validate values-v31 only if that file exists.
+# A v31 file is optional: this script may create the directory and keep its XML in memory
+# without needing a separate styles.xml when the generated project has no v31 overrides.
+$themeFilesToValidate = @($stylesPath)
+if (Test-Path -LiteralPath $stylesV31Path) {
+    $themeFilesToValidate += $stylesV31Path
+}
+foreach ($themeFile in $themeFilesToValidate) {
     $themeText = Get-Content -LiteralPath $themeFile -Raw
     if ($themeText -notmatch 'name="AppTheme\.NoActionBarLaunch"') {
         throw "Launch theme is missing from $themeFile"
