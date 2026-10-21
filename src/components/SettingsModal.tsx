@@ -27,23 +27,12 @@ import {
   ImagePlus,
   Palette,
   ListOrdered,
-  Bell,
   MapPin,
 } from 'lucide-react';
 import { ValueCombobox } from './ValueCombobox';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
-import {
-  buildNotificationBlockedMessage,
-  checkGameNotificationPermission,
-  getGameNotificationDiagnostics,
-  GameNotificationDiagnostics,
-  openAppNotificationSettings,
-  openExactAlarmSettings,
-  requestGameNotificationPermission,
-  scheduleTestGameNotification,
-  syncStoredGameReminders,
-} from '../utils/gameNotifications';
+import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -152,11 +141,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newDefaultLineupSpot, setNewDefaultLineupSpot] = useState<number | undefined>(undefined);
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
-  const [notificationPermissionMessage, setNotificationPermissionMessage] = useState(
-    'Game reminders need notification permission. Tap Try Again to request it. If no permission prompt appears, open Settings → Apps → Dugout Pulse → Notifications and allow notifications. Some phones also have an extra privacy or permissions screen that can block delivery even when the main switch is on.',
-  );
-  const [notificationDiagnostics, setNotificationDiagnostics] = useState<GameNotificationDiagnostics | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   // Presets management state (Tournaments, Seasons, Age Groups)
@@ -416,35 +400,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <>
-      <ConfirmationModal
-        isOpen={showNotificationPermissionModal}
-        title="Allow game notifications"
-        message={notificationPermissionMessage}
-        confirmLabel="Try Again"
-        cancelLabel="Not Now"
-        secondaryLabel="Open Notification Settings"
-        onSecondary={() => { void openAppNotificationSettings(); }}
-        onCancel={() => setShowNotificationPermissionModal(false)}
-        onConfirm={async () => {
-          const granted = await requestGameNotificationPermission();
-          if (!granted) {
-            try {
-              setNotificationPermissionMessage(await buildNotificationBlockedMessage());
-            } catch {
-              /* keep existing message */
-            }
-            setStatusMessage({
-              text: "Notifications are still blocked. Allow them in your phone's notification settings, then try enabling Game Reminders again.",
-              isError: true,
-            });
-            return;
-          }
-          setShowNotificationPermissionModal(false);
-          updateSettings({ gameRemindersEnabled: true });
-          void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Permission was granted, but reminders could not be scheduled. Please try again.', isError: true }));
-          setStatusMessage({ text: 'All upcoming games will send a reminder one hour before start unless you turn off that game’s bell.', isError: false });
-        }}
-      />
       <div className="h-full min-h-0 flex-1 flex flex-col bg-white dark:bg-[#1A2028]">
         <div className="relative h-full w-full min-w-0 max-h-full flex flex-col bg-white dark:bg-[#1A2028] overflow-hidden">
           {/* Header */}
@@ -1687,132 +1642,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {settingsSection === 'notifications' && (
-              <div className="space-y-6">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]/40">
-                              <div className="flex items-center justify-between gap-4">
-                                <div className="min-w-0">
-                                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">
-                                    <Bell className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" />
-                                    Game Reminders
-                                  </h3>
-                                  <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
-                                    Turn this on to receive reminders for every upcoming game. Turn it off to receive reminders only for games you enable individually with the bell icon. Android schedules reminders, so the app does not need to stay open.
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={settings.gameRemindersEnabled === true}
-                                  aria-label="Enable notifications for all game reminders"
-                                  onClick={async () => {
-                                    if (settings.gameRemindersEnabled === true) {
-                                      updateSettings({ gameRemindersEnabled: false });
-                                      void syncStoredGameReminders(false).catch(() => setStatusMessage({ text: 'Could not cancel every reminder. Check notification settings on your device.', isError: true }));
-                                      setStatusMessage({ text: 'All-game reminders are off. Individual game reminders remain available.', isError: false });
-                                      return;
-                                    }
-                                    const alreadyGranted = await checkGameNotificationPermission();
-                                    if (!alreadyGranted) {
-                                      try {
-                                        setNotificationPermissionMessage(await buildNotificationBlockedMessage());
-                                      } catch {
-                                        /* keep default */
-                                      }
-                                      setShowNotificationPermissionModal(true);
-                                      return;
-                                    }
-                                    const granted = await requestGameNotificationPermission();
-                                    if (!granted) {
-                                      try {
-                                        setNotificationPermissionMessage(await buildNotificationBlockedMessage());
-                                      } catch {
-                                        /* keep default */
-                                      }
-                                      setShowNotificationPermissionModal(true);
-                                      return;
-                                    }
-                                    updateSettings({ gameRemindersEnabled: true });
-                                    void syncStoredGameReminders(true).catch(() => setStatusMessage({ text: 'Reminders are enabled, but some could not be scheduled. Check notification permissions.', isError: true }));
-                                    setStatusMessage({ text: 'All upcoming games will send a reminder one hour before start unless you turn off that game’s bell.', isError: false });
-                                  }}
-                                  className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${settings.gameRemindersEnabled === true ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-300 dark:bg-[#354050]'}`}
-                                >
-                                  <span className={`h-5 w-5 rounded-full bg-white shadow-md transition-transform ${settings.gameRemindersEnabled === true ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
-                              </div>
-                              <p className="mt-3 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                                When this switch is on, every upcoming game is included by default; turn off a game's bell to exclude it. When off, only games with their bell enabled send a reminder. New games follow the same rule.
-                              </p>
-                              <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-[11px] leading-relaxed text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
-                                <p className="font-semibold text-slate-800 dark:text-[#FAFAFA]">If reminders don’t appear with the app closed</p>
-                                <p className="mt-1">
-                                  Some Android phones restrict apps after they are closed. Battery optimisation, app launch / auto-start controls, or an extra privacy / permissions screen can stop a scheduled reminder even when “Allow notifications” is on. Dugout Pulse does not need to stay open and does not run a continuous background process; the phone must allow a short wake at reminder time.
-                                </p>
-                                <ol className="mt-2 list-decimal space-y-1 pl-4">
-                                  <li>Apps → Dugout Pulse → Notifications → allow notifications and any relevant categories.</li>
-                                  <li>Apps → Dugout Pulse → Battery → choose Unrestricted / No restrictions / Don’t optimise, if available.</li>
-                                  <li>Battery / App launch / Startup management → allow auto-launch or background activity, if those options exist.</li>
-                                  <li>Check any Notifications → Privacy → Permissions manager (or similar) screen and allow notifications for Dugout Pulse.</li>
-                                  <li>Use <strong>Send Test Notification</strong>, fully close the app, and wait about 15–20 seconds.</li>
-                                </ol>
-                                <p className="mt-2 text-[10px] text-slate-500 dark:text-[#9CA3AF]">These extra controls are more common on some manufacturer Android versions (for example Huawei, Honor, Vivo, Xiaomi and Oppo). Menu names vary by phone.</p>
-                              </div>
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                <button type="button" onClick={async () => {
-                                  try {
-                                    const diagnostics = await getGameNotificationDiagnostics();
-                                    setNotificationDiagnostics(diagnostics);
-                                    setStatusMessage({ text: 'Notification status checked. Review the permission and pending reminder details below.', isError: false });
-                                  } catch (error) {
-                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not check notification status.', isError: true });
-                                  }
-                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
-                                  Check Notification Status
-                                </button>
-                                <button type="button" onClick={async () => {
-                                  try {
-                                    await scheduleTestGameNotification();
-                                    setStatusMessage({ text: 'Test notification scheduled for about 10 seconds from now. Leave the app fully closed for about 15–20 seconds. If nothing appears, the phone may be blocking delivery even if permission looks allowed.', isError: false });
-                                  } catch (error) {
-                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not schedule a test notification.', isError: true });
-                                  }
-                                }} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419]">
-                                  Send Test Notification
-                                </button>
-                                <button type="button" onClick={async () => {
-                                  await openAppNotificationSettings();
-                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
-                                  Open Notification Settings
-                                </button>
-                                <button type="button" onClick={async () => {
-                                  try {
-                                    const exact = await openExactAlarmSettings();
-                                    const diagnostics = await getGameNotificationDiagnostics();
-                                    setNotificationDiagnostics(diagnostics);
-                                    setStatusMessage({ text: exact === 'granted' ? 'Exact alarms are allowed. Return to Upcoming Games and save the reminder again.' : 'Android Alarms & reminders access is not yet allowed. Enable it in the screen Android opened, return here, then check status again.', isError: exact !== 'granted' });
-                                  } catch (error) {
-                                    setStatusMessage({ text: error instanceof Error ? error.message : 'Could not open exact alarm settings.', isError: true });
-                                  }
-                                }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
-                                  Check / Enable Alarms & Reminders
-                                </button>
-                              </div>
-                              {notificationDiagnostics && (
-                                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB] space-y-1">
-                                  <p>Notification permission: <strong>{notificationDiagnostics.displayPermission === 'granted' ? 'Allowed' : notificationDiagnostics.displayPermission === 'denied' ? 'Blocked — open notification settings' : notificationDiagnostics.displayPermission}</strong></p>
-                                  <p>Phone allows app notifications: <strong>{notificationDiagnostics.systemNotificationsEnabled === null ? 'Could not check' : notificationDiagnostics.systemNotificationsEnabled ? 'Yes' : 'No — check app notification settings'}</strong></p>
-                                  <p>Reminder notification channel: <strong>{notificationDiagnostics.defaultChannelImportance === null ? 'Could not verify' : notificationDiagnostics.defaultChannelImportance === 0 ? 'Blocked — enable the default notification channel' : 'Enabled'}</strong></p>
-                                  <p>Alarms & reminders access: <strong>{notificationDiagnostics.exactAlarmPermission === 'granted' ? 'Allowed' : notificationDiagnostics.exactAlarmPermission === 'denied' ? 'Not allowed' : notificationDiagnostics.exactAlarmPermission}</strong></p>
-                                  <p>Scheduled game reminders: <strong>{notificationDiagnostics.pendingReminderCount}</strong></p>
-                                  <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-[#9CA3AF]">
-                                    {notificationDiagnostics.oemHelpText}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-              </div>
-            )}
+            {settingsSection === 'notifications' && <NotificationsSettingsPanel />}
 
             {/* Player management */}
             {settingsSection === 'players' && (

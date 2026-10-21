@@ -12,7 +12,200 @@ export interface GameReminder {
 }
 
 const REMINDER_IDS_KEY = 'dugoutPulse.gameReminderIds.v1';
+const CHANNEL_ID = 'game-reminders';
+const TEST_ID_NOW = 2_100_000_001;
+const TEST_ID_LATER = 2_100_000_002;
+
 type ReminderIdMap = Record<string, number>;
+
+const isNative = () => Capacitor.isNativePlatform();
+const isAndroid = () => Capacitor.getPlatform() === 'android';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* -------------------------------------------------------------------------- */
+/* Channel                                                                     */
+/* -------------------------------------------------------------------------- */
+
+let channelReady = false;
+
+/**
+ * We own our channel instead of relying on the plugin's implicit "default" one.
+ * createChannel is a no-op for an existing channel, so the user's own channel
+ * settings are preserved.
+ */
+const ensureChannel = async (): Promise<void> => {
+  if (!isAndroid() || channelReady) return;
+  try {
+    await LocalNotifications.createChannel({
+      id: CHANNEL_ID,
+      name: 'Game reminders',
+      description: 'Reminders before upcoming games',
+      importance: 4,
+      visibility: 1,
+    });
+    channelReady = true;
+  } catch {
+    /* retry next time */
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* Permission / status                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** True when Android will actually let us post a notification right now. */
+const isDeliverable = async (): Promise<boolean> => {
+  await ensureChannel();
+  const [permission, system, channels] = await Promise.all([
+    LocalNotifications.checkPermissions(),
+    LocalNotifications.areEnabled(),
+    LocalNotifications.listChannels().catch(() => ({ channels: [] as { id: string; importance: number }[] })),
+  ]);
+  const channel = channels.channels.find((c) => c.id === CHANNEL_ID);
+  const channelOk = !channel || channel.importance === undefined || channel.importance > 0; // 0 = IMPORTANCE_NONE (blocked)
+  return permission.display === 'granted' && system.value && channelOk;
+};
+
+export const checkGameNotificationPermission = async (): Promise<boolean> => {
+  if (!isNative()) return false;
+  try {
+    return await isDeliverable();
+  } catch {
+    return false;
+  }
+};
+
+export const requestGameNotificationPermission = async (): Promise<boolean> => {
+  if (!isNative()) return false;
+  try {
+    await ensureChannel();
+    let permission = await LocalNotifications.checkPermissions();
+    if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
+    if (permission.display !== 'granted') return false;
+    return await isDeliverable();
+  } catch {
+    return false;
+  }
+};
+
+export type ReminderStatus = 'ok' | 'blocked' | 'late' | 'web';
+
+/**
+ * ok      - notifications allowed and exact alarms available
+ * blocked - Android notifications off (app switch or channel)
+ * late    - allowed, but "Alarms & reminders" is off so delivery may be delayed
+ * web     - not running as the installed app
+ */
+export const getReminderStatus = async (): Promise<ReminderStatus> => {
+  if (!isNative()) return 'web';
+  if (!(await checkGameNotificationPermission())) return 'blocked';
+  if (isAndroid()) {
+    try {
+      const { exact_alarm } = await LocalNotifications.checkExactNotificationSetting();
+      if (exact_alarm !== 'granted') return 'late';
+    } catch {
+      /* older Android: nothing to check */
+    }
+  }
+  return 'ok';
+};
+
+/* -------------------------------------------------------------------------- */
+/* Opening system settings                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Opens this app's notification settings page.
+ * Requires:  npm i capacitor-native-settings && npx cap sync android
+ * (A plain `intent:` URL assigned to window.location does not work inside a Capacitor WebView.)
+ */
+export const openAppNotificationSettings = async (): Promise<boolean> => {
+  if (!isAndroid()) return false;
+  try {
+    const { NativeSettings, AndroidSettings } = await import('capacitor-native-settings');
+    try {
+      await NativeSettings.openAndroid({ option: AndroidSettings.AppNotification });
+    } catch {
+      await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Opens the "Alarms & reminders" screen (Android 12+). */
+export const openExactAlarmSettings = async (): Promise<void> => {
+  if (!isAndroid()) return;
+  try {
+    await LocalNotifications.changeExactNotificationSetting();
+  } catch {
+    /* not supported on this Android version */
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* Test                                                                        */
+/* -------------------------------------------------------------------------- */
+
+export type TestOutcome =
+  | 'web'        // not the installed app
+  | 'blocked'    // Android notifications are off
+  | 'suppressed' // Android accepted the post but it never appeared (OEM-level block)
+  | 'shown';     // appeared; a second, delayed test (30s) has been scheduled
+
+/**
+ * Two-stage test:
+ *  1. Post a notification immediately, wait, and ask Android whether it is actually in the
+ *     notification shade. This catches blocks that accept the post but silently drop it.
+ *     (Best effort: vendor behaviour varies.)
+ *  2. If that worked, schedule a second one 30s out. If it arrives on time with the app closed,
+ *     background delivery works. If it only appears when the app is reopened, the phone is
+ *     stopping the app from waking up (battery / auto-launch).
+ */
+export const runNotificationTest = async (): Promise<TestOutcome> => {
+  if (!isNative()) return 'web';
+  if (!(await isDeliverable())) return 'blocked';
+
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: TEST_ID_NOW }, { id: TEST_ID_LATER }] });
+  } catch {
+    /* nothing to cancel */
+  }
+
+  await LocalNotifications.schedule({
+    notifications: [
+      { id: TEST_ID_NOW, title: 'Dugout Pulse', body: 'Test 1 of 2: notifications are showing.', channelId: CHANNEL_ID },
+    ],
+  });
+  await sleep(1500);
+
+  const { notifications } = await LocalNotifications.getDeliveredNotifications();
+  const mine = notifications.filter((n) => n.id === TEST_ID_NOW);
+  if (mine.length === 0) return 'suppressed';
+  try {
+    await LocalNotifications.removeDeliveredNotifications({ notifications: mine });
+  } catch {
+    /* harmless */
+  }
+
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: TEST_ID_LATER,
+        title: 'Dugout Pulse',
+        body: 'Test 2 of 2: background delivery works.',
+        channelId: CHANNEL_ID,
+        schedule: { at: new Date(Date.now() + 30_000), allowWhileIdle: true },
+      },
+    ],
+  });
+  return 'shown';
+};
+
+/* -------------------------------------------------------------------------- */
+/* Game reminders                                                              */
+/* -------------------------------------------------------------------------- */
 
 const readReminderIds = (): ReminderIdMap => {
   try {
@@ -37,250 +230,17 @@ const notificationIdFor = (gameId: string): number => {
   return 1_000_000_000 + (Math.abs(hash) % 1_000_000_000);
 };
 
-/** Manufacturers that commonly add an extra notification block outside the standard Android toggle. */
-const RESTRICTED_NOTIFICATION_MANUFACTURERS = new Set([
-  'huawei',
-  'honor',
-  'xiaomi',
-  'redmi',
-  'poco',
-  'oppo',
-  'vivo',
-  'realme',
-  'oneplus',
-  'meizu',
-]);
-
-/** Heuristic from userAgent / platform strings when Device plugin is unavailable. */
-const guessManufacturerFromEnvironment = (): string | null => {
-  try {
-    const haystack = [
-      typeof navigator !== 'undefined' ? navigator.userAgent : '',
-      typeof navigator !== 'undefined' ? navigator.vendor : '',
-      typeof navigator !== 'undefined' ? (navigator as Navigator & { userAgentData?: { brands?: { brand: string }[] } }).userAgentData?.brands?.map((b) => b.brand).join(' ') : '',
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    for (const token of RESTRICTED_NOTIFICATION_MANUFACTURERS) {
-      if (haystack.includes(token)) return token;
-    }
-    // Common Huawei/Honor WebView markers
-    if (/huawei|honor|hms|emui|harmony/.test(haystack)) return 'huawei';
-  } catch {
-    /* ignore */
-  }
-  return null;
-};
-
-/**
- * Best-effort manufacturer name (lowercase).
- * 1) @capacitor/device when installed and synced
- * 2) userAgent / WebView heuristics (works on many Huawei builds without the plugin)
- * Does not throw if the Device plugin is missing.
- */
-export const getDeviceManufacturer = async (): Promise<string | null> => {
-  if (!Capacitor.isNativePlatform()) return guessManufacturerFromEnvironment();
-
-  try {
-    const mod = await import('@capacitor/device');
-    const info = await mod.Device.getInfo();
-    const fromPlugin = (info.manufacturer || info.model || '').trim().toLowerCase();
-    if (fromPlugin) return fromPlugin;
-  } catch {
-    /* plugin not installed or failed — fall through */
-  }
-
-  return guessManufacturerFromEnvironment();
-};
-
-export const isRestrictedNotificationManufacturer = (manufacturer: string | null | undefined): boolean => {
-  if (!manufacturer) return false;
-  const m = manufacturer.toLowerCase();
-  for (const token of RESTRICTED_NOTIFICATION_MANUFACTURERS) {
-    if (m.includes(token)) return true;
-  }
-  return false;
-};
-
-/**
- * Extra steps for OEMs (especially Huawei/Honor) where Privacy → Permissions Manager
- * can deny notifications while the normal "Allow notifications" switch still reports ON.
- *
- * IMPORTANT: Android / Capacitor cannot read Huawei's Privacy Manager switch.
- * This text is guidance only — it is not a live detection of that setting.
- */
-export const getOemNotificationHelpText = (_manufacturer: string | null | undefined): string => {
-  return (
-    'If notifications are allowed but reminders do not appear, check the app notification categories, battery optimisation, app launch / auto-start settings, and any extra privacy or permissions manager on your phone. ' +
-    'Android does not provide a reliable way for this app to detect every manufacturer-specific restriction. Use Send Test Notification with the app fully closed to check actual delivery.'
-  );
-};
-
-export interface GameNotificationDiagnostics {
-  displayPermission: string;
-  systemNotificationsEnabled: boolean | null;
-  defaultChannelImportance: number | null;
-  exactAlarmPermission: string;
-  pendingReminderCount: number;
-  /** Lowercase manufacturer when available (e.g. "huawei"). */
-  manufacturer: string | null;
-  /** True when the device is known to have OEM-level notification blocks beyond the standard toggle. */
-  isRestrictedOem: boolean;
-  /** Ready-to-show guidance for the current device. */
-  oemHelpText: string;
-}
-
-/** Check both the app-wide notification switch and the channel used by game reminders. */
-const getEffectiveNotificationEnablement = async (): Promise<{
-  enabled: boolean;
-  systemNotificationsEnabled: boolean;
-  defaultChannelImportance: number | null;
-}> => {
-  const [system, channelResult] = await Promise.all([
-    LocalNotifications.areEnabled(),
-    LocalNotifications.listChannels().catch(() => ({ channels: [] })),
-  ]);
-  const defaultChannel = channelResult.channels.find((channel) => channel.id === 'default');
-  const defaultChannelImportance = defaultChannel?.importance ?? null;
-  // The Local Notifications plugin posts on its "default" channel unless a
-  // notification explicitly selects another one. Fail closed if that channel
-  // cannot be read: treating a missing channel as enabled can report "granted"
-  // even though the notification path has not been verified.
-  // Android IMPORTANCE_NONE is 0 and means the channel is blocked.
-  const channelEnabled = defaultChannelImportance !== null && defaultChannelImportance > 0;
-  return {
-    enabled: system.value && channelEnabled,
-    systemNotificationsEnabled: system.value,
-    defaultChannelImportance,
-  };
-};
-
-export const getGameNotificationDiagnostics = async (): Promise<GameNotificationDiagnostics> => {
-  if (!Capacitor.isNativePlatform()) {
-    return {
-      displayPermission: 'not available in browser',
-      systemNotificationsEnabled: null,
-      defaultChannelImportance: null,
-      exactAlarmPermission: 'not available in browser',
-      pendingReminderCount: 0,
-      manufacturer: null,
-      isRestrictedOem: false,
-      oemHelpText: getOemNotificationHelpText(null),
-    };
-  }
-
-  const [permission, enablement, pending, manufacturer] = await Promise.all([
-    LocalNotifications.checkPermissions(),
-    getEffectiveNotificationEnablement(),
-    LocalNotifications.getPending(),
-    getDeviceManufacturer(),
-  ]);
-
-  // On Android 12 and older, checkPermissions() can report "granted"
-  // even when the user has disabled all notifications for this app in Android Settings.
-  // areEnabled() checks the effective system-level notification setting.
-  const displayPermission = enablement.enabled ? permission.display : 'denied';
-  let exactAlarmPermission = 'not applicable';
-  if (Capacitor.getPlatform() === 'android') {
-    try {
-      exactAlarmPermission = (await LocalNotifications.checkExactNotificationSetting()).exact_alarm;
-    } catch {
-      exactAlarmPermission = 'check failed';
-    }
-  }
-
-  const isRestrictedOem = isRestrictedNotificationManufacturer(manufacturer);
-  return {
-    displayPermission,
-    systemNotificationsEnabled: enablement.systemNotificationsEnabled,
-    defaultChannelImportance: enablement.defaultChannelImportance,
-    exactAlarmPermission,
-    pendingReminderCount: pending.notifications.filter(
-      (item) => item.extra?.type === 'dugout-pulse-game-reminder',
-    ).length,
-    manufacturer,
-    isRestrictedOem,
-    oemHelpText: getOemNotificationHelpText(manufacturer),
-  };
-};
-
-export const openExactAlarmSettings = async (): Promise<string> => {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return 'not applicable';
-  const before = await LocalNotifications.checkExactNotificationSetting();
-  if (before.exact_alarm === 'granted') return 'granted';
-  await LocalNotifications.changeExactNotificationSetting();
-  return (await LocalNotifications.checkExactNotificationSetting()).exact_alarm;
-};
-
-export const scheduleTestGameNotification = async (): Promise<void> => {
-  if (!Capacitor.isNativePlatform()) {
-    throw new Error('Test notifications are only available in the installed Android app.');
-  }
-  const [permission, enablement] = await Promise.all([
-    LocalNotifications.checkPermissions(),
-    getEffectiveNotificationEnablement(),
-  ]);
-  if (permission.display !== 'granted' || !enablement.enabled) {
-    throw new Error(
-      'Android notifications are disabled for Dugout Pulse. Open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications first.',
-    );
-  }
-  const id = 1_999_999_999;
-  try {
-    await LocalNotifications.cancel({ notifications: [{ id }] });
-  } catch {
-    /* no previous test notification */
-  }
-  await LocalNotifications.schedule({
-    notifications: [
-      {
-        id,
-        title: 'Dugout Pulse test notification',
-        body: 'Notifications are reaching your phone. Game reminder scheduling can now be tested separately.',
-        schedule: { at: new Date(Date.now() + 10_000), allowWhileIdle: true },
-        extra: { type: 'dugout-pulse-test' },
-      },
-    ],
-  });
-};
-
-export const checkGameNotificationPermission = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform()) return false;
-  try {
-    const [permission, enablement] = await Promise.all([
-      LocalNotifications.checkPermissions(),
-      getEffectiveNotificationEnablement(),
-    ]);
-    return permission.display === 'granted' && enablement.enabled;
-  } catch {
-    return false;
-  }
-};
-
-export const requestGameNotificationPermission = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform()) return false;
-  try {
-    let permission = await LocalNotifications.checkPermissions();
-    if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
-    if (permission.display !== 'granted') return false;
-    // Runtime permission can be "granted" while the user has disabled notifications
-    // globally for the app in Android Settings.
-    return (await getEffectiveNotificationEnablement()).enabled;
-  } catch {
-    return false;
-  }
-};
-
 /** Keep native reminders aligned with saved upcoming games without a background process. */
 export const syncGameReminders = async (games: GameReminder[], enabled: boolean): Promise<void> => {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!isNative()) return;
+  await ensureChannel();
 
   const previousIds = readReminderIds();
   const nextIds: ReminderIdMap = {};
-  const schedule = games.flatMap((game) => {
-    // Master ON means every game is enabled unless explicitly opted out.
-    // Master OFF means only games individually selected for a reminder are enabled.
+
+  const notifications = games.flatMap((game) => {
+    // Master ON: every game is enabled unless explicitly opted out.
+    // Master OFF: only games individually given a reminder are enabled.
     if (enabled && game.reminderOptOut) return [];
     const reminderMinutes = enabled ? game.reminderMinutes || 60 : game.reminderMinutes;
     if (!reminderMinutes) return [];
@@ -288,13 +248,13 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
     if (!at) return [];
     const id = notificationIdFor(game.id);
     nextIds[game.id] = id;
-    const gameDate = new Date(`${game.date}T00:00:00`);
-    const weekday = gameDate.toLocaleDateString(undefined, { weekday: 'long' });
+    const weekday = new Date(`${game.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long' });
     return [
       {
         id,
         title: 'Upcoming game reminder',
         body: `Your team plays against ${game.opponent} on ${weekday} at ${game.time}. Remember to get ready!`,
+        channelId: CHANNEL_ID,
         schedule: { at, allowWhileIdle: true },
         extra: { type: 'dugout-pulse-game-reminder', gameId: game.id },
       },
@@ -310,56 +270,20 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
     }
   }
 
-  if (schedule.length) {
-    const [permission, enablement] = await Promise.all([
-      LocalNotifications.checkPermissions(),
-      getEffectiveNotificationEnablement(),
-    ]);
-    if (permission.display !== 'granted' || !enablement.enabled) {
+  if (notifications.length) {
+    if (!(await isDeliverable())) {
       localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify({}));
       return;
     }
-    await LocalNotifications.schedule({ notifications: schedule });
+    await LocalNotifications.schedule({ notifications });
   }
 
   localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify(nextIds));
 };
 
-/** Resync directly from device storage, including when the Upcoming Games screen is not mounted. */
+/** Resync straight from device storage, even when the Upcoming Games screen is not mounted. */
 export const syncStoredGameReminders = async (enabled: boolean): Promise<void> => {
-  try {
-    const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
-    const games = raw ? (JSON.parse(raw) as GameReminder[]) : [];
-    await syncGameReminders(Array.isArray(games) ? games : [], enabled);
-  } catch (error) {
-    throw error;
-  }
-};
-
-/** Open Android's per-application notification controls (including Huawei's Allow notifications switch). */
-export const openAppNotificationSettings = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return false;
-  try {
-    // Android resolves this intent to the installed app's notification settings page.
-    window.location.href =
-      'intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.trevor.dugoutpulse;end';
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-/**
- * Builds the full user-facing message for the "notifications blocked" confirmation modal.
- * Includes OEM-specific steps when the manufacturer is known (or always mentions Huawei-style Privacy Manager).
- */
-export const buildNotificationBlockedMessage = async (): Promise<string> => {
-  const manufacturer = await getDeviceManufacturer();
-  const oemText = getOemNotificationHelpText(manufacturer);
-  return (
-    'Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications.\n\n' +
-    '1. Tap Try Again to request permission.\n' +
-    '2. If Android does not show a permission prompt, open Android Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app.\n\n' +
-    oemText
-  );
+  const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
+  const games = raw ? (JSON.parse(raw) as GameReminder[]) : [];
+  await syncGameReminders(Array.isArray(games) ? games : [], enabled);
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -11,20 +11,8 @@ import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, Download, Bell, MapPin } from 'lucide-react';
 import { AppLogo } from './components/AppLogo';
-import {
-  buildNotificationBlockedMessage,
-  checkGameNotificationPermission,
-  openAppNotificationSettings,
-  requestGameNotificationPermission,
-  syncStoredGameReminders,
-} from './utils/gameNotifications';
-import { ConfirmationModal } from './components/ConfirmationModal';
-
-const DEFAULT_BLOCKED_MESSAGE =
-  'Game reminders are enabled, but Android is not allowing Dugout Pulse to post notifications.\n\n' +
-  '1. Tap Try Again to request permission.\n' +
-  '2. If Android does not show a permission prompt, open Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return to the app.\n\n' +
-  'If notifications appear allowed but reminders still do not arrive, check battery optimisation, app launch / auto-start controls, and any extra privacy or permissions screen on your phone. Some restrictions cannot be detected by the app.';
+import { checkGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
+import { NotificationBlockedModal } from './components/NotificationBlockedModal';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
@@ -44,33 +32,31 @@ const MainApp: React.FC = () => {
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
-  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
-  const [notificationBlockedMessage, setNotificationBlockedMessage] = useState(DEFAULT_BLOCKED_MESSAGE);
+  const [showBlocked, setShowBlocked] = useState(false);
+  const blockedDismissed = useRef(false);
 
-  // If reminders are enabled but Android blocks notifications, prompt on launch/return.
+  // If reminders are on but Android blocks notifications, ask once per app start.
+  // When the user returns from system settings, re-check and close the prompt if fixed.
   useEffect(() => {
+    if (settings.gameRemindersEnabled !== true) {
+      setShowBlocked(false);
+      return;
+    }
     let disposed = false;
-    const checkReminderPermission = async () => {
-      if (settings.gameRemindersEnabled !== true) return;
-      const allowed = await checkGameNotificationPermission();
-      if (!disposed && !allowed) {
-        try {
-          const message = await buildNotificationBlockedMessage();
-          if (!disposed) setNotificationBlockedMessage(message);
-        } catch {
-          if (!disposed) setNotificationBlockedMessage(DEFAULT_BLOCKED_MESSAGE);
-        }
-        setShowNotificationPermissionModal(true);
-      }
+    const check = async () => {
+      const ok = await checkGameNotificationPermission();
+      if (disposed) return;
+      if (ok) setShowBlocked(false);
+      else if (!blockedDismissed.current) setShowBlocked(true);
     };
-    void checkReminderPermission();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void checkReminderPermission();
+    void check();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check();
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       disposed = true;
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [settings.gameRemindersEnabled]);
 
@@ -79,7 +65,7 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     const syncReminders = () => {
       void syncStoredGameReminders(settings.gameRemindersEnabled === true).catch(() => {
-        // The Notifications settings panel exposes detailed diagnostics for recovery.
+        // The Notifications settings panel shows status and a test button for recovery.
       });
     };
     syncReminders();
@@ -107,27 +93,11 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
-      <ConfirmationModal
-        isOpen={showNotificationPermissionModal}
-        title="Notifications are blocked"
-        message={notificationBlockedMessage}
-        confirmLabel="Try Again"
-        cancelLabel="Not Now"
-        secondaryLabel="Open Notification Settings"
-        onSecondary={() => { void openAppNotificationSettings(); }}
-        onCancel={() => setShowNotificationPermissionModal(false)}
-        onConfirm={async () => {
-          const granted = await requestGameNotificationPermission();
-          if (granted) {
-            setShowNotificationPermissionModal(false);
-            void syncStoredGameReminders(true);
-          } else {
-            try {
-              setNotificationBlockedMessage(await buildNotificationBlockedMessage());
-            } catch {
-              setNotificationBlockedMessage(DEFAULT_BLOCKED_MESSAGE);
-            }
-          }
+      <NotificationBlockedModal
+        isOpen={showBlocked}
+        onClose={() => {
+          blockedDismissed.current = true;
+          setShowBlocked(false);
         }}
       />
       <>
