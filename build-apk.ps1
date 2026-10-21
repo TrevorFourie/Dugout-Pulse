@@ -324,14 +324,11 @@ foreach ($resDir in @(Get-ChildItem -LiteralPath $androidRes -Directory | Where-
 }
 
 # Launcher icons. Source: app-icon.png.
-#   Legacy icons (Android 7 and older, and launchers that ignore adaptive icons):
-#     48dp square at each density, plus a circle-clipped round variant.
-#   Adaptive icons (Android 8+): 108dp layers. Launchers mask the layer and only the
-#     centre 66dp is guaranteed visible, so the artwork is scaled into that safe zone.
+# Do not add a second circle/rounded-square frame around the supplied artwork.
+# Legacy icons use the source artwork edge-to-edge; Android/launcher handles the icon shape.
+# Adaptive icons use the same artwork as a foreground layer over the brand background.
 $densities = [ordered]@{ "mdpi" = 1.0; "hdpi" = 1.5; "xhdpi" = 2.0; "xxhdpi" = 3.0; "xxxhdpi" = 4.0 }
-# The launcher mask is circular, but the source artwork is square. Fit the full square
-# inside the inscribed circle instead of filling the 66dp safe-zone square.
-$adaptiveSafeZoneScale = 0.42
+$adaptiveSafeZoneScale = 0.60
 
 foreach ($density in $densities.Keys) {
     $multiplier = [double]$densities[$density]
@@ -339,14 +336,10 @@ foreach ($density in $densities.Keys) {
     $legacySize = [int][Math]::Round(48 * $multiplier)
     $adaptiveSize = [int][Math]::Round(108 * $multiplier)
 
-    # Keep legacy icons inside a circular launcher's visible area. The round icon
-    # is clipped to a circle, so drawing the source edge-to-edge cuts off artwork.
-    # Use the same dark brand colour behind the inset artwork to avoid transparent
-    # corners/edges on launchers that display the legacy square or round resource.
-    # Leave a wider margin for launchers that circular-mask the legacy round icon.
-    $legacyIconScale = 0.60
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -BackgroundHex "#121923"
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -Circle -BackgroundHex "#121923"
+    # Keep the supplied square artwork intact for legacy launchers. Do not shrink it
+    # into a second square and do not circle-crop it before Android applies its mask.
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
 }
 
