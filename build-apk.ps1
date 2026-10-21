@@ -674,7 +674,9 @@ public class SplashActivity extends Activity {
         }
         startActivity(next);
         finish();
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        // Keep the native splash-to-WebView handoff instantaneous; fading both
+        // activities can expose a dark/blank frame while the WebView first paints.
+        overridePendingTransition(0, 0);
     }
 
     @Override
