@@ -337,8 +337,13 @@ foreach ($density in $densities.Keys) {
     $legacySize = [int][Math]::Round(48 * $multiplier)
     $adaptiveSize = [int][Math]::Round(108 * $multiplier)
 
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Circle
+    # Keep legacy icons inside a circular launcher's visible area. The round icon
+    # is clipped to a circle, so drawing the source edge-to-edge cuts off artwork.
+    # Use the same dark brand colour behind the inset artwork to avoid transparent
+    # corners/edges on launchers that display the legacy square or round resource.
+    $legacyIconScale = 0.72
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -BackgroundHex "#121923"
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -Circle -BackgroundHex "#121923"
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
 }
 
