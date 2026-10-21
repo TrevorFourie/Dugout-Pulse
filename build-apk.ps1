@@ -526,9 +526,12 @@ if (-not $Release) {
     if ($badgingOutput -notmatch "application-label:'Dugout Pulse'") {
         throw "Final APK does not report the expected Dugout Pulse application label. Refusing to deliver it. Details: $badgingOutput"
     }
-    if ($badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi-v4/ic_launcher.png'" -and
+    # Adaptive launcher icons are reported by aapt as the XML resource path,
+    # not as the legacy density-specific PNG path. Accept either valid form.
+    if ($badgingOutput -notmatch "application-icon-160:'res/mipmap-anydpi-v26/ic_launcher.xml'" -and
+        $badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi-v4/ic_launcher.png'" -and
         $badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi/ic_launcher.png'") {
-        throw "Final APK does not expose the expected generated ic_launcher resource. Refusing to deliver it. Details: $badgingOutput"
+        throw "Final APK does not expose the expected generated launcher icon (adaptive XML or legacy PNG). Refusing to deliver it. Details: $badgingOutput"
     }
 
     # Inspect the final APK's compiled resource table as well; source files alone
