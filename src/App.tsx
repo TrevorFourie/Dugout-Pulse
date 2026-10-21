@@ -26,7 +26,20 @@ const MainApp: React.FC = () => {
   // has actually loaded in the WebView. Hiding it at React mount exposes the
   // Activity's plain background while the WebView paints, causing a blue blank
   // screen between Android's icon splash and the branded artwork.
+  const [splashArtworkReady, setSplashArtworkReady] = useState(false);
+  const [minimumSplashTimeElapsed, setMinimumSplashTimeElapsed] = useState(false);
+
+  // Do not let a fast localStorage restore reduce the branded splash to a flash.
+  // Keep the responsive artwork on screen for at least 1.2 seconds from mount.
+  useEffect(() => {
+    const minimumDisplay = window.setTimeout(() => {
+      setMinimumSplashTimeElapsed(true);
+    }, 1200);
+    return () => window.clearTimeout(minimumDisplay);
+  }, []);
+
   const hideNativeSplashAfterArtworkLoads = () => {
+    setSplashArtworkReady(true);
     void SplashScreen.hide().catch(() => {
       // The web preview has no native splash to dismiss.
     });
@@ -94,7 +107,7 @@ const MainApp: React.FC = () => {
   // Keep the complete app shell hidden until persisted data has loaded. Rendering
   // Navigation/dashboard first and replacing them after localStorage loads caused
   // visible startup movement and layout shifts on slower Android WebViews.
-  if (isLoading) {
+  if (isLoading || !splashArtworkReady || !minimumSplashTimeElapsed) {
     return (
       <div
         className="fixed inset-0 h-full w-full overflow-hidden"
