@@ -266,15 +266,24 @@ if (-not (Test-Path $valuesDir)) {
 }
 
 # Keep the adaptive-icon background color in colors.xml only.
-# Capacitor's generated ic_launcher_background.xml can duplicate this resource.
+# A freshly generated Capacitor Android project may not contain colors.xml, so
+# create a valid values resource file instead of failing on a missing optional file.
 $colorsPath = Join-Path $valuesDir "colors.xml"
-if (-not (Test-Path $colorsPath)) { throw "Android colors.xml was not generated: $colorsPath" }
-$colorsXml = Get-Content -LiteralPath $colorsPath -Raw
-if ($colorsXml -match '<color\s+name="ic_launcher_background"[^>]*>.*?</color>') {
-    $colorsXml = [regex]::Replace($colorsXml, '<color\s+name="ic_launcher_background"[^>]*>.*?</color>', '<color name="ic_launcher_background">#121923</color>')
-} elseif ($colorsXml -match '</resources>') {
-    $colorsXml = $colorsXml -replace '</resources>', ('    <color name="ic_launcher_background">#121923</color>' + [Environment]::NewLine + '</resources>')
-} else { throw "Could not add ic_launcher_background to $colorsPath" }
+if (Test-Path $colorsPath) {
+    $colorsXml = Get-Content -LiteralPath $colorsPath -Raw
+    if ($colorsXml -match '<color\s+name="ic_launcher_background"[^>]*>.*?</color>') {
+        $colorsXml = [regex]::Replace($colorsXml, '<color\s+name="ic_launcher_background"[^>]*>.*?</color>', '<color name="ic_launcher_background">#121923</color>')
+    } elseif ($colorsXml -match '</resources>') {
+        $colorsXml = $colorsXml -replace '</resources>', ('    <color name="ic_launcher_background">#121923</color>' + [Environment]::NewLine + '</resources>')
+    } else { throw "Could not add ic_launcher_background to existing $colorsPath" }
+} else {
+    $colorsXml = @'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#121923</color>
+</resources>
+'@
+}
 Set-Content -LiteralPath $colorsPath -Value $colorsXml -Encoding UTF8
 $duplicateBackgroundPath = Join-Path $valuesDir "ic_launcher_background.xml"
 if (Test-Path $duplicateBackgroundPath) { Remove-Item -LiteralPath $duplicateBackgroundPath -Force }
