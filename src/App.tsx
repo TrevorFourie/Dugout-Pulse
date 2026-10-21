@@ -22,15 +22,15 @@ import { StartGamePicker } from './components/StartGamePicker';
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
 
-  // Dismiss Android's native launch overlay as soon as React has mounted.
-  // While game data restores, the responsive branded splash below remains visible
-  // inside the WebView. Waiting for isLoading=false keeps Android's native splash
-  // (which is only a solid colour plus optional icon on Android 12+) over that image.
-  useEffect(() => {
+  // Keep Android's native launch screen in place until the branded splash image
+  // has actually loaded in the WebView. Hiding it at React mount exposes the
+  // Activity's plain background while the WebView paints, causing a blue blank
+  // screen between Android's icon splash and the branded artwork.
+  const hideNativeSplashAfterArtworkLoads = () => {
     void SplashScreen.hide().catch(() => {
       // The web preview has no native splash to dismiss.
     });
-  }, []);
+  };
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
@@ -110,6 +110,8 @@ const MainApp: React.FC = () => {
             className="block h-full w-full object-cover landscape:object-contain"
             fetchPriority="high"
             decoding="sync"
+            onLoad={hideNativeSplashAfterArtworkLoads}
+            onError={hideNativeSplashAfterArtworkLoads}
             draggable={false}
           />
         </picture>
