@@ -120,6 +120,12 @@ if (-not (Test-Path "android")) {
     npx cap add android
 }
 
+# Complete Capacitor's platform sync BEFORE generating the custom icon/splash
+# resources, so the generated artwork is the final version used by Gradle.
+Write-Host "Syncing Capacitor Android platform..." -ForegroundColor Cyan
+npx cap sync android
+if ($LASTEXITCODE -ne 0) { throw "Capacitor Android sync failed with exit code $LASTEXITCODE." }
+
 # Generate Dugout Pulse Android launcher icons and splash images.
 Write-Host "Generating Dugout Pulse Android icon and splash resources..." -ForegroundColor Cyan
 
@@ -278,9 +284,6 @@ $styles = $styles.Replace($match.Value, $launchStyle)
 Set-Content -LiteralPath $stylesPath -Value $styles -Encoding UTF8
 Write-Host "Android launcher icons and splash resources generated." -ForegroundColor Green
 
-
-Write-Host "Syncing Capacitor..." -ForegroundColor Cyan
-npx cap sync android
 
 # Exact game reminders need Android's Alarms & reminders permission on Android 12+.
 # Android is generated inside the isolated work directory, so ensure the permission
