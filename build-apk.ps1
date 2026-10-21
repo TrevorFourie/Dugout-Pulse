@@ -473,12 +473,13 @@ if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $
 #   2. AppTheme.NoActionBar gets the generated, device-matched splash artwork as its
 #      window background, so the artwork is already on screen when the system splash
 #      leaves, with no plain screen in between.
-$showSystemSplashIcon = $false
-if ($showSystemSplashIcon) { $systemSplashIcon = "@drawable/splash_icon" } else { $systemSplashIcon = "@drawable/splash_icon_blank" }
+# Show the brand mark on Android 12+ instead of an intentionally blank system splash.
+# The full responsive artwork is supplied by the launch window background and React splash.
+$showSystemSplashIcon = $true
+$systemSplashIcon = "@drawable/splash_icon"
 
+# Keep the native launch colour consistent with the app's configured brand background.
 $systemSplashBackground = "#121923"
-$edgeColorHex = Get-DugoutEdgeColorHex -Source $mobileSplash
-if ($edgeColorHex) { $systemSplashBackground = $edgeColorHex }
 Write-Host "System splash background colour: $systemSplashBackground" -ForegroundColor Cyan
 
 $blankIconXml = @'
@@ -623,10 +624,9 @@ if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
 
 # ---------------------------------------------------------------------------
 # Native splash handoff.
-# Use Capacitor's SplashScreen plugin and keep its native window visible until
-# React has restored persisted game data. Do not launch a separate SplashActivity
-# with a fixed timer: that timer can expire while the WebView is still blank.
-# The app calls SplashScreen.hide() when GameContext reports isLoading=false.
+# Keep Capacitor MainActivity as the launcher; do not add a separate SplashActivity
+# or fixed timer. React dismisses the Android overlay on mount, after which its
+# responsive, bundled splash artwork remains visible until persisted game data is ready.
 # ---------------------------------------------------------------------------
 
 # WebView background: always set it to the native splash edge colour, even if a

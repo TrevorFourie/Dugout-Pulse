@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SplashScreen } from '@capacitor/splash-screen';
 import mobileSplashSrc from '../splash-source/splash-mobile.png';
+import tabletSplashSrc from '../splash-source/splash-tablet.png';
+import largeSplashSrc from '../splash-source/splash-large.png';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -20,15 +22,15 @@ import { StartGamePicker } from './components/StartGamePicker';
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
 
-  // Keep the native launch splash above the WebView until persisted game data is
-  // ready. This prevents a blank WebView frame and avoids a second splash transition.
+  // Dismiss Android's native launch overlay as soon as React has mounted.
+  // While game data restores, the responsive branded splash below remains visible
+  // inside the WebView. Waiting for isLoading=false keeps Android's native splash
+  // (which is only a solid colour plus optional icon on Android 12+) over that image.
   useEffect(() => {
-    if (!isLoading) {
-      void SplashScreen.hide().catch(() => {
-        // The web preview has no native splash to dismiss.
-      });
-    }
-  }, [isLoading]);
+    void SplashScreen.hide().catch(() => {
+      // The web preview has no native splash to dismiss.
+    });
+  }, []);
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
@@ -99,14 +101,18 @@ const MainApp: React.FC = () => {
         style={{ backgroundColor: '#121923' }}
         aria-label="Loading Dugout Pulse"
       >
-        <img
-          src={mobileSplashSrc}
-          alt="Dugout Pulse"
-          className="block h-full w-full object-cover"
-          fetchPriority="high"
-          decoding="sync"
-          draggable={false}
-        />
+        <picture className="block h-full w-full">
+          <source media="(min-width: 1024px)" srcSet={largeSplashSrc} />
+          <source media="(min-width: 600px)" srcSet={tabletSplashSrc} />
+          <img
+            src={mobileSplashSrc}
+            alt="Dugout Pulse"
+            className="block h-full w-full object-cover landscape:object-contain"
+            fetchPriority="high"
+            decoding="sync"
+            draggable={false}
+          />
+        </picture>
       </div>
     );
   }
