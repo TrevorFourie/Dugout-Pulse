@@ -428,7 +428,8 @@ try {
     Pop-Location
 }
 
-$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
+# Include seconds so repeated builds cannot overwrite an earlier package filename within the same minute.
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $outputPackageName = "dugout-pulse-$buildType-$timestamp.aab"
 
 $src = "android\$packageSource"
@@ -500,6 +501,35 @@ if (-not $Release) {
 
     $whatsAppApk = Join-Path $OutDir "dugout-pulse-debug-$timestamp-whatsapp.apk"
     Copy-Item $universalApk $whatsAppApk -Force
+
+    # Verify the actual installable APK using Android SDK build-tools.
+    # Do not deliver an APK if the packaged manifest/icon entry is not as expected.
+    $aaptCandidates = @()
+    if ($env:ANDROID_HOME) {
+        $buildToolsRoot = Join-Path $env:ANDROID_HOME "build-tools"
+        if (Test-Path $buildToolsRoot) {
+            $aaptCandidates += Get-ChildItem -Path $buildToolsRoot -Directory |
+                Sort-Object { try { [version]$_.Name } catch { [version]"0.0" } } -Descending |
+                ForEach-Object { Join-Path $_.FullName "aapt.exe" }
+        }
+    }
+    $aaptPath = $aaptCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $aaptPath) {
+        throw "Cannot verify the final APK: aapt.exe was not found under Android SDK build-tools. Refusing to deliver an unverified APK."
+    }
+
+    $badgingOutput = (& $aaptPath dump badging $whatsAppApk 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cannot inspect the final APK with aapt. Refusing to deliver it. Details: $badgingOutput"
+    }
+    if ($badgingOutput -notmatch "application: label='Dugout Pulse'") {
+        throw "Final APK does not report the expected Dugout Pulse application label. Refusing to deliver it."
+    }
+    if ($badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi-v4/ic_launcher.png'" -and
+        $badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi/ic_launcher.png'") {
+        throw "Final APK does not expose the expected generated ic_launcher resource. Refusing to deliver it."
+    }
+    Write-Host "Verified final APK package label and launcher icon entry with Android aapt." -ForegroundColor Green
 
     # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
     # Set the actual Windows file timestamps after copying the APK to the output folder.
