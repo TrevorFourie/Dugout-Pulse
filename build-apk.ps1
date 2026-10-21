@@ -522,14 +522,38 @@ if (-not $Release) {
     if ($LASTEXITCODE -ne 0) {
         throw "Cannot inspect the final APK with aapt. Refusing to deliver it. Details: $badgingOutput"
     }
-    if ($badgingOutput -notmatch "application: label='Dugout Pulse'") {
-        throw "Final APK does not report the expected Dugout Pulse application label. Refusing to deliver it."
+    # aapt dump badging uses the key "application-label", not "application: label".
+    if ($badgingOutput -notmatch "application-label:'Dugout Pulse'") {
+        throw "Final APK does not report the expected Dugout Pulse application label. Refusing to deliver it. Details: $badgingOutput"
     }
     if ($badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi-v4/ic_launcher.png'" -and
         $badgingOutput -notmatch "application-icon-160:'res/mipmap-mdpi/ic_launcher.png'") {
-        throw "Final APK does not expose the expected generated ic_launcher resource. Refusing to deliver it."
+        throw "Final APK does not expose the expected generated ic_launcher resource. Refusing to deliver it. Details: $badgingOutput"
     }
-    Write-Host "Verified final APK package label and launcher icon entry with Android aapt." -ForegroundColor Green
+
+    # Inspect the final APK's compiled resource table as well; source files alone
+    # are not proof that the adaptive icon and its foreground made it into the APK.
+    $resourceOutput = (& $aaptPath dump resources $whatsAppApk 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cannot inspect the final APK resource table. Refusing to deliver it. Details: $resourceOutput"
+    }
+    foreach ($requiredResourceName in @("ic_launcher", "ic_launcher_round", "ic_launcher_foreground", "ic_launcher_background")) {
+        if ($resourceOutput -notmatch [regex]::Escape($requiredResourceName)) {
+            throw "Final APK resource table is missing '$requiredResourceName'. Refusing to deliver it."
+        }
+    }
+
+    # Verify the compiled manifest actually points to the generated launcher resources.
+    $manifestOutput = (& $aaptPath dump xmltree $whatsAppApk "AndroidManifest.xml" 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cannot inspect the final APK manifest. Refusing to deliver it. Details: $manifestOutput"
+    }
+    if ($manifestOutput -notmatch 'android:icon\(0x01010002\)=@0x[0-9a-fA-F]+' -or
+        $manifestOutput -notmatch 'android:roundIcon\(0x0101052c\)=@0x[0-9a-fA-F]+') {
+        throw "Final APK manifest does not contain both launcher icon references. Refusing to deliver it."
+    }
+
+    Write-Host "Verified final APK label, launcher icon entry, compiled icon resources, and manifest references." -ForegroundColor Green
 
     # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
     # Set the actual Windows file timestamps after copying the APK to the output folder.
