@@ -544,8 +544,13 @@ if ($noActionBarV31Match.Success) {
     $noActionBarV31Body = [regex]::Replace($noActionBarV31Match.Groups[2].Value, '\s*<item\s+name="android:windowBackground">[^<]*</item>', '')
     $noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
     $stylesV31 = $stylesV31.Replace($noActionBarV31Match.Value, $noActionBarV31New)
-    Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 }
+
+# Persist the v31 launch theme even when the generated Capacitor project did not
+# already contain values-v31/styles.xml. Otherwise the new theme exists only in
+# memory, Android falls back to values/styles.xml, and the intended v31 resources
+# are never actually applied on Android 12+.
+Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 
 # Validate the main theme file and validate values-v31 only if that file exists.
 # A v31 file is optional: this script may create the directory and keep its XML in memory
