@@ -102,8 +102,8 @@ const MainApp: React.FC = () => {
         aria-label="Loading Dugout Pulse"
       >
         <picture className="block h-full w-full">
-          <source media="(min-width: 1024px)" srcSet={largeSplashSrc} />
-          <source media="(min-width: 600px)" srcSet={tabletSplashSrc} />
+          <source media="(min-width: 1024px) and (min-height: 600px)" srcSet={largeSplashSrc} />
+          <source media="(min-width: 600px) and (min-height: 600px)" srcSet={tabletSplashSrc} />
           <img
             src={mobileSplashSrc}
             alt="Dugout Pulse"
