@@ -473,10 +473,11 @@ if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $
 #   2. AppTheme.NoActionBar gets the generated, device-matched splash artwork as its
 #      window background, so the artwork is already on screen when the system splash
 #      leaves, with no plain screen in between.
-# Show the brand mark on Android 12+ instead of an intentionally blank system splash.
-# The full responsive artwork is supplied by the launch window background and React splash.
-$showSystemSplashIcon = $true
-$systemSplashIcon = "@drawable/splash_icon"
+# Do not show a centred app icon on Android 12+. The full-screen, device-matched
+# splash artwork is the launch experience; use a transparent system icon during
+# the brief native handoff so the centred icon does not appear as a separate screen.
+$showSystemSplashIcon = $false
+$systemSplashIcon = "@drawable/splash_icon_blank"
 
 # Keep the native launch colour consistent with the app's configured brand background.
 $systemSplashBackground = "#121923"
