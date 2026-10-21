@@ -638,8 +638,9 @@ if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
 #      colour on screen for the whole WebView start-up.
 #   2. The activity window background (@drawable/splash, device-matched artwork),
 #      seen through the transparent WebView while the web app loads. The page stays
-#      transparent and renders nothing until stored data has loaded (index.html,
-#      App.tsx), so there is no second, web-drawn splash.
+#      transparent and renders nothing until stored data has loaded and the splash
+#      has been visible for at least 1.2 seconds (index.html, App.tsx), so there is
+#      no second, web-drawn splash.
 #   3. The app, which paints its own opaque background in its first frame.
 # ---------------------------------------------------------------------------
 

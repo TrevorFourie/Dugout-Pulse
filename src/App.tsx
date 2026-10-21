@@ -24,19 +24,26 @@ const MainApp: React.FC = () => {
 
   // On Android the full-screen splash artwork is the native launch window
   // background, visible through the transparent WebView from the first frame, so
-  // nothing has to load or wait before the app replaces it.
+  // there is no web splash image to wait for.
   const isNativeLaunch = Capacitor.isNativePlatform();
 
-  // Browser only: wait for the web splash image to load, and do not let a fast
-  // localStorage restore reduce it to a flash (at least 1.2 seconds from mount).
+  // Browser only: wait for the web splash image to load.
   const [splashArtworkReady, setSplashArtworkReady] = useState(isNativeLaunch);
-  const [minimumSplashTimeElapsed, setMinimumSplashTimeElapsed] = useState(isNativeLaunch);
+
+  // Do not let a fast localStorage restore reduce the splash to a flash: keep it
+  // on screen for at least 1.2 seconds. On Android the native artwork has been
+  // visible since the page started loading, so count from navigation start
+  // rather than from mount.
+  const [minimumSplashTimeElapsed, setMinimumSplashTimeElapsed] = useState(false);
 
   useEffect(() => {
-    if (isNativeLaunch) return;
+    const minimumDisplayMs = 1200;
+    const remainingMs = isNativeLaunch
+      ? Math.max(0, minimumDisplayMs - performance.now())
+      : minimumDisplayMs;
     const minimumDisplay = window.setTimeout(() => {
       setMinimumSplashTimeElapsed(true);
-    }, 1200);
+    }, remainingMs);
     return () => window.clearTimeout(minimumDisplay);
   }, [isNativeLaunch]);
 
