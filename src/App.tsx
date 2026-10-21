@@ -13,6 +13,7 @@ import { X, LayoutDashboard, UserPlus, Shield, Layers, Sliders, Palette, Users, 
 import { AppLogo } from './components/AppLogo';
 import { checkGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
 import { NotificationBlockedModal } from './components/NotificationBlockedModal';
+import { StartGamePicker } from './components/StartGamePicker';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
@@ -32,6 +33,7 @@ const MainApp: React.FC = () => {
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
+  const [isStartGamePickerOpen, setIsStartGamePickerOpen] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
   const blockedDismissed = useRef(false);
 
@@ -86,6 +88,21 @@ const MainApp: React.FC = () => {
     setActiveTab('settings');
   };
 
+  const handleStartGame = () => {
+    if (liveGame) {
+      setScoreView('score');
+      setActiveTab('score');
+      return;
+    }
+    setIsStartGamePickerOpen(true);
+  };
+
+  const handleLoadGameManually = () => {
+    setIsStartGamePickerOpen(false);
+    setScoreView('score');
+    setActiveTab('score');
+  };
+
   const handleOpenHelp = (mode?: PlayMode) => {
     if (mode) setHelpInitialMode(mode);
     setIsHelpOpen(true);
@@ -125,7 +142,7 @@ const MainApp: React.FC = () => {
         )}
         {activeTab === 'dashboard' && (
           <DashboardTab
-            onNavigateToScore={() => setActiveTab('score')}
+            onNavigateToScore={handleStartGame}
             onNavigateToStats={() => setActiveTab('stats')}
             onOpenHelp={() => handleOpenHelp('batting')}
             onOpenSettings={() => handleOpenSettings()}
@@ -222,6 +239,17 @@ const MainApp: React.FC = () => {
             </div>
           </aside>
         </div>
+
+      {isStartGamePickerOpen && (
+        <StartGamePicker
+          onClose={() => setIsStartGamePickerOpen(false)}
+          onLoadManually={handleLoadGameManually}
+          onGameSelected={() => {
+            setScoreView('score');
+            setActiveTab('score');
+          }}
+        />
+      )}
 
       <HelpModal
         isOpen={isHelpOpen}
