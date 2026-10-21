@@ -123,11 +123,12 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Building web assets..." -ForegroundColor Cyan
 npm run build
 
-npx cap sync
-
+# The isolated Android platform was removed above to eliminate stale native
+# configuration. Add it from the current Capacitor config, then sync it once.
 if (-not (Test-Path "android")) {
-    Write-Host "Adding Android platform..." -ForegroundColor Yellow
+    Write-Host "Adding fresh Android platform from capacitor.config.json..." -ForegroundColor Yellow
     npx cap add android
+    if ($LASTEXITCODE -ne 0) { throw "Capacitor failed to create the Android platform (exit code $LASTEXITCODE)." }
 }
 
 # Complete Capacitor's platform sync BEFORE generating the custom icon/splash
