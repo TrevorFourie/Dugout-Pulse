@@ -69,10 +69,10 @@ jobs:
           (& $aapt dump badging $apkPath 2>&1 | Out-String) | Add-Content -LiteralPath $reportPath
           "--- aapt manifest: launcher and splash theme references ---" | Add-Content -LiteralPath $reportPath
           $manifestDump = (& $aapt dump xmltree $apkPath AndroidManifest.xml 2>&1 | Out-String)
-          ($manifestDump -split "\n" | Select-String -Pattern 'MainActivity|SplashActivity|launchable-activity|theme|windowSplash|label|icon|roundIcon|splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
+          ($manifestDump -split [Environment]::NewLine | Select-String -Pattern 'MainActivity|SplashActivity|launchable-activity|theme|windowSplash|label|icon|roundIcon|splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
           "--- aapt compiled resources: splash and launcher icon references ---" | Add-Content -LiteralPath $reportPath
           $resourceDump = (& $aapt dump resources $apkPath 2>&1 | Out-String)
-          ($resourceDump -split "\n" | Select-String -Pattern 'windowSplashScreen|postSplashScreenTheme|splash|ic_launcher|AppTheme.NoActionBar|color/splash|drawable/splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
+          ($resourceDump -split [Environment]::NewLine | Select-String -Pattern 'windowSplashScreen|postSplashScreenTheme|splash|ic_launcher|AppTheme.NoActionBar|color/splash|drawable/splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
           Get-Content -LiteralPath $reportPath
       - name: Build and verify debug APK
         shell: pwsh
