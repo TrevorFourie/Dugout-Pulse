@@ -55,7 +55,8 @@ interface GameContextType {
       autoOutcome?: boolean;
       runnerFromBase?: 1 | 2 | 3;
       runnerToBase?: 1 | 2 | 3 | 4;
-      runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
+      runnerAdvanceCause?: Play['runnerAdvanceCause'];
+      droppedThirdStrikeSafe?: Play['droppedThirdStrikeSafe'];
       runnerOutReason?: RunnerOutReason;
       outReason?: Play['outReason'];
       errorType?: Play['errorType'];
@@ -1099,7 +1100,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         autoOutcome?: boolean;
         runnerFromBase?: 1 | 2 | 3;
         runnerToBase?: 1 | 2 | 3 | 4;
-        runnerAdvanceCause?: 'steal' | 'teammateHit' | 'balkPitchingError';
+        runnerAdvanceCause?: Play['runnerAdvanceCause'];
+      droppedThirdStrikeSafe?: Play['droppedThirdStrikeSafe'];
         runnerOutReason?: RunnerOutReason;
       outReason?: Play['outReason'];
         runnerSubNumber?: string;
@@ -1172,6 +1174,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           runnerFromBase: options?.runnerFromBase,
           runnerToBase: options?.runnerToBase,
           runnerAdvanceCause: options?.runnerAdvanceCause,
+          droppedThirdStrikeSafe: options?.droppedThirdStrikeSafe,
           runnerOutReason: options?.runnerOutReason,
           outReason: mode === 'batting' ? options?.outReason : undefined,
           runnerSubNumber: options?.runnerSubNumber,
