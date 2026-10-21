@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 /* Tailwind v4 defaults dark: to the OS setting. Use the .dark class so the Display Theme setting works. */
@@ -6,8 +5,8 @@
 
 /* Scoring-screen type: Barlow for text, Barlow Condensed for scoreboard numerals and play codes. */
 @theme {
-  --font-score: "Barlow", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Barlow Condensed", "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  --font-score: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
 
   /* Dark theme surfaces (Carbon Black / Graphite) */
   --color-charcoal-deepest: #101419;
