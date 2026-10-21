@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useGame } from '../context/GameContext';
+import backgroundImage from '../assets/Pitcher.png';
 import {
   calculateSeasonStats,
   formatRate,
@@ -110,7 +111,22 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* Hero Card */}
-      <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#18212D] dark:from-[#252D38] via-[#202B3A] dark:via-[#1A2028] to-[#121923] dark:to-[#101419] text-white p-5 sm:p-6 shadow-xl relative border border-slate-700/40">
+      <div
+        className="overflow-hidden rounded-2xl text-white p-5 sm:p-6 shadow-xl relative border border-slate-700/40"
+        style={{
+          backgroundImage: `
+            linear-gradient(
+              to bottom right,
+              rgba(24, 33, 45, 0.90),
+              rgba(32, 43, 58, 0.80),
+              rgba(18, 25, 35, 0.90)
+            ),
+            url(${backgroundImage})
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="space-y-1.5 max-w-md">
             {liveGame ? (
