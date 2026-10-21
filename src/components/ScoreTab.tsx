@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
+import backgroundImage from '../assets/ResumePlay.png';
 import {
   DefensivePosition,
   FieldingPlayCode,
@@ -2768,6 +2769,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             aria-modal="true"
             aria-labelledby="resume-game-title"
             className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
+        style={{
+          backgroundImage: `
+            linear-gradient(
+              to top right,
+              rgba(255, 255, 255, 0.40),
+              rgba(255, 255, 255, 0.9)
+            ),
+            url(${backgroundImage})
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
           >
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#00BFA5]/15 text-[#008F7C] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">
               <PlayIcon className="h-6 w-6" />
