@@ -120,6 +120,193 @@ if (-not (Test-Path "android")) {
     npx cap add android
 }
 
+# Generate Dugout Pulse Android launcher icons and splash images.
+Write-Host "Generating Dugout Pulse Android icon and splash resources..." -ForegroundColor Cyan
+
+Add-Type -AssemblyName System.Drawing
+
+$androidRes = Join-Path $WorkDir "android\app\src\main\res"
+$iconSource = Join-Path $WorkDir "splash-source\app-icon.png"
+$mobileSplash = Join-Path $WorkDir "splash-source\splash-mobile.png"
+$tabletSplash = Join-Path $WorkDir "splash-source\splash-tablet.png"
+
+foreach ($source in @($iconSource, $mobileSplash, $tabletSplash)) {
+    if (-not (Test-Path $source)) {
+        throw "Required image asset not found: $source"
+    }
+}
+
+function New-DugoutPng {
+    param (
+        [string]$Source,
+        [string]$Destination,
+        [int]$Size,
+        [bool]$AddPadding = $false
+    )
+
+    $inputImage = [System.Drawing.Image]::FromFile($Source)
+    $bitmap = New-Object System.Drawing.Bitmap($Size, $Size)
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+
+    try {
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+        $available = if ($AddPadding) {
+            [int]($Size * 0.68)
+        } else {
+            $Size
+        }
+
+        $scale = [Math]::Min(
+            $available / $inputImage.Width,
+            $available / $inputImage.Height
+        )
+
+        $width = [int][Math]::Round($inputImage.Width * $scale)
+        $height = [int][Math]::Round($inputImage.Height * $scale)
+        $x = [int](($Size - $width) / 2)
+        $y = [int](($Size - $height) / 2)
+
+        $graphics.DrawImage($inputImage, $x, $y, $width, $height)
+
+        $directory = Split-Path $Destination -Parent
+        if (-not (Test-Path $directory)) {
+            New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        }
+
+        $bitmap.Save($Destination, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        $inputImage.Dispose()
+    }
+}
+
+# Legacy launcher icons for all Android screen densities.
+$iconSizes = @{
+    "mipmap-mdpi"    = 48
+    "mipmap-hdpi"    = 72
+    "mipmap-xhdpi"   = 96
+    "mipmap-xxhdpi"  = 144
+    "mipmap-xxxhdpi" = 192
+}
+
+foreach ($folder in $iconSizes.Keys) {
+    $size = $iconSizes[$folder]
+    $folderPath = Join-Path $androidRes $folder
+
+    New-DugoutPng -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Size $size
+    New-DugoutPng -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Size $size
+}
+
+# Adaptive icons for Android 8 and newer.
+$drawableDir = Join-Path $androidRes "drawable-nodpi"
+if (-not (Test-Path $drawableDir)) {
+    New-Item -ItemType Directory -Path $drawableDir -Force | Out-Null
+}
+
+New-DugoutPng -Source $iconSource -Destination (Join-Path $drawableDir "ic_launcher_foreground.png") -Size 432 -AddPadding $true
+
+$adaptiveDir = Join-Path $androidRes "mipmap-anydpi-v26"
+if (-not (Test-Path $adaptiveDir)) {
+    New-Item -ItemType Directory -Path $adaptiveDir -Force | Out-Null
+}
+
+$adaptiveXml = @'
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+'@
+
+Set-Content -Path (Join-Path $adaptiveDir "ic_launcher.xml") -Value $adaptiveXml -Encoding UTF8
+Set-Content -Path (Join-Path $adaptiveDir "ic_launcher_round.xml") -Value $adaptiveXml -Encoding UTF8
+
+$valuesDir = Join-Path $androidRes "values"
+if (-not (Test-Path $valuesDir)) {
+    New-Item -ItemType Directory -Path $valuesDir -Force | Out-Null
+}
+
+# Update Capacitor's existing adaptive-icon background color.
+$backgroundColorPath = Join-Path $valuesDir "ic_launcher_background.xml"
+
+if (Test-Path $backgroundColorPath) {
+    $backgroundXml = Get-Content -Path $backgroundColorPath -Raw
+
+    if ($backgroundXml -match '<color\s+name="ic_launcher_background"') {
+        $backgroundXml = [regex]::Replace(
+            $backgroundXml,
+            '<color\s+name="ic_launcher_background"[^>]*>.*?</color>',
+            '<color name="ic_launcher_background">#121923</color>'
+        )
+    } elseif ($backgroundXml -match '</resources>') {
+        $backgroundXml = $backgroundXml -replace `
+            '</resources>',
+            '    <color name="ic_launcher_background">#121923</color>' +
+            [Environment]::NewLine + '</resources>'
+    } else {
+        throw "Could not update adaptive icon background: $backgroundColorPath"
+    }
+
+    Set-Content -Path $backgroundColorPath -Value $backgroundXml -Encoding UTF8
+} else {
+    $backgroundXml = @'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#121923</color>
+</resources>
+'@
+    Set-Content -Path $backgroundColorPath -Value $backgroundXml -Encoding UTF8
+}
+
+# Remove duplicate background color from Capacitor's generated resource file.
+$duplicateBackgroundPath = Join-Path $valuesDir "ic_launcher_background.xml"
+
+if (Test-Path $duplicateBackgroundPath) {
+    Remove-Item -LiteralPath $duplicateBackgroundPath -Force
+}
+
+# Connect the splash artwork to Capacitor's Android launch theme.
+Write-Host "Generating Dugout Pulse Android splash resources..." -ForegroundColor Cyan
+
+$splashResourceDir = Join-Path $androidRes "drawable-nodpi"
+if (-not (Test-Path $splashResourceDir)) {
+    New-Item -ItemType Directory -Path $splashResourceDir -Force | Out-Null
+}
+
+Copy-Item -LiteralPath $mobileSplash `
+    -Destination (Join-Path $splashResourceDir "splash.png") -Force
+
+$stylesPath = Join-Path $androidRes "values\styles.xml"
+if (-not (Test-Path $stylesPath)) {
+    throw "Capacitor launch theme not found: $stylesPath"
+}
+
+$styles = Get-Content -Path $stylesPath -Raw
+$pattern = '(?s)<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>.*?</style>'
+$match = [regex]::Match($styles, $pattern)
+
+if (-not $match.Success) {
+    throw "Could not find AppTheme.NoActionBarLaunch in $stylesPath"
+}
+
+$launchStyle = $match.Value
+if ($launchStyle -match '@drawable/splash') {
+    $updatedStyle = $launchStyle
+} else {
+    $updatedStyle = $launchStyle -replace '</style>', '        <item name="android:background">@drawable/splash</item>' + [Environment]::NewLine + '    </style>'
+    $styles = $styles.Replace($launchStyle, $updatedStyle)
+    Set-Content -Path $stylesPath -Value $styles -Encoding UTF8
+}
+
+Write-Host "Android launcher icons and splash resources generated." -ForegroundColor Green
+
+
 Write-Host "Syncing Capacitor..." -ForegroundColor Cyan
 npx cap sync android
 
