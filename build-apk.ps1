@@ -233,6 +233,10 @@ function Save-DugoutImage {
     $clipPath = $null
 
     try {
+        # FORCE the canvas resolution to match the input file's DPI precisely.
+        # This completely neutralizes Windows monitor scaling artifacts.
+        $bitmap.SetResolution($inputImage.HorizontalResolution, $inputImage.VerticalResolution)
+
         $graphics.Clear([System.Drawing.Color]::Transparent)
         if ($BackgroundHex) { $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml($BackgroundHex)) }
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
@@ -330,7 +334,6 @@ foreach ($resDir in @(Get-ChildItem -LiteralPath $androidRes -Directory | Where-
 # Legacy icons use the source artwork edge-to-edge; Android/launcher handles the icon shape.
 # Adaptive icons use the same artwork as a foreground layer over the brand background.
 $densities = [ordered]@{ "mdpi" = 1.0; "hdpi" = 1.5; "xhdpi" = 2.0; "xxhdpi" = 3.0; "xxxhdpi" = 4.0 }
-$adaptiveSafeZoneScale = 0.46
 
 foreach ($density in $densities.Keys) {
     $multiplier = [double]$densities[$density]
@@ -341,9 +344,12 @@ foreach ($density in $densities.Keys) {
     # Keep all important artwork inside the launcher mask's safe area. Do not clip
     # the round icon to a circle in the source bitmap: Android applies its own mask,
     # and pre-clipping the source cuts off artwork at the top, bottom and sides.
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale 0.72
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale 0.46
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale 1.0
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale 1.0
+    
+    # 2. For the Adaptive Foreground Layer, force it to run full bleed edge-to-edge (Scale 1.0)
+    # This ensures your dark teal background completely floods the Android circular mask window.
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale 1.0
 }
 
 $adaptiveDir = Join-Path $androidRes "mipmap-anydpi-v26"
