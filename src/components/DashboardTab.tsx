@@ -48,14 +48,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   }, [games, activeProfile.id]);
 
   if (isLoading) {
+    // Keep the first React frame visually aligned with the native splash while
+    // localStorage is read; do not flash a separate spinner screen on startup.
     return (
-      <div className="flex-1 flex items-center justify-center p-6 text-center">
-        <div className="space-y-3">
-          <div className="w-10 h-10 border-3 border-[#18212D] dark:border-[#354050] border-t-[#00BFA5] rounded-full animate-spin mx-auto" />
-          <p className="text-sm font-semibold text-slate-600 dark:text-[#9CA3AF]">
-            Loading your season…
-          </p>
-        </div>
+      <div
+        className="flex-1 min-h-0 flex items-center justify-center"
+        style={{ backgroundColor: '#121923' }}
+        aria-label="Loading Dugout Pulse"
+      >
+        <AppLogo variant="logo" className="w-40 h-40 object-contain" />
       </div>
     );
   }
