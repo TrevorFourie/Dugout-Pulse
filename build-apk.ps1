@@ -283,21 +283,25 @@ function Save-DugoutImage {
     }
 }
 
-# Average colour of the artwork's outer edge, as #RRGGBB. Returns $null for artwork
-# with transparency so the default colour below is kept.
+# Average colour of the artwork's outer edge, as #RRGGBB, read straight from the
+# original pixels. Returns $null for artwork with transparency so the default colour
+# below is kept. (Do not resample first: GDI+ bicubic scaling blends the border with
+# transparent pixels, which made every image look transparent and forced the blue
+# fallback colour into the system splash and the letterbox fill.)
 function Get-DugoutEdgeColorHex {
     param ([string]$Source)
 
-    $sourceImage = [System.Drawing.Image]::FromFile($Source)
-    $sample = New-Object System.Drawing.Bitmap(32, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    $sampleGraphics = [System.Drawing.Graphics]::FromImage($sample)
+    $sourceImage = New-Object System.Drawing.Bitmap($Source)
     try {
-        $sampleGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $sampleGraphics.DrawImage($sourceImage, 0, 0, 32, 32)
+        $lastX = $sourceImage.Width - 1
+        $lastY = $sourceImage.Height - 1
         $red = 0; $green = 0; $blue = 0; $count = 0; $transparent = $false
-        for ($i = 0; $i -lt 32; $i++) {
-            foreach ($point in @(@($i, 0), @($i, 31), @(0, $i), @(31, $i))) {
-                $pixel = $sample.GetPixel($point[0], $point[1])
+        $steps = 64
+        for ($i = 0; $i -le $steps; $i++) {
+            $x = [int][Math]::Round($lastX * $i / $steps)
+            $y = [int][Math]::Round($lastY * $i / $steps)
+            foreach ($point in @(@($x, 0), @($x, $lastY), @(0, $y), @($lastX, $y))) {
+                $pixel = $sourceImage.GetPixel($point[0], $point[1])
                 if ($pixel.A -lt 255) { $transparent = $true }
                 $red += $pixel.R; $green += $pixel.G; $blue += $pixel.B; $count++
             }
@@ -306,8 +310,6 @@ function Get-DugoutEdgeColorHex {
         return ("#{0:X2}{1:X2}{2:X2}" -f [int][Math]::Round($red / $count), [int][Math]::Round($green / $count), [int][Math]::Round($blue / $count))
     }
     finally {
-        $sampleGraphics.Dispose()
-        $sample.Dispose()
         $sourceImage.Dispose()
     }
 }
@@ -470,6 +472,7 @@ if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $
 #   1. System splash: use the edge colour sampled from the actual mobile splash artwork
 #      and a transparent icon, so Android's unavoidable system splash blends into the
 #      first full-screen artwork instead of flashing the unrelated blue app background.
+#      It is only shown until the activity's first frame (see "Native splash handoff").
 #   2. AppTheme.NoActionBar gets the generated, device-matched splash artwork as its
 #      window background, so the artwork is already on screen when the system splash
 #      leaves, with no plain screen in between.
@@ -628,28 +631,32 @@ if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
 # ---------------------------------------------------------------------------
 # Native splash handoff.
 # Keep Capacitor MainActivity as the launcher; do not add a separate SplashActivity
-# or fixed timer. React dismisses the Android overlay on mount, after which its
-# responsive, bundled splash artwork remains visible until persisted game data is ready.
+# or fixed timer. The launch sequence is:
+#   1. Android 12+ only: the mandatory system splash (edge colour, no icon) until the
+#      activity draws its first frame. The SplashScreen plugin must not hold it
+#      (capacitor.config.json: launchShowDuration 0); holding it kept this plain
+#      colour on screen for the whole WebView start-up.
+#   2. The activity window background (@drawable/splash, device-matched artwork),
+#      seen through the transparent WebView while the web app loads. The page stays
+#      transparent and renders nothing until stored data has loaded (index.html,
+#      App.tsx), so there is no second, web-drawn splash.
+#   3. The app, which paints its own opaque background in its first frame.
 # ---------------------------------------------------------------------------
 
-# WebView background: always set it to the native splash edge colour, even if a
-# generated Capacitor config already contains a different backgroundColor.
 $assetConfigPath = "android\app\src\main\assets\capacitor.config.json"
-if (Test-Path -LiteralPath $assetConfigPath) {
-    $assetConfigText = Get-Content -LiteralPath $assetConfigPath -Raw
-    $backgroundEntry = '"backgroundColor": "' + $systemSplashBackground + '"'
-    if ($assetConfigText -match '"backgroundColor"\s*:\s*"[^"]*"') {
-        $assetConfigText = [regex]::Replace($assetConfigText, '"backgroundColor"\s*:\s*"[^"]*"', $backgroundEntry, 1)
-    } elseif ($assetConfigText -match '^\s*\{\s*\}\s*$') {
-        $assetConfigText = '{ ' + $backgroundEntry + ' }'
-    } else {
-        $assetConfigText = ([regex]'^\s*\{').Replace($assetConfigText, '{ ' + $backgroundEntry + ',', 1)
-    }
-    [System.IO.File]::WriteAllText((Resolve-Path -LiteralPath $assetConfigPath).Path, $assetConfigText, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host "Set WebView background colour to $systemSplashBackground to prevent a white startup flash." -ForegroundColor Green
-} else {
-    throw "Generated capacitor.config.json was not found in android assets; cannot prevent a white WebView startup flash."
+if (-not (Test-Path -LiteralPath $assetConfigPath)) {
+    throw "Generated capacitor.config.json was not found in android assets; cannot verify the native splash handoff."
 }
+$assetConfig = Get-Content -LiteralPath $assetConfigPath -Raw | ConvertFrom-Json
+# Capacitor reads backgroundColor as #RRGGBBAA; fully transparent lets the native
+# splash artwork show through the WebView until the page paints the app.
+if ($assetConfig.backgroundColor -ne "#00000000") {
+    throw "Generated capacitor.config.json backgroundColor is '$($assetConfig.backgroundColor)', expected '#00000000' (transparent WebView over the native splash artwork). Check capacitor.config.json."
+}
+if ($assetConfig.plugins.SplashScreen.launchShowDuration -ne 0) {
+    throw "Generated capacitor.config.json SplashScreen.launchShowDuration must be 0 so the plugin does not hold the plain Android 12+ system splash over the native splash artwork."
+}
+Write-Host "Verified transparent WebView and unheld system splash for the native splash handoff." -ForegroundColor Green
 
 if ($manifestChanged) {
     Set-Content -Path $manifestPath -Value $manifest -NoNewline

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { SplashScreen } from '@capacitor/splash-screen';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import mobileSplashSrc from '../splash-source/splash-mobile.png';
 import tabletSplashSrc from '../splash-source/splash-tablet.png';
 import largeSplashSrc from '../splash-source/splash-large.png';
@@ -22,28 +22,33 @@ import { StartGamePicker } from './components/StartGamePicker';
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
 
-  // Keep Android's native launch screen in place until the branded splash image
-  // has actually loaded in the WebView. Hiding it at React mount exposes the
-  // Activity's plain background while the WebView paints, causing a blue blank
-  // screen between Android's icon splash and the branded artwork.
-  const [splashArtworkReady, setSplashArtworkReady] = useState(false);
-  const [minimumSplashTimeElapsed, setMinimumSplashTimeElapsed] = useState(false);
+  // On Android the full-screen splash artwork is the native launch window
+  // background, visible through the transparent WebView from the first frame, so
+  // nothing has to load or wait before the app replaces it.
+  const isNativeLaunch = Capacitor.isNativePlatform();
 
-  // Do not let a fast localStorage restore reduce the branded splash to a flash.
-  // Keep the responsive artwork on screen for at least 1.2 seconds from mount.
+  // Browser only: wait for the web splash image to load, and do not let a fast
+  // localStorage restore reduce it to a flash (at least 1.2 seconds from mount).
+  const [splashArtworkReady, setSplashArtworkReady] = useState(isNativeLaunch);
+  const [minimumSplashTimeElapsed, setMinimumSplashTimeElapsed] = useState(isNativeLaunch);
+
   useEffect(() => {
+    if (isNativeLaunch) return;
     const minimumDisplay = window.setTimeout(() => {
       setMinimumSplashTimeElapsed(true);
     }, 1200);
     return () => window.clearTimeout(minimumDisplay);
-  }, []);
+  }, [isNativeLaunch]);
 
-  const hideNativeSplashAfterArtworkLoads = () => {
-    setSplashArtworkReady(true);
-    void SplashScreen.hide().catch(() => {
-      // The web preview has no native splash to dismiss.
-    });
-  };
+  const markSplashArtworkReady = () => setSplashArtworkReady(true);
+
+  const showSplash = isLoading || !splashArtworkReady || !minimumSplashTimeElapsed;
+
+  // Make the page opaque again (index.html) in the same frame as the app's first
+  // paint, so the app directly replaces the native splash artwork.
+  useLayoutEffect(() => {
+    if (!showSplash) document.documentElement.classList.remove('native-launch');
+  }, [showSplash]);
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
@@ -107,7 +112,9 @@ const MainApp: React.FC = () => {
   // Keep the complete app shell hidden until persisted data has loaded. Rendering
   // Navigation/dashboard first and replacing them after localStorage loads caused
   // visible startup movement and layout shifts on slower Android WebViews.
-  if (isLoading || !splashArtworkReady || !minimumSplashTimeElapsed) {
+  if (showSplash) {
+    // Android: render nothing, so the native splash artwork stays visible.
+    if (isNativeLaunch) return null;
     return (
       <div
         className="fixed inset-0 h-full w-full overflow-hidden"
@@ -123,8 +130,8 @@ const MainApp: React.FC = () => {
             className="block h-full w-full object-cover landscape:object-contain"
             fetchPriority="high"
             decoding="sync"
-            onLoad={hideNativeSplashAfterArtworkLoads}
-            onError={hideNativeSplashAfterArtworkLoads}
+            onLoad={markSplashArtworkReady}
+            onError={markSplashArtworkReady}
             draggable={false}
           />
         </picture>

@@ -18,7 +18,16 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    
+    <style>
+      /* Android: keep the page transparent so the native full-screen splash (the
+         Activity window background) stays visible until the app has rendered. */
+      html.native-launch, html.native-launch body, html.native-launch #root { background-color: transparent !important; }
+    </style>
+    <script>
+      if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        document.documentElement.classList.add('native-launch');
+      }
+    </script>
   </head>
   <body style="margin:0;background-color:#121923;color:#FAFAFA;" class="h-full bg-[#F4F6F8] text-[#18212D] antialiased selection:bg-[#00BFA5] selection:text-[#18212D] dark:bg-[#101419] dark:text-[#E2E8F0]">
     <div id="root" class="h-full" style="min-height:100vh;background-color:#121923;"></div>

@@ -3,6 +3,7 @@
   "appName": "Dugout Pulse",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "backgroundColor": "#00000000",
   "server": {
     "androidScheme": "https",
     "cleartext": true
@@ -14,7 +15,7 @@
   },
   "plugins": {
     "SplashScreen": {
-      "launchAutoHide": false,
+      "launchShowDuration": 0,
       "backgroundColor": "#121923",
       "showSpinner": false
     }
