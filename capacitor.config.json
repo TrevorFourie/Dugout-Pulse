@@ -11,5 +11,12 @@
     "buildOptions": {
       "releaseType": "APK"
     }
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#121923",
+      "showSpinner": false
+    }
   }
 }
