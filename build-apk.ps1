@@ -9,6 +9,8 @@ $RepoRoot = $PSScriptRoot
 $PublishBase = "C:\Users\Trevor\Desktop\Other\Dugout-Pulse-Publish"
 $WorkDir = "$PublishBase\.work"
 $OutDir = "$PublishBase\Android-Package"
+# The application ID of the already-installed Dugout Pulse app. Never change this.
+$ExpectedApplicationId = "com.trevor.dugoutpulse"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " Dugout Pulse - Isolated Android Bundle  " -ForegroundColor Cyan
@@ -45,6 +47,17 @@ if ($LASTEXITCODE -gt 7) {
 }
 
 Set-Location $WorkDir
+
+# Application identity: the existing installed app is com.trevor.dugoutpulse. The build
+# stops if the staged config, or the generated Android project, would produce any other
+# application ID. Nothing here changes the ID; it only refuses to build a different one.
+$stagedConfigPath = Join-Path $WorkDir "capacitor.config.json"
+if (-not (Test-Path -LiteralPath $stagedConfigPath)) { throw "capacitor.config.json was not found in $WorkDir." }
+$stagedAppId = (Get-Content -LiteralPath $stagedConfigPath -Raw | ConvertFrom-Json).appId
+if ($stagedAppId -ne $ExpectedApplicationId) {
+    throw "capacitor.config.json appId is '$stagedAppId' but the existing Dugout Pulse application is '$ExpectedApplicationId'. Refusing to build an app with a different identity."
+}
+Write-Host "Application ID: $stagedAppId" -ForegroundColor Green
 
 # Capacitor 7 Android dependencies require JDK 21. Check common JDK and Android Studio
 # locations, including per-user installs and environment variables.
@@ -137,96 +150,197 @@ Write-Host "Syncing Capacitor Android platform..." -ForegroundColor Cyan
 npx cap sync android
 if ($LASTEXITCODE -ne 0) { throw "Capacitor Android sync failed with exit code $LASTEXITCODE." }
 
-# Generate Dugout Pulse Android launcher icons and splash images.
+# Confirm the generated Android project carries the same application ID, and has no
+# applicationIdSuffix (a suffix, e.g. ".debug", would make Android treat it as another app).
+$appGradlePath = Join-Path $WorkDir "android\app\build.gradle"
+if (Test-Path -LiteralPath $appGradlePath) {
+    $appGradle = Get-Content -LiteralPath $appGradlePath -Raw
+    $gradleAppId = [regex]::Match($appGradle, "(?m)^\s*applicationId\s*=?\s*[`"']([^`"']+)[`"']")
+    if ($gradleAppId.Success -and $gradleAppId.Groups[1].Value -ne $ExpectedApplicationId) {
+        throw "Generated android/app/build.gradle applicationId is '$($gradleAppId.Groups[1].Value)', expected '$ExpectedApplicationId'."
+    }
+    if ($appGradle -match "(?m)^\s*applicationIdSuffix\b") {
+        throw "Generated android/app/build.gradle sets an applicationIdSuffix, which would install as a different app."
+    }
+    if (-not $gradleAppId.Success) {
+        Write-Host "Could not read applicationId from build.gradle; the final APK package check will still be enforced." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "android\app\build.gradle not found for the identity check; the final APK package check will still be enforced." -ForegroundColor Yellow
+}
+
+# ---------------------------------------------------------------------------
+# Dugout Pulse launcher icon and splash generation.
+# The images in splash-source\ are the ORIGINAL artwork. They are only ever read;
+# every Android-specific size, crop and format below is generated from them during
+# the build, straight into the disposable .work\android project.
+# ---------------------------------------------------------------------------
 Write-Host "Generating Dugout Pulse Android icon and splash resources..." -ForegroundColor Cyan
 
 Add-Type -AssemblyName System.Drawing
 
 $androidRes = Join-Path $WorkDir "android\app\src\main\res"
-$iconSource = Join-Path $WorkDir "splash-source\app-icon.png"
-$mobileSplash = Join-Path $WorkDir "splash-source\splash-mobile.png"
-$tabletSplash = Join-Path $WorkDir "splash-source\splash-tablet.png"
+$sourceDir = Join-Path $WorkDir "splash-source"
+$iconSource = Join-Path $sourceDir "app-icon.png"
+$mobileSplash = Join-Path $sourceDir "splash-mobile.png"
+$tabletSplash = Join-Path $sourceDir "splash-tablet.png"
 
-foreach ($source in @($iconSource, $mobileSplash, $tabletSplash)) {
-    if (-not (Test-Path $source)) {
+# The large-screen splash original. If your file uses a different name, set it here
+# (file name only, inside splash-source\); otherwise common names are tried.
+$largeSplashName = $null
+$largeSplash = $null
+if ($largeSplashName) {
+    $largeSplash = Join-Path $sourceDir $largeSplashName
+} else {
+    foreach ($candidateName in @("splash-large.png", "splash-desktop.png", "splash-large-screen.png", "splash-largescreen.png", "splash-xlarge.png", "splash-wide.png")) {
+        $candidatePath = Join-Path $sourceDir $candidateName
+        if (Test-Path -LiteralPath $candidatePath) { $largeSplash = $candidatePath; break }
+    }
+}
+if (-not $largeSplash -or -not (Test-Path -LiteralPath $largeSplash)) {
+    $present = @(Get-ChildItem -LiteralPath $sourceDir -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) -join ", "
+    throw "Large-screen splash original not found in $sourceDir (files present: $present). Set `$largeSplashName in build-apk.ps1 to its file name."
+}
+
+foreach ($source in @($iconSource, $mobileSplash, $tabletSplash, $largeSplash)) {
+    if (-not (Test-Path -LiteralPath $source)) {
         throw "Required image asset not found: $source"
     }
 }
 
-function New-DugoutPng {
+# Resize one original into one Android resource PNG.
+#   Contain: whole image fits inside the target (icons).
+#   Cover:   image fills the whole target, overflow is cropped (full-screen splash).
+#   Scale:   fraction of the target the image may occupy (adaptive-icon safe zone).
+#   Circle:  clip to a circle (round launcher icon).
+function Save-DugoutImage {
     param (
         [string]$Source,
         [string]$Destination,
-        [int]$Size,
-        [bool]$AddPadding = $false
+        [int]$Width,
+        [int]$Height,
+        [ValidateSet("Contain", "Cover")][string]$Mode = "Contain",
+        [double]$Scale = 1.0,
+        [switch]$Circle,
+        [switch]$Jpeg,
+        [int]$JpegQuality = 82,
+        [string]$BackgroundHex = ""
     )
 
     $inputImage = [System.Drawing.Image]::FromFile($Source)
-    $bitmap = New-Object System.Drawing.Bitmap($Size, $Size)
+    $bitmap = New-Object System.Drawing.Bitmap($Width, $Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $clipPath = $null
 
     try {
         $graphics.Clear([System.Drawing.Color]::Transparent)
+        if ($BackgroundHex) { $graphics.Clear([System.Drawing.ColorTranslator]::FromHtml($BackgroundHex)) }
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
 
-        $available = if ($AddPadding) {
-            [int]($Size * 0.68)
-        } else {
-            $Size
+        if ($Circle) {
+            $clipPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+            $clipPath.AddEllipse(0, 0, $Width, $Height)
+            $graphics.SetClip($clipPath)
         }
 
-        $scale = [Math]::Min(
-            $available / $inputImage.Width,
-            $available / $inputImage.Height
-        )
+        $availableWidth = $Width * $Scale
+        $availableHeight = $Height * $Scale
+        $ratioX = $availableWidth / $inputImage.Width
+        $ratioY = $availableHeight / $inputImage.Height
+        if ($Mode -eq "Cover") { $ratio = [Math]::Max($ratioX, $ratioY) } else { $ratio = [Math]::Min($ratioX, $ratioY) }
 
-        $width = [int][Math]::Round($inputImage.Width * $scale)
-        $height = [int][Math]::Round($inputImage.Height * $scale)
-        $x = [int](($Size - $width) / 2)
-        $y = [int](($Size - $height) / 2)
+        $drawWidth = $inputImage.Width * $ratio
+        $drawHeight = $inputImage.Height * $ratio
+        $drawX = ($Width - $drawWidth) / 2
+        $drawY = ($Height - $drawHeight) / 2
 
-        $graphics.DrawImage($inputImage, $x, $y, $width, $height)
+        $graphics.DrawImage($inputImage, [single]$drawX, [single]$drawY, [single]$drawWidth, [single]$drawHeight)
 
         $directory = Split-Path $Destination -Parent
         if (-not (Test-Path $directory)) {
             New-Item -ItemType Directory -Path $directory -Force | Out-Null
         }
 
-        $bitmap.Save($Destination, [System.Drawing.Imaging.ImageFormat]::Png)
+        if ($Jpeg) {
+            # Full-screen splash images have no transparency, and JPEG is far smaller
+            # than PNG for artwork of this size. Android loads .jpg drawables natively.
+            $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq "image/jpeg" } | Select-Object -First 1
+            $encoderParams = New-Object System.Drawing.Imaging.EncoderParameters(1)
+            $encoderParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]$JpegQuality)
+            try { $bitmap.Save($Destination, $jpegCodec, $encoderParams) } finally { $encoderParams.Dispose() }
+        } else {
+            $bitmap.Save($Destination, [System.Drawing.Imaging.ImageFormat]::Png)
+        }
     }
     finally {
+        if ($clipPath) { $clipPath.Dispose() }
         $graphics.Dispose()
         $bitmap.Dispose()
         $inputImage.Dispose()
     }
 }
 
-# Legacy launcher icons for all Android screen densities.
-$iconSizes = @{
-    "mipmap-mdpi"    = 48
-    "mipmap-hdpi"    = 72
-    "mipmap-xhdpi"   = 96
-    "mipmap-xxhdpi"  = 144
-    "mipmap-xxxhdpi" = 192
+# Average colour of the artwork's outer edge, as #RRGGBB. Returns $null for artwork
+# with transparency so the default colour below is kept.
+function Get-DugoutEdgeColorHex {
+    param ([string]$Source)
+
+    $sourceImage = [System.Drawing.Image]::FromFile($Source)
+    $sample = New-Object System.Drawing.Bitmap(32, 32, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $sampleGraphics = [System.Drawing.Graphics]::FromImage($sample)
+    try {
+        $sampleGraphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $sampleGraphics.DrawImage($sourceImage, 0, 0, 32, 32)
+        $red = 0; $green = 0; $blue = 0; $count = 0; $transparent = $false
+        for ($i = 0; $i -lt 32; $i++) {
+            foreach ($point in @(@($i, 0), @($i, 31), @(0, $i), @(31, $i))) {
+                $pixel = $sample.GetPixel($point[0], $point[1])
+                if ($pixel.A -lt 255) { $transparent = $true }
+                $red += $pixel.R; $green += $pixel.G; $blue += $pixel.B; $count++
+            }
+        }
+        if ($transparent -or $count -eq 0) { return $null }
+        return ("#{0:X2}{1:X2}{2:X2}" -f [int][Math]::Round($red / $count), [int][Math]::Round($green / $count), [int][Math]::Round($blue / $count))
+    }
+    finally {
+        $sampleGraphics.Dispose()
+        $sample.Dispose()
+        $sourceImage.Dispose()
+    }
 }
 
-foreach ($folder in $iconSizes.Keys) {
-    $size = $iconSizes[$folder]
-    $folderPath = Join-Path $androidRes $folder
-
-    New-DugoutPng -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Size $size
-    New-DugoutPng -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Size $size
+# Remove Capacitor's template splash and launcher resources first. The template ships
+# density-specific splash.png / ic_launcher*.png files, plus drawable-v24 and
+# drawable XML icon layers. Android prefers the most specific matching qualifier, so
+# any of them left behind could override the Dugout Pulse resources generated below.
+$templateResourcePattern = '^(splash|splash_icon|ic_launcher.*)$'
+foreach ($resDir in @(Get-ChildItem -LiteralPath $androidRes -Directory | Where-Object { $_.Name -match '^(drawable|mipmap)' })) {
+    foreach ($templateFile in @(Get-ChildItem -LiteralPath $resDir.FullName -File | Where-Object { $_.BaseName -match $templateResourcePattern })) {
+        Remove-Item -LiteralPath $templateFile.FullName -Force
+    }
 }
 
-# Adaptive icons for Android 8 and newer.
-$drawableDir = Join-Path $androidRes "drawable-nodpi"
-if (-not (Test-Path $drawableDir)) {
-    New-Item -ItemType Directory -Path $drawableDir -Force | Out-Null
-}
+# Launcher icons. Source: app-icon.png.
+#   Legacy icons (Android 7 and older, and launchers that ignore adaptive icons):
+#     48dp square at each density, plus a circle-clipped round variant.
+#   Adaptive icons (Android 8+): 108dp layers. Launchers mask the layer and only the
+#     centre 66dp is guaranteed visible, so the artwork is scaled into that safe zone.
+$densities = [ordered]@{ "mdpi" = 1.0; "hdpi" = 1.5; "xhdpi" = 2.0; "xxhdpi" = 3.0; "xxxhdpi" = 4.0 }
+$adaptiveSafeZoneScale = 66.0 / 108.0
 
-New-DugoutPng -Source $iconSource -Destination (Join-Path $drawableDir "ic_launcher_foreground.png") -Size 432 -AddPadding $true
+foreach ($density in $densities.Keys) {
+    $multiplier = [double]$densities[$density]
+    $folderPath = Join-Path $androidRes "mipmap-$density"
+    $legacySize = [int][Math]::Round(48 * $multiplier)
+    $adaptiveSize = [int][Math]::Round(108 * $multiplier)
+
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Circle
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
+}
 
 $adaptiveDir = Join-Path $androidRes "mipmap-anydpi-v26"
 if (-not (Test-Path $adaptiveDir)) {
@@ -237,23 +351,24 @@ $adaptiveXml = @'
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
 '@
 
-Set-Content -Path (Join-Path $adaptiveDir "ic_launcher.xml") -Value $adaptiveXml -Encoding UTF8
-Set-Content -Path (Join-Path $adaptiveDir "ic_launcher_round.xml") -Value $adaptiveXml -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Join-Path $adaptiveDir "ic_launcher.xml"), $adaptiveXml, $utf8NoBom)
+[System.IO.File]::WriteAllText((Join-Path $adaptiveDir "ic_launcher_round.xml"), $adaptiveXml, $utf8NoBom)
 
 # Fail the build early if any launcher resource was not generated at the expected path.
 $requiredIconResources = @(
-    (Join-Path $androidRes "mipmap-mdpi\ic_launcher.png"),
-    (Join-Path $androidRes "mipmap-hdpi\ic_launcher.png"),
-    (Join-Path $androidRes "mipmap-xhdpi\ic_launcher.png"),
-    (Join-Path $androidRes "mipmap-xxhdpi\ic_launcher.png"),
-    (Join-Path $androidRes "mipmap-xxxhdpi\ic_launcher.png"),
     (Join-Path $adaptiveDir "ic_launcher.xml"),
-    (Join-Path $drawableDir "ic_launcher_foreground.png")
+    (Join-Path $adaptiveDir "ic_launcher_round.xml")
 )
+foreach ($density in $densities.Keys) {
+    foreach ($iconFile in @("ic_launcher.png", "ic_launcher_round.png", "ic_launcher_foreground.png")) {
+        $requiredIconResources += (Join-Path $androidRes "mipmap-$density\$iconFile")
+    }
+}
 $missingIconResources = @($requiredIconResources | Where-Object { -not (Test-Path $_) })
 if ($missingIconResources.Count -gt 0) {
     throw "Launcher icon generation is incomplete. Missing: $($missingIconResources -join ', ')"
@@ -290,16 +405,53 @@ if (Test-Path $duplicateBackgroundPath) { Remove-Item -LiteralPath $duplicateBac
 # Configure legacy splash artwork and the Android 12+ system splash screen.
 Write-Host "Generating Dugout Pulse Android splash resources..." -ForegroundColor Cyan
 
+# Android 11 and older use drawable/splash as the launch window background, so the
+# three original splash images are cropped (cover) into per-device-class resources.
+# Qualifiers: sw600dp = tablets, sw720dp = large screens, long = tall phones,
+# port/land = orientation. nodpi keeps Android from rescaling the generated pixels.
+# Anything not matched by a more specific folder falls back to drawable-nodpi\splash.jpg.
+#
+# APK size: every variant below ships inside the package, so they are kept modest
+# (JPEG, 720p-class phones, ~1200-1500px tablets) and the portrait fallback doubles as
+# the default phone portrait image instead of being duplicated.
+$splashTargets = @(
+    @{ Dir = "drawable-nodpi";                  Source = $mobileSplash; Width = 720;  Height = 1280; Mode = "Cover"   },
+    @{ Dir = "drawable-land-nodpi";             Source = $mobileSplash; Width = 1280; Height = 720;  Mode = "Contain" },
+    @{ Dir = "drawable-long-port-nodpi";        Source = $mobileSplash; Width = 720;  Height = 1600; Mode = "Cover"   },
+    @{ Dir = "drawable-long-land-nodpi";        Source = $mobileSplash; Width = 1600; Height = 720;  Mode = "Contain" },
+    @{ Dir = "drawable-sw600dp-port-nodpi";     Source = $tabletSplash; Width = 1200; Height = 1920; Mode = "Cover"   },
+    @{ Dir = "drawable-sw600dp-land-nodpi";     Source = $tabletSplash; Width = 1920; Height = 1200; Mode = "Contain" },
+    @{ Dir = "drawable-sw720dp-port-nodpi";     Source = $largeSplash;  Width = 1440; Height = 2304; Mode = "Contain" },
+    @{ Dir = "drawable-sw720dp-land-nodpi";     Source = $largeSplash;  Width = 2304; Height = 1440; Mode = "Contain" }
+)
+# Fit rules, chosen from the shape of the three originals (phone 1:2 portrait, tablet 3:4
+# portrait, large screen 1:1 square):
+#   Cover   - the artwork fills the screen; only used where the screen shape is close to
+#             the artwork's shape, so just a thin edge is trimmed.
+#   Contain - the whole artwork is kept, centred, and the remaining space is filled with
+#             the artwork's own edge colour (black), so nothing important is ever cropped
+#             (landscape screens, and the square large-screen art on any screen).
+$splashFillColors = @{}
 $splashResourceDir = Join-Path $androidRes "drawable-nodpi"
-if (-not (Test-Path $splashResourceDir)) { New-Item -ItemType Directory -Path $splashResourceDir -Force | Out-Null }
+foreach ($target in $splashTargets) {
+    if (-not $splashFillColors.ContainsKey($target.Source)) {
+        $fillColor = Get-DugoutEdgeColorHex -Source $target.Source
+        if (-not $fillColor) { $fillColor = "#121923" }
+        $splashFillColors[$target.Source] = $fillColor
+    }
+    $splashDestination = Join-Path (Join-Path $androidRes $target.Dir) "splash.jpg"
+    Save-DugoutImage -Source $target.Source -Destination $splashDestination -Width $target.Width -Height $target.Height -Mode $target.Mode -BackgroundHex $splashFillColors[$target.Source] -Jpeg
+}
 
-# Android 11 and older use the supplied splash image as the launch window background.
-Copy-Item -LiteralPath $mobileSplash `
-    -Destination (Join-Path $splashResourceDir "splash.png") -Force
+# Android 12-14 show a centred system splash icon on the splash background colour,
+# not a full-screen image. The icon sits inside a circular mask (about two thirds of
+# the canvas), so the artwork is scaled into that area.
+Save-DugoutImage -Source $iconSource -Destination (Join-Path $splashResourceDir "splash_icon.png") -Width 576 -Height 576 -Scale (2.0 / 3.0)
 
-# Android 12–14 show a centered system splash icon, not a full-screen image.
-# Generate it from source artwork during the build; do not commit generated PNGs.
-New-DugoutPng -Source $iconSource -Destination (Join-Path $splashResourceDir "splash_icon.png") -Size 288 -AddPadding $true
+$missingSplashResources = @($splashTargets | ForEach-Object { Join-Path (Join-Path $androidRes $_.Dir) "splash.jpg" } | Where-Object { -not (Test-Path $_) })
+if ($missingSplashResources.Count -gt 0) {
+    throw "Splash generation is incomplete. Missing: $($missingSplashResources -join ', ')"
+}
 
 $stylesPath = Join-Path $androidRes "values\styles.xml"
 if (-not (Test-Path $stylesPath)) { throw "Capacitor launch theme not found: $stylesPath" }
@@ -308,15 +460,55 @@ $pattern = '(?s)<style\s+name="AppTheme\.NoActionBarLaunch"[^>]*>.*?</style>'
 $match = [regex]::Match($styles, $pattern)
 if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $stylesPath" }
 
+# Android 12+ always shows a system splash first, and it can only show a background
+# colour plus a centred icon - never a full-screen image. Capacitor 7's BridgeActivity
+# then switches the activity to AppTheme.NoActionBar (hard-coded in its onCreate), so
+# whatever window background THAT theme has is what appears the moment the system
+# splash leaves. The sequence is therefore built like this:
+#   1. System splash: background colour taken from the splash artwork's own edge colour
+#      (so it blends into the artwork) and a transparent icon. Set
+#      $showSystemSplashIcon = $true to show the Dugout Pulse icon there instead.
+#   2. AppTheme.NoActionBar gets the generated, device-matched splash artwork as its
+#      window background, so the artwork is already on screen when the system splash
+#      leaves, with no plain screen in between.
+$showSystemSplashIcon = $false
+if ($showSystemSplashIcon) { $systemSplashIcon = "@drawable/splash_icon" } else { $systemSplashIcon = "@drawable/splash_icon_blank" }
+
+$systemSplashBackground = "#121923"
+$edgeColorHex = Get-DugoutEdgeColorHex -Source $mobileSplash
+if ($edgeColorHex) { $systemSplashBackground = $edgeColorHex }
+Write-Host "System splash background colour: $systemSplashBackground" -ForegroundColor Cyan
+
+$blankIconXml = @'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <size android:width="1dp" android:height="1dp"/>
+    <solid android:color="@android:color/transparent"/>
+</shape>
+'@
+$blankIconDir = Join-Path $androidRes "drawable"
+if (-not (Test-Path $blankIconDir)) { New-Item -ItemType Directory -Path $blankIconDir -Force | Out-Null }
+[System.IO.File]::WriteAllText((Join-Path $blankIconDir "splash_icon_blank.xml"), $blankIconXml, (New-Object System.Text.UTF8Encoding($false)))
+
 $launchStyle = @'
 <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-    <item name="windowSplashScreenBackground">#121923</item>
-    <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+    <item name="windowSplashScreenBackground">__SYSTEM_SPLASH_BACKGROUND__</item>
+    <item name="windowSplashScreenAnimatedIcon">__SYSTEM_SPLASH_ICON__</item>
     <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     <item name="android:windowBackground">@drawable/splash</item>
 </style>
 '@
+$launchStyle = $launchStyle.Replace("__SYSTEM_SPLASH_BACKGROUND__", $systemSplashBackground).Replace("__SYSTEM_SPLASH_ICON__", $systemSplashIcon)
 $styles = $styles.Replace($match.Value, $launchStyle)
+
+# Give the theme the activity actually ends up with the splash artwork as its window
+# background. Only the window background item is added; every other item is kept.
+$noActionBarPattern = '(?s)(<style\s+name="AppTheme\.NoActionBar"[^>]*>)(.*?)(</style>)'
+$noActionBarMatch = [regex]::Match($styles, $noActionBarPattern)
+if (-not $noActionBarMatch.Success) { throw "Could not find AppTheme.NoActionBar in $stylesPath" }
+$noActionBarBody = [regex]::Replace($noActionBarMatch.Groups[2].Value, '\s*<item\s+name="android:windowBackground">[^<]*</item>', '')
+$noActionBarNew = $noActionBarMatch.Groups[1].Value + $noActionBarBody.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarMatch.Groups[3].Value
+$styles = $styles.Replace($noActionBarMatch.Value, $noActionBarNew)
 Set-Content -LiteralPath $stylesPath -Value $styles -Encoding UTF8
 
 # Android 12+ prefers values-v31 resources over values/styles.xml. Apply the same
@@ -351,7 +543,7 @@ foreach ($themeFile in @($stylesPath, $stylesV31Path)) {
     }
 }
 foreach ($resource in @(
-    (Join-Path $splashResourceDir "splash.png"),
+    (Join-Path $splashResourceDir "splash.jpg"),
     (Join-Path $splashResourceDir "splash_icon.png"),
     (Join-Path $adaptiveDir "ic_launcher_round.xml"),
     (Join-Path $androidRes "mipmap-mdpi\ic_launcher_round.png")
@@ -404,6 +596,144 @@ if ($manifest -notmatch 'android\.permission\.SCHEDULE_EXACT_ALARM') {
     $manifest = $manifest -replace '(<manifest\b[^>]*>)', ('$1' + [Environment]::NewLine + '    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />')
     $manifestChanged = $true
     Write-Host "Added SCHEDULE_EXACT_ALARM permission for Android reminders." -ForegroundColor Green
+}
+
+# ---------------------------------------------------------------------------
+# Native full-screen splash screen (the same idea CricClubs-style apps use).
+# Android 12+ only lets the system splash show a colour and a small icon, and a
+# Capacitor app otherwise shows a white web view until its first page paints. So the
+# build adds a tiny native SplashActivity as the launcher screen:
+#   - it fills the screen with the generated `splash` drawable, which Android resolves
+#     per device (phone / tall phone / tablet 600dp+ / large screen 720dp+, portrait and
+#     landscape) from the folders generated above;
+#   - after $splashDurationMs it opens the normal MainActivity and finishes itself.
+# Only the launcher entry point moves; MainActivity, the application ID, the package and
+# the signing are untouched. The class is generated into the disposable android project.
+# ---------------------------------------------------------------------------
+$splashDurationMs = 1500
+
+$mainActivityFile = Get-ChildItem -LiteralPath "android\app\src\main\java" -Recurse -Filter "MainActivity.java" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $mainActivityFile) { throw "MainActivity.java was not found in the generated Android project; cannot add the splash screen." }
+$packageLine = Select-String -LiteralPath $mainActivityFile.FullName -Pattern '^\s*package\s+([\w.]+)\s*;' | Select-Object -First 1
+if (-not $packageLine) { throw "Could not read the package of $($mainActivityFile.FullName)." }
+$splashPackage = $packageLine.Matches[0].Groups[1].Value
+
+$splashActivityJava = @'
+package __PACKAGE__;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Window;
+import android.widget.ImageView;
+
+/** Full-screen Dugout Pulse splash. Generated by build-apk.ps1. */
+public class SplashActivity extends Activity {
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable proceed = new Runnable() {
+        @Override
+        public void run() {
+            openMain();
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // The launch theme inherits an action bar; the splash must be truly full screen.
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        ImageView view = new ImageView(this);
+        view.setBackgroundColor(Color.parseColor("__BACKGROUND__"));
+        view.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        int splashId = getResources().getIdentifier("splash", "drawable", getPackageName());
+        if (splashId != 0) {
+            view.setImageResource(splashId);
+        }
+        setContentView(view);
+        if (getActionBar() != null) {
+            getActionBar().hide();
+        }
+
+        handler.postDelayed(proceed, __DURATION__);
+    }
+
+    private void openMain() {
+        Intent next = new Intent(this, MainActivity.class);
+        Intent received = getIntent();
+        if (received != null) {
+            if (received.getData() != null) {
+                next.setData(received.getData());
+            }
+            if (received.getExtras() != null) {
+                next.putExtras(received.getExtras());
+            }
+        }
+        startActivity(next);
+        finish();
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacks(proceed);
+        super.onDestroy();
+    }
+}
+'@
+$splashActivityJava = $splashActivityJava.Replace("__PACKAGE__", $splashPackage).Replace("__BACKGROUND__", $systemSplashBackground).Replace("__DURATION__", [string]$splashDurationMs)
+$splashActivityPath = Join-Path $mainActivityFile.DirectoryName "SplashActivity.java"
+[System.IO.File]::WriteAllText($splashActivityPath, $splashActivityJava, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "Generated native splash screen: $splashActivityPath" -ForegroundColor Green
+
+# Manifest: SplashActivity becomes the launcher screen; MainActivity stops being one.
+if ($manifest -notmatch 'SplashActivity') {
+    if (([regex]::Matches($manifest, 'android\.intent\.category\.LAUNCHER')).Count -ne 1) {
+        throw "Expected exactly one LAUNCHER intent filter in $manifestPath before adding the splash screen."
+    }
+    $launcherFilterPattern = '(?s)\s*<intent-filter>(?:(?!</intent-filter>).)*?android\.intent\.category\.LAUNCHER(?:(?!</intent-filter>).)*?</intent-filter>'
+    $manifest = ([regex]$launcherFilterPattern).Replace($manifest, '', 1)
+
+    $splashActivityXml = @'
+        <activity
+            android:name="__PACKAGE__.SplashActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+'@
+    $splashActivityXml = $splashActivityXml.Replace("__PACKAGE__", $splashPackage)
+    if ($manifest -notmatch '</application>') { throw "Could not find </application> in $manifestPath" }
+    $manifest = $manifest -replace '</application>', ($splashActivityXml + [Environment]::NewLine + '    </application>')
+    $manifestChanged = $true
+    Write-Host "Made SplashActivity the launcher screen." -ForegroundColor Green
+}
+
+# Web view background: without this the web view is white until the first page paints.
+# Use the splash colour unless the project already sets its own backgroundColor.
+$assetConfigPath = "android\app\src\main\assets\capacitor.config.json"
+if (Test-Path -LiteralPath $assetConfigPath) {
+    $assetConfigText = Get-Content -LiteralPath $assetConfigPath -Raw
+    if ($assetConfigText -notmatch '"backgroundColor"') {
+        $backgroundEntry = '"backgroundColor": "' + $systemSplashBackground + '"'
+        if ($assetConfigText -match '^\s*\{\s*\}\s*$') {
+            $assetConfigText = '{ ' + $backgroundEntry + ' }'
+        } else {
+            $assetConfigText = ([regex]'^\s*\{').Replace($assetConfigText, '{ ' + $backgroundEntry + ',', 1)
+        }
+        [System.IO.File]::WriteAllText((Resolve-Path -LiteralPath $assetConfigPath).Path, $assetConfigText, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "Set web view background colour to $systemSplashBackground to avoid a white flash." -ForegroundColor Green
+    }
+} else {
+    Write-Host "Generated capacitor.config.json was not found in android assets; web view background colour was not set." -ForegroundColor Yellow
 }
 
 if ($manifestChanged) {
@@ -573,6 +903,13 @@ if (-not $Release) {
         }
     }
 
+    # Verify the splash resources and the tablet / large-screen splash variants were compiled in.
+    foreach ($requiredSplashToken in @("drawable/splash", "drawable/splash_icon", "mipmap/ic_launcher_foreground", "sw600dp", "sw720dp")) {
+        if ($resourceOutput -notmatch [regex]::Escape($requiredSplashToken)) {
+            throw "Final APK resource table is missing '$requiredSplashToken'. Refusing to deliver it."
+        }
+    }
+
     # Verify the compiled manifest actually points to the generated launcher resources.
     $manifestOutput = (& $aaptPath dump xmltree $whatsAppApk "AndroidManifest.xml" 2>&1 | Out-String)
     if ($LASTEXITCODE -ne 0) {
@@ -583,7 +920,85 @@ if (-not $Release) {
         throw "Final APK manifest does not contain both launcher icon references. Refusing to deliver it."
     }
 
+    # The native splash screen must be the launcher screen in the final APK.
+    if ($badgingOutput -notmatch "launchable-activity: name='[^']*SplashActivity'") {
+        throw "Final APK does not launch through SplashActivity. Refusing to deliver it. Details: $badgingOutput"
+    }
+    if ($manifestOutput -notmatch 'SplashActivity') {
+        throw "Final APK manifest does not contain SplashActivity. Refusing to deliver it."
+    }
+
     Write-Host "Verified final APK label, launcher icon entry, compiled icon resources, and manifest references." -ForegroundColor Green
+
+    # --- Application identity guard -------------------------------------------------
+    # The APK must be the SAME application as the one already installed: same package
+    # ID and same signing certificate as the previous package, otherwise Android either
+    # installs it as a second app (different ID) or rejects the update (different key).
+    # These are read-only checks; nothing here changes the application's identity.
+    $apksignerPath = $null
+    $apksignerCandidate = Join-Path (Split-Path $aaptPath -Parent) "apksigner.bat"
+    if (Test-Path $apksignerCandidate) {
+        $apksignerPath = $apksignerCandidate
+    } else {
+        Write-Host "apksigner.bat was not found next to aapt; the signing certificate cannot be compared." -ForegroundColor Yellow
+    }
+
+    function Get-ApkIdentity {
+        param ([string]$ApkPath)
+
+        $badging = (& $aaptPath dump badging $ApkPath 2>&1 | Out-String)
+        $packageMatch = [regex]::Match($badging, "(?m)^package: name='([^']+)'")
+        $versionMatch = [regex]::Match($badging, "versionCode='(\d+)'\s+versionName='([^']*)'")
+        $certDigest = $null
+        if ($apksignerPath) {
+            $previousPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $signerOutput = (& $apksignerPath verify --print-certs $ApkPath 2>&1 | Out-String)
+            } finally {
+                $ErrorActionPreference = $previousPreference
+            }
+            $certMatch = [regex]::Match($signerOutput, "certificate SHA-256 digest:\s*([0-9a-fA-F]+)")
+            if ($certMatch.Success) { $certDigest = $certMatch.Groups[1].Value.ToLower() }
+        }
+        [pscustomobject]@{
+            Package     = $packageMatch.Groups[1].Value
+            VersionCode = $versionMatch.Groups[1].Value
+            VersionName = $versionMatch.Groups[2].Value
+            Cert        = $certDigest
+        }
+    }
+
+    $newIdentity = Get-ApkIdentity -ApkPath $whatsAppApk
+    Write-Host "APK identity: package=$($newIdentity.Package) versionCode=$($newIdentity.VersionCode) versionName=$($newIdentity.VersionName)" -ForegroundColor Cyan
+    Write-Host "APK signing certificate (SHA-256): $($newIdentity.Cert)" -ForegroundColor Cyan
+
+    if ($newIdentity.Package -ne $ExpectedApplicationId) {
+        Remove-Item -LiteralPath $whatsAppApk -Force -ErrorAction SilentlyContinue
+        throw "Final APK package ID is '$($newIdentity.Package)' but the existing Dugout Pulse application is '$ExpectedApplicationId'. Installing it would create a second app. APK removed."
+    }
+
+    $newApkName = Split-Path $whatsAppApk -Leaf
+    $previousApks = @(Get-ChildItem -LiteralPath $OutDir -Filter "*.apk" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne $newApkName } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 3)
+    $comparedWithPrevious = $false
+    foreach ($previousApk in $previousApks) {
+        $previousIdentity = Get-ApkIdentity -ApkPath $previousApk.FullName
+        Write-Host "Previous APK $($previousApk.Name): package=$($previousIdentity.Package) versionCode=$($previousIdentity.VersionCode) cert=$($previousIdentity.Cert)" -ForegroundColor DarkCyan
+        if ($comparedWithPrevious -or [string]::IsNullOrWhiteSpace($previousIdentity.Package)) { continue }
+        $comparedWithPrevious = $true
+        if ($previousIdentity.Package -ne $newIdentity.Package) {
+            Remove-Item -LiteralPath $whatsAppApk -Force -ErrorAction SilentlyContinue
+            throw "The previous APK ($($previousApk.Name)) has package '$($previousIdentity.Package)' but this build has '$($newIdentity.Package)'. They would install as two different apps. If that earlier APK was itself a wrong build, delete it from the output folder and rebuild. APK removed."
+        }
+        if ($previousIdentity.Cert -and $newIdentity.Cert -and $previousIdentity.Cert -ne $newIdentity.Cert) {
+            Remove-Item -LiteralPath $whatsAppApk -Force -ErrorAction SilentlyContinue
+            throw "The previous APK ($($previousApk.Name)) is signed with a different certificate than this build, so Android will not update the installed app. Check $debugKeystore. If that earlier APK came from a different machine or key, delete it from the output folder to compare against a newer one. APK removed."
+        }
+    }
+    Write-Host "Verified application identity matches '$ExpectedApplicationId' and the previous package's signing certificate." -ForegroundColor Green
 
     # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
     # Set the actual Windows file timestamps after copying the APK to the output folder.
