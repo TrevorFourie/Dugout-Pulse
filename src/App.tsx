@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import mobileSplashImage from '../splash-source/splash-mobile.png';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -18,6 +20,13 @@ import { StartGamePicker } from './components/StartGamePicker';
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [showMobileSplash, setShowMobileSplash] = useState(() => Capacitor.isNativePlatform());
+
+  useEffect(() => {
+    if (!showMobileSplash) return;
+    const splashTimeout = window.setTimeout(() => setShowMobileSplash(false), 1800);
+    return () => window.clearTimeout(splashTimeout);
+  }, [showMobileSplash]);
 
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
@@ -110,6 +119,11 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
+      {showMobileSplash && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#121923]" aria-label="Dugout Pulse splash screen">
+          <img src={mobileSplashImage} alt="Dugout Pulse" className="h-full w-full object-cover" />
+        </div>
+      )}
       <NotificationBlockedModal
         isOpen={showBlocked}
         onClose={() => {
