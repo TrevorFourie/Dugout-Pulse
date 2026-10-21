@@ -16,7 +16,7 @@ import { NotificationBlockedModal } from './components/NotificationBlockedModal'
 import { StartGamePicker } from './components/StartGamePicker';
 
 const MainApp: React.FC = () => {
-  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings } = useGame();
+  const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
@@ -76,6 +76,21 @@ const MainApp: React.FC = () => {
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [settings.gameRemindersEnabled]);
+
+  // Keep the complete app shell hidden until persisted data has loaded. Rendering
+  // Navigation/dashboard first and replacing them after localStorage loads caused
+  // visible startup movement and layout shifts on slower Android WebViews.
+  if (isLoading) {
+    return (
+      <div
+        className="h-full w-full flex items-center justify-center overflow-hidden"
+        style={{ backgroundColor: '#121923', color: '#FAFAFA' }}
+        aria-label="Loading Dugout Pulse"
+      >
+        <AppLogo variant="logo" className="w-40 h-40 object-contain" />
+      </div>
+    );
+  }
 
   // The app hamburger opens only the sliding drawer. A settings page is opened only after selection.
   const handleOpenSettings = () => setIsSettingsMenuOpen(true);
