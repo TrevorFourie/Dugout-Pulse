@@ -320,6 +320,27 @@ if ($matchV31.Success) {
     throw "Could not add launch theme to $stylesV31Path"
 }
 Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
+
+foreach ($themeFile in @($stylesPath, $stylesV31Path)) {
+    $themeText = Get-Content -LiteralPath $themeFile -Raw
+    if ($themeText -notmatch 'name="AppTheme\.NoActionBarLaunch"') {
+        throw "Launch theme is missing from $themeFile"
+    }
+    if ($themeText -notmatch '@drawable/splash_icon') {
+        throw "Launch theme in $themeFile does not reference the generated Dugout Pulse splash icon."
+    }
+}
+foreach ($resource in @(
+    (Join-Path $splashResourceDir "splash.png"),
+    (Join-Path $splashResourceDir "splash_icon.png"),
+    (Join-Path $adaptiveDir "ic_launcher_round.xml"),
+    (Join-Path $androidRes "mipmap-mdpi\ic_launcher_round.png")
+)) {
+    if (-not (Test-Path $resource)) {
+        throw "Required splash or launcher resource is missing: $resource"
+    }
+}
+Write-Host "Verified launcher and splash resources, including Android 12+ theme override." -ForegroundColor Green
 Write-Host "Android launcher icons and splash resources generated." -ForegroundColor Green
 
 
