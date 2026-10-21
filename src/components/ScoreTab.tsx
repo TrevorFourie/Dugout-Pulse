@@ -2776,18 +2776,21 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               Continue Where you left off
             </h2>
             <p className="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
-              You have a game in progress{liveGame.opponent ? ` against ${liveGame.opponent}` : ''}. Your saved plays and scoring state are ready to resume.
+              You have a game in progress{liveGame.opponent ? ` against ${liveGame.opponent}` : ''}.
             </p>
             <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-[#354050] dark:bg-[#252D38]">
               <p className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{liveGame.teamName || 'Your team'}</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">vs {liveGame.opponent ? ` against ${liveGame.opponent}` : ''}</p>
               <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Inning {viewedInning} of {liveGame.innings}</p>
             </div>
+            
+            <div className="col-span-3 mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center dark:border-[#354050] dark:bg-[#252D38]">
             <button
               type="button"
               onClick={dismissResumePrompt}
-              className="mt-5 w-full rounded-xl bg-[#00BFA5] px-5 py-3 text-sm font-semibold text-[#18212D] shadow-md transition-all hover:bg-[#00A892] active:scale-[0.99] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA5] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
+              className="rounded-xl bg-[#00BFA5] px-5 py-3 m-2 text-sm font-semibold text-[#18212D] shadow-md transition-all hover:bg-[#00A892] active:scale-[0.99] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA5] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
-              Continue Game
+              <PlayIcon className="h-6 w-6" />
             </button>
             <button
               type="button"
@@ -2795,17 +2798,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 dismissResumePrompt();
                 onCancelResume?.();
               }}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
+              className="rounded-xl border border-slate-300 m-2 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
-              Not now
+              <X className="h-6 w-6" />
             </button>
             <button
               type="button"
               onClick={() => setIsAbandonResumeModalOpen(true)}
-              className="mt-3 w-full rounded-xl border-2 border-[#FF5252] bg-[#FF5252] px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
+              className="rounded-xl border border-[#FF5252] bg-[#FF5252] m-2 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-[#A82E38] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5252] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1A2028]"
             >
-              {isEditing ? 'Discard Edits' : 'Discard Game'}
+              {isEditing ? <Edit2 className="h-6 w-6" /> : <Trash2 className="h-6 w-6" />} 
             </button>
+            </div>
           </section>
         </div>
       )}
