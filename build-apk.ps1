@@ -328,7 +328,7 @@ foreach ($resDir in @(Get-ChildItem -LiteralPath $androidRes -Directory | Where-
 # Legacy icons use the source artwork edge-to-edge; Android/launcher handles the icon shape.
 # Adaptive icons use the same artwork as a foreground layer over the brand background.
 $densities = [ordered]@{ "mdpi" = 1.0; "hdpi" = 1.5; "xhdpi" = 2.0; "xxhdpi" = 3.0; "xxxhdpi" = 4.0 }
-$adaptiveSafeZoneScale = 0.60
+$adaptiveSafeZoneScale = 0.42
 
 foreach ($density in $densities.Keys) {
     $multiplier = [double]$densities[$density]
@@ -338,8 +338,8 @@ foreach ($density in $densities.Keys) {
 
     # Keep the supplied square artwork intact for legacy launchers. Do not shrink it
     # into a second square and do not circle-crop it before Android applies its mask.
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale 0.84
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale 0.84
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
 }
 
