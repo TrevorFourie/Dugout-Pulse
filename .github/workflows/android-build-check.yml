@@ -32,6 +32,48 @@ jobs:
       - name: Prepare build output directory
         shell: pwsh
         run: New-Item -ItemType Directory -Path 'C:\Users\Trevor\Desktop\Other\Dugout-Pulse-Publish' -Force | Out-Null
+      - name: Inspect the exact APK uploaded to main
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression
+          $apkPath = Join-Path $env:GITHUB_WORKSPACE 'dugout-pulse-debug-2026-10-21_15-31-27-whatsapp.apk'
+          if (-not (Test-Path -LiteralPath $apkPath)) { throw "Uploaded APK not found at: $apkPath" }
+          $reportPath = Join-Path $env:GITHUB_WORKSPACE 'apk-inspection-report.txt'
+          "APK: $apkPath" | Set-Content -LiteralPath $reportPath
+          "Size bytes: $((Get-Item -LiteralPath $apkPath).Length)" | Add-Content -LiteralPath $reportPath
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($apkPath)
+          try {
+            "--- APK archive entries: manifest, resources, launcher icons, splash, web assets ---" | Add-Content -LiteralPath $reportPath
+            $entries = $archive.Entries | Where-Object { $_.FullName -eq 'AndroidManifest.xml' -or $_.FullName -eq 'resources.arsc' -or $_.FullName -match '(^|/)(mipmap|drawable|drawable-[^/]+)/|splash|assets/public/index.html|capacitor.config' } | Sort-Object FullName
+            foreach ($entry in $entries) {
+              $line = "$($entry.FullName) [$($entry.Length) bytes]"
+              if ($entry.FullName.EndsWith('.png')) {
+                $stream = $entry.Open()
+                try {
+                  $header = New-Object byte[] 24
+                  $read = $stream.Read($header, 0, 24)
+                  if ($read -eq 24 -and $header[0] -eq 137 -and $header[1] -eq 80) {
+                    $width = [System.BitConverter]::ToUInt32([byte[]]@($header[19],$header[18],$header[17],$header[16]),0)
+                    $height = [System.BitConverter]::ToUInt32([byte[]]@($header[23],$header[22],$header[21],$header[20]),0)
+                    $line += (' {0}x{1}' -f $width, $height)
+                  }
+                } finally { $stream.Dispose() }
+              }
+              $line | Add-Content -LiteralPath $reportPath
+            }
+          } finally { $archive.Dispose() }
+          $aapt = Join-Path $env:ANDROID_HOME 'build-tools\35.0.0\aapt.exe'
+          if (-not (Test-Path -LiteralPath $aapt)) { throw "aapt.exe not found at $aapt" }
+          "--- aapt badging ---" | Add-Content -LiteralPath $reportPath
+          (& $aapt dump badging $apkPath 2>&1 | Out-String) | Add-Content -LiteralPath $reportPath
+          "--- aapt manifest: launcher and splash theme references ---" | Add-Content -LiteralPath $reportPath
+          $manifestDump = (& $aapt dump xmltree $apkPath AndroidManifest.xml 2>&1 | Out-String)
+          ($manifestDump -split "\n" | Select-String -Pattern 'MainActivity|SplashActivity|launchable-activity|theme|windowSplash|label|icon|roundIcon|splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
+          "--- aapt compiled resources: splash and launcher icon references ---" | Add-Content -LiteralPath $reportPath
+          $resourceDump = (& $aapt dump resources $apkPath 2>&1 | Out-String)
+          ($resourceDump -split "\n" | Select-String -Pattern 'windowSplashScreen|postSplashScreenTheme|splash|ic_launcher|AppTheme.NoActionBar|color/splash|drawable/splash' | ForEach-Object { $_.Line }) | Add-Content -LiteralPath $reportPath
+          Get-Content -LiteralPath $reportPath
       - name: Build and verify debug APK
         shell: pwsh
         run: .\build-apk.ps1
@@ -41,4 +83,13 @@ jobs:
           name: dugout-pulse-debug-apk
           path: C:\Users\Trevor\Desktop\Other\Dugout-Pulse-Publish\Android-Package\*.apk
           if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload APK inspection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uploaded-apk-inspection-report
+          path: apk-inspection-report.txt
+          if-no-files-found: warn
           retention-days: 7
