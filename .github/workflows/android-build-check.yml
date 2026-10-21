@@ -38,8 +38,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           Add-Type -AssemblyName System.IO.Compression
           $apkPath = Join-Path $env:GITHUB_WORKSPACE 'dugout-pulse-debug-2026-10-21_15-31-27-whatsapp.apk'
-          if (-not (Test-Path -LiteralPath $apkPath)) { throw "Uploaded APK not found at: $apkPath" }
           $reportPath = Join-Path $env:GITHUB_WORKSPACE 'apk-inspection-report.txt'
+          if (-not (Test-Path -LiteralPath $apkPath)) {
+            "The previously uploaded APK is not present in the current main branch. Skipping inspection of that historical APK; the current source build and verification will still run." | Set-Content -LiteralPath $reportPath
+            Get-Content -LiteralPath $reportPath
+            exit 0
+          }
           "APK: $apkPath" | Set-Content -LiteralPath $reportPath
           "Size bytes: $((Get-Item -LiteralPath $apkPath).Length)" | Add-Content -LiteralPath $reportPath
           $archive = [System.IO.Compression.ZipFile]::OpenRead($apkPath)
