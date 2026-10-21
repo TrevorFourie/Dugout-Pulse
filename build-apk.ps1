@@ -22,6 +22,16 @@ if (-not (Test-Path $WorkDir)) {
 }
 
 Write-Host "`nStaging clean source code..." -ForegroundColor Cyan
+# The Android platform is generated output, deliberately excluded from the repository.
+# Robocopy without /MIR leaves excluded destination folders untouched, so an old
+# .work\android project can survive staging with a stale applicationId/namespace.
+# Remove only that generated platform before staging; Capacitor will recreate it
+# from the checked-in capacitor.config.json on this build.
+$staleAndroidPlatform = Join-Path $WorkDir "android"
+if (Test-Path $staleAndroidPlatform) {
+    Write-Host "Removing stale generated Android platform so Capacitor recreates it from the current app config..." -ForegroundColor Yellow
+    Remove-Item -LiteralPath $staleAndroidPlatform -Recurse -Force
+}
 $robocopyArgs = @(
     $RepoRoot,
     $WorkDir,
@@ -525,6 +535,13 @@ if (-not $Release) {
     # aapt dump badging uses the key "application-label", not "application: label".
     if ($badgingOutput -notmatch "application-label:'Dugout Pulse'") {
         throw "Final APK does not report the expected Dugout Pulse application label. Refusing to deliver it. Details: $badgingOutput"
+    }
+    # Verify the package ID too. A stale generated .work\android project previously
+    # produced com.trevor.baseballhub even though capacitor.config.json specifies
+    # com.trevor.dugoutpulse; do not package an APK built from stale native config.
+    $expectedAppId = (Get-Content -LiteralPath (Join-Path $WorkDir "capacitor.config.json") -Raw | ConvertFrom-Json).appId
+    if ([string]::IsNullOrWhiteSpace($expectedAppId) -or $badgingOutput -notmatch ("(?m)^package: name='" + [regex]::Escape($expectedAppId) + "'")) {
+        throw "Final APK package ID does not match capacitor.config.json (expected '$expectedAppId'). Refusing to deliver it. Details: $badgingOutput"
     }
     # Adaptive launcher icons are reported by aapt as the XML resource path,
     # not as the legacy density-specific PNG path. Accept either valid form.
