@@ -505,8 +505,21 @@ $launchStyle = @'
     <item name="windowSplashScreenAnimatedIcon">__SYSTEM_SPLASH_ICON__</item>
     <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     <item name="android:windowBackground">@drawable/splash</item>
+__SPLASH_BAR_ITEMS__
 </style>
 '@
+# Status and navigation bars take the artwork's edge colour (with light icons) so
+# the launch screen reads as one full-screen image, as in other apps' launch screens.
+$splashBarItems = @'
+    <item name="android:statusBarColor">__SYSTEM_SPLASH_BACKGROUND__</item>
+    <item name="android:navigationBarColor">__SYSTEM_SPLASH_BACKGROUND__</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowLightNavigationBar">false</item>
+    <item name="android:enforceNavigationBarContrast">false</item>
+'@
+$splashBarItems = $splashBarItems.TrimEnd()
+$splashBarItemPattern = '\s*<item\s+name="android:(statusBarColor|navigationBarColor|windowLightStatusBar|windowLightNavigationBar|enforceNavigationBarContrast)">[^<]*</item>'
+$launchStyle = $launchStyle.Replace("__SPLASH_BAR_ITEMS__", $splashBarItems)
 $launchStyle = $launchStyle.Replace("__SYSTEM_SPLASH_BACKGROUND__", $systemSplashBackground).Replace("__SYSTEM_SPLASH_ICON__", $systemSplashIcon)
 $styles = $styles.Replace($match.Value, $launchStyle)
 
@@ -516,7 +529,8 @@ $noActionBarPattern = '(?s)(<style\s+name="AppTheme\.NoActionBar"[^>]*>)(.*?)(</
 $noActionBarMatch = [regex]::Match($styles, $noActionBarPattern)
 if (-not $noActionBarMatch.Success) { throw "Could not find AppTheme.NoActionBar in $stylesPath" }
 $noActionBarBody = [regex]::Replace($noActionBarMatch.Groups[2].Value, '\s*<item\s+name="android:windowBackground">[^<]*</item>', '')
-$noActionBarNew = $noActionBarMatch.Groups[1].Value + $noActionBarBody.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarMatch.Groups[3].Value
+$noActionBarBody = [regex]::Replace($noActionBarBody, $splashBarItemPattern, '')
+$noActionBarNew = $noActionBarMatch.Groups[1].Value + $noActionBarBody.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $splashBarItems.Replace("__SYSTEM_SPLASH_BACKGROUND__", $systemSplashBackground) + [Environment]::NewLine + $noActionBarMatch.Groups[3].Value
 $styles = $styles.Replace($noActionBarMatch.Value, $noActionBarNew)
 Set-Content -LiteralPath $stylesPath -Value $styles -Encoding UTF8
 
@@ -550,7 +564,8 @@ if ($noActionBarV31Match.Success) {
     # If it does not, Android inherits AppTheme.NoActionBar from values/styles.xml,
     # which was already patched above. Do not fail a valid generated project.
     $noActionBarV31Body = [regex]::Replace($noActionBarV31Match.Groups[2].Value, '\s*<item\s+name="android:windowBackground">[^<]*</item>', '')
-    $noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
+    $noActionBarV31Body = [regex]::Replace($noActionBarV31Body, $splashBarItemPattern, '')
+    $noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $splashBarItems.Replace("__SYSTEM_SPLASH_BACKGROUND__", $systemSplashBackground) + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
     $stylesV31 = $stylesV31.Replace($noActionBarV31Match.Value, $noActionBarV31New)
 }
 
@@ -658,6 +673,7 @@ if ($assetConfig.plugins.SplashScreen.launchShowDuration -ne 0) {
     throw "Generated capacitor.config.json SplashScreen.launchShowDuration must be 0 so the plugin does not hold the plain Android 12+ system splash over the native splash artwork."
 }
 Write-Host "Verified transparent WebView and unheld system splash for the native splash handoff." -ForegroundColor Green
+
 
 if ($manifestChanged) {
     Set-Content -Path $manifestPath -Value $manifest -NoNewline
