@@ -329,7 +329,9 @@ foreach ($resDir in @(Get-ChildItem -LiteralPath $androidRes -Directory | Where-
 #   Adaptive icons (Android 8+): 108dp layers. Launchers mask the layer and only the
 #     centre 66dp is guaranteed visible, so the artwork is scaled into that safe zone.
 $densities = [ordered]@{ "mdpi" = 1.0; "hdpi" = 1.5; "xhdpi" = 2.0; "xxhdpi" = 3.0; "xxxhdpi" = 4.0 }
-$adaptiveSafeZoneScale = 66.0 / 108.0
+# The launcher mask is circular, but the source artwork is square. Fit the full square
+# inside the inscribed circle instead of filling the 66dp safe-zone square.
+$adaptiveSafeZoneScale = 0.42
 
 foreach ($density in $densities.Keys) {
     $multiplier = [double]$densities[$density]
@@ -341,7 +343,8 @@ foreach ($density in $densities.Keys) {
     # is clipped to a circle, so drawing the source edge-to-edge cuts off artwork.
     # Use the same dark brand colour behind the inset artwork to avoid transparent
     # corners/edges on launchers that display the legacy square or round resource.
-    $legacyIconScale = 0.72
+    # Leave a wider margin for launchers that circular-mask the legacy round icon.
+    $legacyIconScale = 0.60
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -BackgroundHex "#121923"
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale $legacyIconScale -Circle -BackgroundHex "#121923"
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
