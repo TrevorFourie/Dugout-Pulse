@@ -233,6 +233,22 @@ $adaptiveXml = @'
 Set-Content -Path (Join-Path $adaptiveDir "ic_launcher.xml") -Value $adaptiveXml -Encoding UTF8
 Set-Content -Path (Join-Path $adaptiveDir "ic_launcher_round.xml") -Value $adaptiveXml -Encoding UTF8
 
+# Fail the build early if any launcher resource was not generated at the expected path.
+$requiredIconResources = @(
+    (Join-Path $androidRes "mipmap-mdpi\ic_launcher.png"),
+    (Join-Path $androidRes "mipmap-hdpi\ic_launcher.png"),
+    (Join-Path $androidRes "mipmap-xhdpi\ic_launcher.png"),
+    (Join-Path $androidRes "mipmap-xxhdpi\ic_launcher.png"),
+    (Join-Path $androidRes "mipmap-xxxhdpi\ic_launcher.png"),
+    (Join-Path $adaptiveDir "ic_launcher.xml"),
+    (Join-Path $drawableDir "ic_launcher_foreground.png")
+)
+$missingIconResources = @($requiredIconResources | Where-Object { -not (Test-Path $_) })
+if ($missingIconResources.Count -gt 0) {
+    throw "Launcher icon generation is incomplete. Missing: $($missingIconResources -join ', ')"
+}
+Write-Host "Verified generated Dugout Pulse launcher icon resources." -ForegroundColor Green
+
 $valuesDir = Join-Path $androidRes "values"
 if (-not (Test-Path $valuesDir)) {
     New-Item -ItemType Directory -Path $valuesDir -Force | Out-Null
@@ -302,6 +318,11 @@ if ($manifest -match '<application\b[^>]*>') {
         $updatedApplicationTag = [regex]::Replace($applicationTag, 'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"')
     } else {
         $updatedApplicationTag = $applicationTag.Substring(0, $applicationTag.Length - 1) + ' android:icon="@mipmap/ic_launcher">'
+    }
+    if ($updatedApplicationTag -match 'android:roundIcon="[^"]*"') {
+        $updatedApplicationTag = [regex]::Replace($updatedApplicationTag, 'android:roundIcon="[^"]*"', 'android:roundIcon="@mipmap/ic_launcher_round"')
+    } else {
+        $updatedApplicationTag = $updatedApplicationTag.Substring(0, $updatedApplicationTag.Length - 1) + ' android:roundIcon="@mipmap/ic_launcher_round">'
     }
     if ($updatedApplicationTag -ne $applicationTag) {
         $manifest = $manifest.Replace($applicationTag, $updatedApplicationTag)
