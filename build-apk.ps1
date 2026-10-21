@@ -467,9 +467,9 @@ if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $
 # then switches the activity to AppTheme.NoActionBar (hard-coded in its onCreate), so
 # whatever window background THAT theme has is what appears the moment the system
 # splash leaves. The sequence is therefore built like this:
-#   1. System splash: background colour taken from the splash artwork's own edge colour
-#      (so it blends into the artwork) and a transparent icon. Set
-#      $showSystemSplashIcon = $true to show the Dugout Pulse icon there instead.
+#   1. System splash: use the edge colour sampled from the actual mobile splash artwork
+#      and a transparent icon, so Android's unavoidable system splash blends into the
+#      first full-screen artwork instead of flashing the unrelated blue app background.
 #   2. AppTheme.NoActionBar gets the generated, device-matched splash artwork as its
 #      window background, so the artwork is already on screen when the system splash
 #      leaves, with no plain screen in between.
@@ -479,8 +479,10 @@ if (-not $match.Success) { throw "Could not find AppTheme.NoActionBarLaunch in $
 $showSystemSplashIcon = $false
 $systemSplashIcon = "@drawable/splash_icon_blank"
 
-# Keep the native launch colour consistent with the app's configured brand background.
-$systemSplashBackground = "#121923"
+# Android 12+ requires a system splash background colour. Match it to the actual
+# splash artwork edge, not the app's blue brand background, to avoid a blue flash.
+$systemSplashBackground = $splashFillColors[$mobileSplash]
+if (-not $systemSplashBackground) { $systemSplashBackground = "#000000" }
 Write-Host "System splash background colour: $systemSplashBackground" -ForegroundColor Cyan
 
 $blankIconXml = @'
