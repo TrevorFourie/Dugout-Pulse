@@ -810,15 +810,19 @@ if (-not $Release) {
         throw "Final APK manifest does not contain both launcher icon references. Refusing to deliver it."
     }
 
-    # The native splash screen must be the launcher screen in the final APK.
-    if ($badgingOutput -notmatch "launchable-activity: name='[^']*SplashActivity'") {
-        throw "Final APK does not launch through SplashActivity. Refusing to deliver it. Details: $badgingOutput"
+    # Capacitor's MainActivity is the launcher. SplashScreen is a native plugin
+    # managed by that activity; there must not be a separate SplashActivity.
+    if ($badgingOutput -notmatch "launchable-activity: name='[^']*MainActivity'") {
+        throw "Final APK does not declare Capacitor MainActivity as its launcher. Refusing to deliver it. Details: $badgingOutput"
     }
-    if ($manifestOutput -notmatch 'SplashActivity') {
-        throw "Final APK manifest does not contain SplashActivity. Refusing to deliver it."
+    if ($manifestOutput -notmatch 'MainActivity') {
+        throw "Final APK manifest does not contain Capacitor MainActivity. Refusing to deliver it."
+    }
+    if ($manifestOutput -match 'SplashActivity') {
+        throw "Final APK unexpectedly contains a separate SplashActivity. Refusing to deliver it."
     }
 
-    Write-Host "Verified final APK label, launcher icon entry, compiled icon resources, and manifest references." -ForegroundColor Green
+    Write-Host "Verified final APK label, launcher icon entry, compiled icon resources, and MainActivity manifest references." -ForegroundColor Green
 
     # --- Application identity guard -------------------------------------------------
     # The APK must be the SAME application as the one already installed: same package
