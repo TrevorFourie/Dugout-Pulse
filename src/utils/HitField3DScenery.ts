@@ -308,73 +308,111 @@ export function makeFieldTexture(maxAnisotropy: number): THREE.CanvasTexture {
 
 /* ---------- sky ---------- */
 
-/** Equirectangular dusk sky: blue overhead, peach at the horizon, soft lit clouds. */
+/**
+ * Bright, warm ballpark sky: orange glow on the horizon, melting through peach and cream into a clear
+ * blue. The replay cameras only look a few degrees above the horizon, so the whole blue-to-orange
+ * transition is packed into the first ~10 degrees of elevation. No grey anywhere.
+ */
 export function makeSkyTexture(): THREE.CanvasTexture {
-  const W = 1536;
-  const H = 768;
+  const W = 2048;
+  const H = 1024;
   const [canvas, g] = makeCanvas(W, H);
   const rand = makeRng(5);
-  // Bright late-morning summer sky: clean blue overhead, warm light near the horizon.
+  const yAt = (elevationDeg: number) => H / 2 - (elevationDeg / 180) * H;
+
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#367fc6');
-  grad.addColorStop(0.24, '#70afe4');
-  grad.addColorStop(0.40, '#a8d4f1');
-  grad.addColorStop(0.47, '#d9e9ed');
-  grad.addColorStop(0.51, '#f0dfc4');
-  grad.addColorStop(0.62, '#f3d7b2');
-  grad.addColorStop(1, '#e8cba5');
+  const stops: [number, string][] = [
+    [90, '#1b5db6'],
+    [40, '#2a74cc'],
+    [20, '#2f80d6'],
+    [11, '#3d8fe0'],
+    [7.5, '#58a4ec'],
+    [5.6, '#7cbcf0'],
+    [4.4, '#b4dcf4'],
+    [3.4, '#f6ecd6'],
+    [2, '#ffd7a0'],
+    [1, '#ffb877'],
+    [0.2, '#ff9d52'],
+    [-1, '#fbc58c'],
+    [-6, '#f4c79a'],
+    [-25, '#deb08a'],
+    [-90, '#b98f72'],
+  ];
+  stops.forEach(([deg, color]) => grad.addColorStop(Math.min(1, Math.max(0, yAt(deg) / H)), color));
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  // Soft golden daylight at the horizon gives the park a welcoming, sunlit feel.
-  blob(g, W * 0.5, H * 0.51, 360, '255,224,177', 0.24);
-  blob(g, W * 0.5, H * 0.47, 260, '255,248,224', 0.17);
+  // Low, wide sun glow toward the outfield (u = 0.25 is straight out past centre field)
+  const sunX = W * 0.29;
+  const glow = (x: number, y: number, rx: number, ry: number, rgb: string, a: number) => {
+    g.save();
+    g.translate(x, y);
+    g.scale(rx / ry, 1);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, ry);
+    gr.addColorStop(0, `rgba(${rgb},${a})`);
+    gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(0, 0, ry, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  };
+  glow(sunX, yAt(1.4), 560, 40, '255,190,110', 0.7);
+  glow(sunX, yAt(1.0), 240, 20, '255,226,170', 0.8);
+  glow(sunX, yAt(0.7), 90, 10, '255,248,225', 0.9);
 
-  // Distinct fluffy white clouds with gentle warm undersides, not grey storm clouds.
-  for (let c = 0; c < 25; c++) {
-    const cx = rand() * W;
-    const cy = H * (0.25 + rand() * 0.20);
-    const size = 26 + rand() * 66;
-    const puffs = 6 + Math.floor(rand() * 7);
-    for (let p = 0; p < puffs; p++) {
-      const px = cx + (rand() - 0.5) * size * 4.4;
-      const py = cy + (rand() - 0.5) * size * 0.45;
-      const r = size * (0.5 + rand() * 0.8);
-      blob(g, px, py + r * 0.16, r, '204,177,146', 0.055);
-      blob(g, px, py - r * 0.14, r * 0.86, '255,255,250', 0.31);
-      if (rand() > 0.58) blob(g, px - r * 0.12, py - r * 0.26, r * 0.48, '255,255,255', 0.18);
+  // Soft sunset clouds: white tops, warm orange undersides, never grey
+  const cloud = (cx: number, cy: number, rx: number, ry: number) => {
+    const elev = ((H / 2 - cy) / H) * 180;
+    const lowMix = Math.max(0, Math.min(1, 1 - elev / 14));
+    const puffs = 6 + Math.floor(rand() * 5);
+    for (let i = 0; i < puffs; i++) {
+      const px = cx + (rand() - 0.5) * rx * 1.7;
+      const py = cy + (rand() - 0.5) * ry * 0.7;
+      const pr = ry * (0.7 + rand() * 0.7);
+      glow(px, py + pr * 0.3, pr * 2.6, pr, `255,${Math.round(150 + 60 * (1 - lowMix))},${Math.round(100 + 70 * (1 - lowMix))}`, 0.16 + 0.06 * lowMix);
+      glow(px, py - pr * 0.15, pr * 2.2, pr * 0.85, `255,${Math.round(240 - 25 * lowMix)},${Math.round(228 - 60 * lowMix)}`, 0.2);
     }
-  }
+  };
+  for (let i = 0; i < 26; i++) cloud(rand() * W, yAt(3 + rand() * 15), 90 + rand() * 150, 9 + rand() * 12);
+
   return toTexture(canvas);
 }
 
-/** Tree line and distant hills, drawn as a ring around the stadium. Wraps without a seam. */
+/**
+ * Forested ridges that ring the ballpark: the bowl of hills around Lamade Stadium. Three layers
+ * fade from hazy blue in the distance to deeper green nearby. Wraps without a seam.
+ */
 export function makeHorizonTexture(): THREE.CanvasTexture {
   const W = 2048;
-  const H = 160;
+  const H = 256;
   const STEP = 8;
   const [canvas, g] = makeCanvas(W, H);
   const rand = makeRng(9);
   const columns = W / STEP;
-  const layer = (base: number, amp: number, color: string, round: number, phase: number) => {
+  const layer = (base: number, amp: number, round: number, phase: number, top: string, bottom: string) => {
     const noise = Array.from({ length: columns }, () => rand() - 0.5);
-    g.fillStyle = color;
+    const grad = g.createLinearGradient(0, H - base - amp * 1.6, 0, H);
+    grad.addColorStop(0, top);
+    grad.addColorStop(1, bottom);
+    g.fillStyle = grad;
     g.beginPath();
     g.moveTo(0, H);
     for (let i = 0; i <= columns; i++) {
       const x = i * STEP;
       const a = (x / W) * Math.PI * 2;
-      const hills = Math.sin(a * 3 + phase) * amp + Math.sin(a * 8 + phase * 2) * amp * 0.5;
+      const hills = Math.sin(a * 3 + phase) * amp + Math.sin(a * 7 + phase * 2) * amp * 0.5 + Math.sin(a * 13 + phase * 3) * amp * 0.2;
       g.lineTo(x, H - base - hills - noise[i % columns] * round);
     }
     g.lineTo(W, H);
     g.closePath();
     g.fill();
   };
-  // Low tree-covered ridgeline rather than towering purple mountains.
-  layer(45, 7, 'rgba(123,139,103,0.92)', 3, 1);
-  layer(30, 5, 'rgba(82,112,76,0.96)', 5, 2);
-  layer(18, 3, 'rgba(49,81,54,1)', 8, 3);
+  layer(146, 10, 2, 1, 'rgba(128,168,206,1)', 'rgba(170,196,214,1)');
+  layer(122, 8, 4, 2.3, 'rgba(92,146,160,1)', 'rgba(124,168,164,1)');
+  layer(98, 4, 12, 3.7, 'rgba(58,112,80,1)', 'rgba(70,116,72,1)');
+  g.fillStyle = 'rgba(70,112,70,1)';
+  g.fillRect(0, H - 80, W, 80);
   const texture = toTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   return texture;
@@ -436,79 +474,6 @@ export function makeFarGroundTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-/**
- * Compact LLWS-style berm and tree line sit just beyond the outfield fence. The replay should
- * feel like a youth ballpark, not a huge arena surrounded by distant mountains.
- */
-export function buildOutfieldLandscape(): THREE.Group {
-  const group = new THREE.Group();
-  const rand = makeRng(117);
-
-  // Follow the actual baseball outfield arc. The terrain is an unbroken berm BEHIND
-  // the fence, not four isolated mounds and not a ring around the entire stadium.
-  const fullPath = wallPath();
-  const fenceStart = PATH_BACK + PATH_SIDE;
-  const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
-  const berm = new THREE.Mesh(
-    sweep(
-      fencePath,
-      [[3, -0.4], [9, 1], [20, 6], [36, 13], [54, 17], [76, 14], [98, 6], [118, -0.4]],
-      55,
-      8,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: '#648b4a',
-      roughness: 1,
-      side: THREE.DoubleSide,
-      flatShading: false,
-    }),
-  );
-  berm.receiveShadow = true;
-  group.add(berm);
-
-  // A close tree line tracks the outside of the curved berm. Trees are distributed
-  // by distance along the arc, rather than scattered in a straight band.
-  const trunkGeometry = new THREE.CylinderGeometry(0.8, 1.25, 7, 7);
-  const crownGeometry = new THREE.IcosahedronGeometry(1, 1);
-  const trunkMaterial = new THREE.MeshStandardMaterial({ color: '#6e5138', roughness: 1 });
-  const crownMaterials = [
-    new THREE.MeshStandardMaterial({ color: '#3f6f3d', roughness: 1, flatShading: true }),
-    new THREE.MeshStandardMaterial({ color: '#527f45', roughness: 1, flatShading: true }),
-    new THREE.MeshStandardMaterial({ color: '#66884a', roughness: 1, flatShading: true }),
-    new THREE.MeshStandardMaterial({ color: '#345e38', roughness: 1, flatShading: true }),
-  ];
-
-  for (let i = 2; i < fencePath.length - 2; i += 2) {
-    // Leave small natural breaks, never large empty sections that expose the terrain edge.
-    if (rand() < 0.13) continue;
-    const p = fencePath[i];
-    const distance = 112 + rand() * 28;
-    const x = p.x + p.nx * distance;
-    const z = p.z + p.nz * distance;
-    const scale = 0.7 + rand() * 0.55;
-    const tree = new THREE.Group();
-    tree.position.set(x, -0.2, z);
-    tree.scale.setScalar(scale);
-
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    trunk.position.y = 3.5;
-    tree.add(trunk);
-    const crownCount = 2 + Math.floor(rand() * 3);
-    for (let j = 0; j < crownCount; j++) {
-      const crown = new THREE.Mesh(
-        crownGeometry,
-        crownMaterials[Math.floor(rand() * crownMaterials.length)],
-      );
-      crown.position.set((rand() - 0.5) * 3.4, 6 + rand() * 4.2, (rand() - 0.5) * 3.4);
-      crown.scale.set(2.8 + rand() * 2.4, 3 + rand() * 3.5, 2.8 + rand() * 2.4);
-      crown.castShadow = true;
-      tree.add(crown);
-    }
-    group.add(tree);
-  }
-  return group;
-}
-
 /* ---------- soft sprites ---------- */
 
 /** Soft glow texture retained for compatibility with existing replay imports. */
@@ -536,87 +501,80 @@ export function makeBeamTexture(): THREE.CanvasTexture {
   return toTexture(canvas, false);
 }
 
-/* ---------- stadium ---------- */
+/* ---------- the ballpark ---------- */
+
+/**
+ * Howard J. Lamade Stadium, kept simple: a green outfield wall with a yellow cap, a big terraced
+ * grass hill behind it dotted with fans and ringed by trees, and a roofed concrete grandstand that
+ * wraps behind home plate and runs down both baselines.
+ */
+
+const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+export const WALL_HEIGHT = 8;
 
 interface PathPoint {
   x: number;
   z: number;
   nx: number;
   nz: number;
+  /** Distance travelled along the path, used for texture coordinates. */
   length: number;
-  taper: number;
+  /** 1 along the outfield arc, easing to 0 at the far ends of the side returns. */
+  k: number;
 }
 
-const PATH_SIDE = 14;
-const PATH_ARC = 84;
-const PATH_BACK = 22;
-const smooth = (t: number) => t * t * (3 - 2 * t);
+const SIDE_N = 18;
+const SIDE_LEN = 44;
+const ARC_N = 96;
 
 /**
- * Wall line as one loop starting behind home plate: back arc, down the left foul side, around the
- * outfield fence, down the right side and back along the other half of the back arc.
- * The seating behind home is built lower so the plate stays in view from the usual camera.
+ * Outfield wall line, left to right: a short return down the left foul side, the curved fence
+ * between the foul poles, and a short return down the right side. Normals point away from the field.
  */
-function wallPath(): PathPoint[] {
-  const raw: { x: number; z: number; scale: number }[] = [];
-  const backCentreZ = wz(300);
-  const backRx = wx(272);
-  const backRy = 100;
-  const back = (i: number) => {
-    const s = i / PATH_BACK; // 0 at the apex behind home, 1 where it meets the straight
-    const a = (Math.PI / 2) * s;
-    return { sx: Math.sin(a), z: backCentreZ + backRy * Math.cos(a), scale: 0.3 + 0.7 * smooth(Math.min(1, s / 0.85)) };
-  };
-  for (let i = 0; i < PATH_BACK; i++) {
-    const p = back(i);
-    raw.push({ x: -backRx * p.sx, z: p.z, scale: p.scale });
+function outfieldPath(): PathPoint[] {
+  const raw: Omit<PathPoint, 'length'>[] = [];
+  const poleZ = wz(FENCE.cy);
+  const leftX = wx(FENCE.cx - FENCE.rx);
+  const rightX = wx(FENCE.cx + FENCE.rx);
+  for (let i = 0; i < SIDE_N; i++) {
+    const f = 1 - i / SIDE_N;
+    raw.push({ x: leftX, z: poleZ + SIDE_LEN * f, nx: -1, nz: 0, k: 1 - smooth(f) });
   }
-  for (let i = 0; i < PATH_SIDE; i++) raw.push({ x: wx(28), z: wz(300) + ((wz(FENCE.cy) - wz(300)) * i) / PATH_SIDE, scale: 1 });
-  for (let i = 0; i <= PATH_ARC; i++) {
-    const t = Math.PI - (Math.PI * i) / PATH_ARC;
-    raw.push({ x: wx(FENCE.cx + FENCE.rx * Math.cos(t)), z: wz(FENCE.cy - FENCE.ry * Math.sin(t)), scale: 1 });
+  for (let i = 0; i <= ARC_N; i++) {
+    const t = Math.PI - (Math.PI * i) / ARC_N;
+    const ex = Math.cos(t) / FENCE.rx;
+    const ez = -Math.sin(t) / FENCE.ry;
+    const len = Math.hypot(ex, ez);
+    raw.push({ x: wx(FENCE.cx + FENCE.rx * Math.cos(t)), z: wz(FENCE.cy - FENCE.ry * Math.sin(t)), nx: ex / len, nz: ez / len, k: 1 });
   }
-  for (let i = 1; i <= PATH_SIDE; i++) raw.push({ x: wx(272), z: wz(FENCE.cy) + ((wz(300) - wz(FENCE.cy)) * i) / PATH_SIDE, scale: 1 });
-  for (let i = PATH_BACK; i >= 0; i--) {
-    const p = back(i);
-    raw.push({ x: backRx * p.sx, z: p.z, scale: p.scale });
+  for (let i = 1; i <= SIDE_N; i++) {
+    const f = i / SIDE_N;
+    raw.push({ x: rightX, z: poleZ + SIDE_LEN * f, nx: 1, nz: 0, k: 1 - smooth(f) });
   }
-
-  const centre = { x: 0, z: wz(150) };
   let length = 0;
   return raw.map((p, i) => {
-    const a = raw[Math.max(0, i - 1)];
-    const b = raw[Math.min(raw.length - 1, i + 1)];
-    let tx = b.x - a.x;
-    let tz = b.z - a.z;
-    const len = Math.hypot(tx, tz) || 1;
-    tx /= len;
-    tz /= len;
-    let nx = tz;
-    let nz = -tx;
-    if (nx * (p.x - centre.x) + nz * (p.z - centre.z) < 0) {
-      nx = -nx;
-      nz = -nz;
-    }
     if (i) length += Math.hypot(p.x - raw[i - 1].x, p.z - raw[i - 1].z);
-    return { x: p.x, z: p.z, nx, nz, length, taper: p.scale };
+    return { ...p, length };
   });
 }
 
-/** Two separate grandstands run alongside the first-base and third-base foul lines. */
+/* ----- fence ----- */
 
-function sweep(path: PathPoint[], profile: [number, number][], uScale: number, vScale: number): THREE.BufferGeometry {
+/** A ribbon swept along the fence line. `profile` is [outward distance, height] pairs. */
+function fenceRibbon(path: PathPoint[], profile: [number, number][], uScale: number, vScale: number): THREE.BufferGeometry {
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const profileLength: number[] = [0];
-  for (let j = 1; j < profile.length; j++) {
-    profileLength.push(profileLength[j - 1] + Math.hypot(profile[j][0] - profile[j - 1][0], profile[j][1] - profile[j - 1][1]));
-  }
+  const along: number[] = [0];
+  for (let j = 1; j < profile.length; j++) along.push(along[j - 1] + Math.hypot(profile[j][0] - profile[j - 1][0], profile[j][1] - profile[j - 1][1]));
   path.forEach((p) => {
+    // The return fences sink to a low rail as the hill dies away
+    const hf = 0.45 + 0.55 * p.k;
     profile.forEach(([d, h], j) => {
-      positions.push(p.x + p.nx * d * p.taper, h * p.taper, p.z + p.nz * d * p.taper);
-      uvs.push(p.length / uScale, profileLength[j] / vScale);
+      positions.push(p.x + p.nx * d, h * hf, p.z + p.nz * d);
+      uvs.push(p.length / uScale, along[j] / vScale);
     });
   });
   const row = profile.length;
@@ -634,75 +592,30 @@ function sweep(path: PathPoint[], profile: [number, number][], uScale: number, v
   return geometry;
 }
 
-/** Mostly neutrals with the odd splash of team colour, so the crowd reads as a crowd and not confetti. */
-const CROWD_COLORS = ['#d9dbe0', '#c2c7d0', '#aab1bd', '#8d97a8', '#6c7a93', '#4d5d7a', '#34445f', '#e8e3d6', '#d6d0c2', '#a63a3d', '#c98a3a'];
-const SKIN = ['#e8b894', '#d29a72', '#a9714e', '#7a4a32', '#f1cdb0'];
-
-/** One staircase step of seating: the crowd seen from the field. Tiles once per step. */
-function makeCrowdTexture(seed: number, seat: string, density: number, riseFraction: number): THREE.CanvasTexture {
-  const W = 512;
-  const H = 128;
-  const [canvas, g] = makeCanvas(W, H);
-  const rand = makeRng(seed);
-  const split = H * (1 - riseFraction); // canvas y of the riser/tread seam (riser sits lower, v = 0 at the bottom)
-  g.fillStyle = seat;
-  g.fillRect(0, 0, W, H);
-  g.fillStyle = 'rgba(0,0,0,0.2)';
-  g.fillRect(0, 0, W, split);
-  const STEP = 16;
-  for (let x = 0; x < W; x += STEP) {
-    if (rand() > density) continue;
-    const shirt = CROWD_COLORS[Math.floor(rand() * CROWD_COLORS.length)];
-    const skin = SKIN[Math.floor(rand() * SKIN.length)];
-    g.fillStyle = shirt;
-    g.fillRect(x + 1.5, split - 14, STEP - 3, H - split + 22);
-    g.fillStyle = `rgba(0,0,0,${(rand() * 0.22).toFixed(2)})`;
-    g.fillRect(x + 1.5, split - 14, STEP - 3, H - split + 22);
-    g.fillStyle = skin;
-    g.beginPath();
-    g.arc(x + STEP / 2, split - 22, 5.2, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = 'rgba(0,0,0,0.16)';
-    g.fillRect(x + STEP / 2 + 1, split - 18, STEP / 2 - 3, 8);
-  }
-  const shade = g.createLinearGradient(0, 0, 0, H);
-  shade.addColorStop(0, 'rgba(0,0,0,0.22)');
-  shade.addColorStop(0.5, 'rgba(0,0,0,0)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.08)');
-  g.fillStyle = shade;
-  g.fillRect(0, 0, W, H);
-  const texture = toTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.anisotropy = 4;
-  return texture;
-}
-
-/** Padded outfield wall: dark green panels, sponsor-style blocks, lit seams. */
+/** Padded outfield wall: dark green panels with a few sponsor-style blocks. */
 function makeWallTexture(): THREE.CanvasTexture {
   const W = 1024;
   const H = 128;
   const [canvas, g] = makeCanvas(W, H);
   const rand = makeRng(21);
-  const panels = ['#12351f', '#17402a', '#12351f', '#102e1c', '#1a4a2f'];
+  const panels = ['#154226', '#1a4a2b', '#154226', '#123a22', '#1d5030'];
   const PANEL = 64;
   for (let x = 0; x < W; x += PANEL) {
     g.fillStyle = panels[Math.floor(rand() * panels.length)];
     g.fillRect(x, 0, PANEL, H);
-    if (rand() > 0.55) {
-      g.fillStyle = ['#c9373f', '#2f4f8f', '#f2f2f2', '#e0a82e'][Math.floor(rand() * 4)];
-      g.globalAlpha = 0.85;
-      g.fillRect(x + 8, 26, PANEL * (1 + Math.floor(rand() * 2)) - 16, 50);
+    if (rand() > 0.6) {
+      g.fillStyle = ['#d8d8d8', '#e0a82e', '#c9373f', '#f2f2f2'][Math.floor(rand() * 4)];
+      g.globalAlpha = 0.8;
+      g.fillRect(x + 8, 30, PANEL * (1 + Math.floor(rand() * 2)) - 16, 44);
       g.globalAlpha = 1;
-      g.fillStyle = 'rgba(255,255,255,0.7)';
-      g.fillRect(x + 14, 46, PANEL - 28, 6);
     }
-    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillStyle = 'rgba(0,0,0,0.3)';
     g.fillRect(x, 0, 2, H);
   }
   const shade = g.createLinearGradient(0, 0, 0, H);
   shade.addColorStop(0, 'rgba(255,255,255,0.14)');
-  shade.addColorStop(0.18, 'rgba(255,255,255,0)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.38)');
+  shade.addColorStop(0.2, 'rgba(255,255,255,0)');
+  shade.addColorStop(1, 'rgba(0,0,0,0.32)');
   g.fillStyle = shade;
   g.fillRect(0, 0, W, H);
   const texture = toTexture(canvas);
@@ -711,37 +624,328 @@ function makeWallTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-export const WALL_HEIGHT = 8;
+/* ----- the hill ----- */
+
+const HILL = {
+  /** How far the hill reaches back from the fence. */
+  depth: 122,
+  rows: 64,
+  crest: 17,
+  terraces: 5,
+  /** Distance from the wall at which the terraced face reaches the crest. */
+  riseEnd: 56,
+  fallStart: 64,
+  fallLen: 58,
+};
+const TERRACE_SPAN = HILL.riseEnd / HILL.terraces;
+
+/** Height of the hill at distance `d` behind the fence, before the end-taper `k` is applied. */
+function hillProfile(d: number): number {
+  const n = HILL.terraces;
+  const u = clamp01(d / HILL.riseEnd);
+  const q = u * n;
+  const step = Math.floor(q);
+  // Flat bench for the first part of every step, then a gentle riser up to the next one
+  const v = u >= 1 ? 1 : (step + smooth(clamp01((q - step - 0.4) / 0.6))) / n;
+  const fall = 1 - smooth(clamp01((d - HILL.fallStart) / HILL.fallLen));
+  return HILL.crest * v * fall;
+}
+
+/** The hill surface, one smooth grid with no seams. Both ends ease down into the ground. */
+function makeHillGeometry(path: PathPoint[]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const cols = HILL.rows + 1;
+  path.forEach((p) => {
+    for (let j = 0; j <= HILL.rows; j++) {
+      const d = (HILL.depth * j) / HILL.rows;
+      positions.push(p.x + p.nx * d, 0.04 + p.k * hillProfile(d), p.z + p.nz * d);
+      uvs.push(p.length / 64, d / TERRACE_SPAN);
+    }
+  });
+  for (let i = 0; i < path.length - 1; i++) {
+    for (let j = 0; j < HILL.rows; j++) {
+      const a = i * cols + j;
+      const b = a + cols;
+      indices.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** One terrace of lawn: mown bench, darker riser, and the odd blanket or chair dotted about. */
+function makeHillTexture(): THREE.CanvasTexture {
+  const W = 1024;
+  const H = 256;
+  const [canvas, g] = makeCanvas(W, H);
+  const rand = makeRng(77);
+  const benchEnd = H * 0.4; // matches the flat part of each step (canvas y runs opposite to v)
+  g.fillStyle = '#5fa046';
+  g.fillRect(0, 0, W, H);
+  const lawn = g.createLinearGradient(0, 0, 0, H);
+  lawn.addColorStop(0, '#67aa4b');
+  lawn.addColorStop(0.55, '#5c9c44');
+  lawn.addColorStop(1, '#4f8c3b');
+  g.fillStyle = lawn;
+  g.fillRect(0, 0, W, H);
+  void benchEnd;
+  for (let i = 0; i < 520; i++) {
+    g.fillStyle = rand() > 0.5 ? 'rgba(190,235,140,0.10)' : 'rgba(20,70,25,0.10)';
+    g.fillRect(rand() * W, rand() * H, 6 + rand() * 30, 2 + rand() * 5);
+  }
+  const palette = ['#e8e8e8', '#d9453d', '#3f6fc4', '#f0c040', '#ffffff', '#e38a3a', '#7b5fb5'];
+  for (let i = 0; i < 90; i++) {
+    const x = rand() * W;
+    const y = H * (0.12 + rand() * 0.45);
+    g.fillStyle = palette[Math.floor(rand() * palette.length)];
+    g.fillRect(x, y, 6 + rand() * 5, 4 + rand() * 3);
+    g.fillStyle = 'rgba(70,45,30,0.9)';
+    g.fillRect(x + 2, y - 5, 3, 5);
+  }
+  const texture = toTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.anisotropy = 6;
+  return texture;
+}
+
+/** A ring of trees along the crest and back slope: simple rounded crowns on short trunks. */
+function makeTrees(path: PathPoint[]): THREE.Group {
+  const group = new THREE.Group();
+  const rand = makeRng(117);
+  const spots: { x: number; y: number; z: number; s: number; c: number }[] = [];
+  for (let i = 0; i < path.length; i += 2) {
+    const p = path[i];
+    for (let r = 0; r < 3; r++) {
+      if (rand() < 0.14) continue;
+      const d = 68 + r * 15 + rand() * 12;
+      spots.push({
+        x: p.x + p.nx * d + (rand() - 0.5) * 6,
+        z: p.z + p.nz * d + (rand() - 0.5) * 6,
+        y: p.k * hillProfile(d) + 0.04,
+        s: 0.85 + rand() * 0.75,
+        c: rand(),
+      });
+    }
+  }
+  const greens = ['#3f7a3a', '#4f8c42', '#5f9a4a', '#2f6a38', '#6aa04f'].map((c) => new THREE.Color(c));
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 1.05, 6, 6).translate(0, 3, 0), new THREE.MeshStandardMaterial({ color: '#6b4d36', roughness: 1 }), spots.length);
+  const crownA = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), spots.length);
+  const crownB = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), spots.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const pos = new THREE.Vector3();
+  const scl = new THREE.Vector3();
+  spots.forEach((t, i) => {
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t.c * 6.28);
+    trunks.setMatrixAt(i, m.compose(pos.set(t.x, t.y, t.z), q, scl.set(t.s, t.s, t.s)));
+    crownA.setMatrixAt(i, m.compose(pos.set(t.x, t.y + 9 * t.s, t.z), q, scl.set(4.6 * t.s, 5 * t.s, 4.6 * t.s)));
+    crownB.setMatrixAt(i, m.compose(pos.set(t.x + 0.6 * t.s, t.y + 13.4 * t.s, t.z - 0.4 * t.s), q, scl.set(3.1 * t.s, 3.5 * t.s, 3.1 * t.s)));
+    const col = greens[Math.floor(t.c * greens.length) % greens.length];
+    crownA.setColorAt(i, col);
+    crownB.setColorAt(i, col.clone().offsetHSL(0.01, 0.02, 0.05));
+  });
+  [trunks, crownA, crownB].forEach((mesh) => {
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  });
+  return group;
+}
+
+/* ----- the grandstand ----- */
+
+interface Seg {
+  a: [number, number];
+  b: [number, number];
+  color: string;
+}
 
 /**
- * The ballpark: padded wall, two tiers of seats with a crowd, a lit suite level, a roof edge
- * and light towers. Returns a group plus the sprite glow texture the caller owns nothing of.
+ * Straight front edge of one grandstand, parallel to a foul line and set back from it.
+ * `side` is -1 for the third-base (left) stand and 1 for the first-base (right) stand.
  */
-export function buildStadium(): THREE.Group {
+function grandstandPath(side: -1 | 1): PathPoint[] {
+  const STEPS = 30;
+  const OFFSET = 26; // sideways distance from the foul line
+  const FROM = 22; // distance along the foul line where the stand starts
+  const TO = 95; // ...and where it ends
+  const along = (t: number) => ({ x: side * (t + OFFSET / Math.SQRT2), z: -t + OFFSET / Math.SQRT2 });
+  const pts = Array.from({ length: STEPS + 1 }, (_, i) => along(FROM + ((TO - FROM) * i) / STEPS));
+  let length = 0;
+  return pts.map((p, i) => {
+    if (i) length += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+    // Outward normal: away from the field, perpendicular to the foul line
+    return { x: p.x, z: p.z, nx: side * Math.SQRT1_2, nz: Math.SQRT1_2, length, k: 1 };
+  });
+}
+
+/**
+ * Sweeps a closed profile along the path as a solid, flat-shaded body with its own colour per
+ * face, and caps both ends so nothing is ever see-through.
+ */
+function sweepSolid(path: PathPoint[], segs: Seg[], outline: [number, number][]): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const color = new THREE.Color();
+  const at = (p: PathPoint, [d, h]: [number, number]) => new THREE.Vector3(p.x + p.nx * d, h, p.z + p.nz * d);
+  for (let i = 0; i < path.length - 1; i++) {
+    for (const seg of segs) {
+      const a0 = at(path[i], seg.a);
+      const b0 = at(path[i], seg.b);
+      const a1 = at(path[i + 1], seg.a);
+      const b1 = at(path[i + 1], seg.b);
+      color.set(seg.color);
+      [a0, b0, a1, a1, b0, b1].forEach((v) => {
+        positions.push(v.x, v.y, v.z);
+        colors.push(color.r, color.g, color.b);
+      });
+    }
+  }
+  const tris = THREE.ShapeUtils.triangulateShape(
+    outline.map(([d, h]) => new THREE.Vector2(d, h)),
+    [],
+  );
+  [path[0], path[path.length - 1]].forEach((p) => {
+    color.set('#aeb3ba');
+    tris.forEach((tri) =>
+      tri.forEach((index) => {
+        const v = at(p, outline[index]);
+        positions.push(v.x, v.y, v.z);
+        colors.push(color.r, color.g, color.b);
+      }),
+    );
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** One roofed concrete grandstand: low front wall, blue seats in stepped rows, white roof on posts. */
+function makeGrandstand(path: PathPoint[], material: THREE.Material): THREE.Group {
   const group = new THREE.Group();
-  const fullPath = wallPath();
-  // The outfield fence is only the curved arc between the foul poles. Do not connect it
-  // to the backstop with side walls: that creates the continuous oval stadium silhouette.
-  const fenceStart = PATH_BACK + PATH_SIDE;
-  const fencePath = fullPath.slice(fenceStart, fenceStart + PATH_ARC + 1);
 
-  // Wall
-  const wallTexture = makeWallTexture();
-  const wall = new THREE.Mesh(
-    sweep(fencePath, [[0, 0], [0, WALL_HEIGHT - 0.9]], 64, 8),
-    new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.85, side: THREE.DoubleSide }),
-  );
-  wall.castShadow = true;
-  wall.receiveShadow = true;
-  group.add(wall);
-  const cap = new THREE.Mesh(
-    sweep(fencePath, [[-0.5, WALL_HEIGHT - 0.9], [-0.5, WALL_HEIGHT], [0.9, WALL_HEIGHT]], 10, 1),
-    new THREE.MeshStandardMaterial({ color: 0xf5c93a, roughness: 0.5, emissive: 0x6b4d00, emissiveIntensity: 0.5, side: THREE.DoubleSide }),
-  );
-  cap.castShadow = true;
-  group.add(cap);
+  const ROWS = 7;
+  const TREAD = 2;
+  const RISE = 1.25;
+  const FRONT = 3.2;
+  const segs: Seg[] = [];
+  const outline: [number, number][] = [[0, 0], [0, FRONT], [1.2, FRONT]];
+  segs.push({ a: [0, 0], b: [0, FRONT], color: '#c4c8cd' });
+  segs.push({ a: [0, FRONT], b: [1.2, FRONT], color: '#d8dbde' });
+  let d = 1.2;
+  let h = FRONT;
+  for (let r = 0; r < ROWS; r++) {
+    segs.push({ a: [d, h], b: [d, h + RISE], color: '#27497d' });
+    outline.push([d, h + RISE]);
+    segs.push({ a: [d, h + RISE], b: [d + TREAD, h + RISE], color: '#3f70b8' });
+    outline.push([d + TREAD, h + RISE]);
+    d += TREAD;
+    h += RISE;
+  }
+  segs.push({ a: [d, h], b: [d, h + 1.2], color: '#b4b9bf' });
+  segs.push({ a: [d, h + 1.2], b: [d, 0], color: '#9aa0a8' });
+  segs.push({ a: [d, 0], b: [0, 0], color: '#7c828a' });
+  outline.push([d, h + 1.2], [d, 0]);
+  const bowl = new THREE.Mesh(sweepSolid(path, segs, outline), material);
+  bowl.castShadow = true;
+  bowl.receiveShadow = true;
+  group.add(bowl);
 
+  const roofBack = d + 2.5;
+  const roofSegs: Seg[] = [
+    { a: [-1.8, 16.2], b: [roofBack, 17.8], color: '#80868e' },
+    { a: [roofBack, 17.8], b: [roofBack, 18.9], color: '#a9aeb5' },
+    { a: [roofBack, 18.9], b: [-1.8, 18.2], color: '#ffffff' },
+    { a: [-1.8, 18.2], b: [-1.8, 16.2], color: '#2e61ab' },
+  ];
+  const roofOutline: [number, number][] = [[-1.8, 16.2], [roofBack, 17.8], [roofBack, 18.9], [-1.8, 18.2]];
+  const roof = new THREE.Mesh(sweepSolid(path, roofSegs, roofOutline), material);
+  roof.castShadow = true;
+  roof.receiveShadow = true;
+  group.add(roof);
 
-  // No tall floodlight towers: the LLWS look is open, compact and centred on the diamond.
+  // Posts holding the roof up, along the back of the bowl
+  const SPACING = 9;
+  const spots = path.filter((p, i) => i === 0 || i === path.length - 1 || Math.floor(p.length / SPACING) !== Math.floor(path[i - 1].length / SPACING));
+  const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.8, 16.6, 0.8).translate(0, 8.3, 0), new THREE.MeshStandardMaterial({ color: '#b9bec4', roughness: 0.8 }), spots.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  spots.forEach((p, i) => {
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.atan2(p.nx, p.nz));
+    posts.setMatrixAt(i, m.compose(new THREE.Vector3(p.x + p.nx * (d - 0.6), 0, p.z + p.nz * (d - 0.6)), q, new THREE.Vector3(1, 1, 1)));
+  });
+  posts.castShadow = true;
+  group.add(posts);
   return group;
+}
+
+/* ----- put it together ----- */
+
+export interface Stadium {
+  group: THREE.Group;
+  /** The outfield wall only, as a depth-only copy. Home runs are hidden behind it and nothing else. */
+  occluder: THREE.Group;
+  /** Hill surface height and up-direction at a world position (flat ground inside the fence). */
+  surfaceAt: (x: number, z: number) => { y: number; normal: THREE.Vector3 };
+}
+
+export function buildStadium(): Stadium {
+  const group = new THREE.Group();
+  const occluder = new THREE.Group();
+  const path = outfieldPath();
+
+  // Hill first: it is the base everything else sits on
+  const hill = new THREE.Mesh(
+    makeHillGeometry(path),
+    new THREE.MeshStandardMaterial({ map: makeHillTexture(), roughness: 1, side: THREE.DoubleSide }),
+  );
+  hill.receiveShadow = true;
+  group.add(hill);
+  group.add(makeTrees(path));
+
+  // Wall and cap
+  const wallGeometry = fenceRibbon(path, [[0, 0], [0, WALL_HEIGHT - 0.9]], 64, 8);
+  const capGeometry = fenceRibbon(path, [[-0.5, WALL_HEIGHT - 0.9], [-0.5, WALL_HEIGHT], [0.9, WALL_HEIGHT]], 10, 1);
+  const wall = new THREE.Mesh(wallGeometry, new THREE.MeshStandardMaterial({ map: makeWallTexture(), roughness: 0.85, side: THREE.DoubleSide }));
+  const cap = new THREE.Mesh(capGeometry, new THREE.MeshStandardMaterial({ color: 0xf5c93a, roughness: 0.5, emissive: 0x6b4d00, emissiveIntensity: 0.5, side: THREE.DoubleSide }));
+  [wall, cap].forEach((mesh) => {
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  });
+  const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+  occluder.add(new THREE.Mesh(wallGeometry, depthOnly), new THREE.Mesh(capGeometry, depthOnly));
+
+  const standMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, side: THREE.DoubleSide });
+  group.add(makeGrandstand(grandstandPath(-1), standMaterial), makeGrandstand(grandstandPath(1), standMaterial));
+
+  const heightAt = (x: number, z: number) => {
+    let best = path[0];
+    let bestD2 = Infinity;
+    for (const p of path) {
+      const d2 = (x - p.x) ** 2 + (z - p.z) ** 2;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = p;
+      }
+    }
+    const d = (x - best.x) * best.nx + (z - best.z) * best.nz;
+    return d <= 0 || d > HILL.depth ? 0 : best.k * hillProfile(d) + 0.04;
+  };
+  const surfaceAt: Stadium['surfaceAt'] = (x, z) => {
+    const e = 0.8;
+    const y = heightAt(x, z);
+    const normal = new THREE.Vector3(-(heightAt(x + e, z) - heightAt(x - e, z)) / (2 * e), 1, -(heightAt(x, z + e) - heightAt(x, z - e)) / (2 * e)).normalize();
+    return { y, normal };
+  };
+
+  return { group, occluder, surfaceAt };
 }
