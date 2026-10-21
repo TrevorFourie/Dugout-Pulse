@@ -336,10 +336,10 @@ foreach ($density in $densities.Keys) {
     $legacySize = [int][Math]::Round(48 * $multiplier)
     $adaptiveSize = [int][Math]::Round(108 * $multiplier)
 
-    # Keep the supplied square artwork intact for legacy launchers. Do not shrink it
-    # into a second square and do not circle-crop it before Android applies its mask.
+    # Keep the standard legacy icon padded, but make the round-icon asset genuinely
+    # circular so a square source background cannot sit as a square inside the round mask.
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher.png") -Width $legacySize -Height $legacySize -Scale 0.84
-    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale 0.84
+    Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_round.png") -Width $legacySize -Height $legacySize -Scale 1.0 -Circle
     Save-DugoutImage -Source $iconSource -Destination (Join-Path $folderPath "ic_launcher_foreground.png") -Width $adaptiveSize -Height $adaptiveSize -Scale $adaptiveSafeZoneScale
 }
 
@@ -532,6 +532,17 @@ if ($matchV31.Success) {
 } else {
     throw "Could not add launch theme to $stylesV31Path"
 }
+
+# Android 12+ resolves AppTheme.NoActionBar from values-v31, not values/styles.xml.
+# Give that actual post-splash theme the same full-screen artwork window background;
+# otherwise the system splash disappears into a plain WebView/window before React loads.
+$noActionBarV31Match = [regex]::Match($stylesV31, $noActionBarPattern)
+if (-not $noActionBarV31Match.Success) {
+    throw "Could not find AppTheme.NoActionBar in $stylesV31Path"
+}
+$noActionBarV31Body = [regex]::Replace($noActionBarV31Match.Groups[2].Value, '\\s*<item\\s+name="android:windowBackground">[^<]*</item>', '')
+$noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
+$stylesV31 = $stylesV31.Replace($noActionBarV31Match.Value, $noActionBarV31New)
 Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 
 foreach ($themeFile in @($stylesPath, $stylesV31Path)) {
