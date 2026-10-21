@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -17,6 +18,16 @@ import { StartGamePicker } from './components/StartGamePicker';
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
+
+  // Keep the native launch splash above the WebView until persisted game data is
+  // ready. This prevents a blank WebView frame and avoids a second splash transition.
+  useEffect(() => {
+    if (!isLoading) {
+      void SplashScreen.hide().catch(() => {
+        // The web preview has no native splash to dismiss.
+      });
+    }
+  }, [isLoading]);
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
   useEffect(() => {
