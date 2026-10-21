@@ -552,13 +552,9 @@ if ($noActionBarV31Match.Success) {
 # are never actually applied on Android 12+.
 Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 
-# Validate the main theme file and validate values-v31 only if that file exists.
-# A v31 file is optional: this script may create the directory and keep its XML in memory
-# without needing a separate styles.xml when the generated project has no v31 overrides.
-$themeFilesToValidate = @($stylesPath)
-if (Test-Path -LiteralPath $stylesV31Path) {
-    $themeFilesToValidate += $stylesV31Path
-}
+# Both theme files are written above, including a new values-v31/styles.xml
+# when the generated Capacitor project did not provide one.
+$themeFilesToValidate = @($stylesPath, $stylesV31Path)
 foreach ($themeFile in $themeFilesToValidate) {
     $themeText = Get-Content -LiteralPath $themeFile -Raw
     if ($themeText -notmatch 'name="AppTheme\.NoActionBarLaunch"') {
