@@ -537,13 +537,15 @@ if ($matchV31.Success) {
 # Give that actual post-splash theme the same full-screen artwork window background;
 # otherwise the system splash disappears into a plain WebView/window before React loads.
 $noActionBarV31Match = [regex]::Match($stylesV31, $noActionBarPattern)
-if (-not $noActionBarV31Match.Success) {
-    throw "Could not find AppTheme.NoActionBar in $stylesV31Path"
+if ($noActionBarV31Match.Success) {
+    # Only patch this theme when the v31 resource file defines its own override.
+    # If it does not, Android inherits AppTheme.NoActionBar from values/styles.xml,
+    # which was already patched above. Do not fail a valid generated project.
+    $noActionBarV31Body = [regex]::Replace($noActionBarV31Match.Groups[2].Value, '\s*<item\s+name="android:windowBackground">[^<]*</item>', '')
+    $noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
+    $stylesV31 = $stylesV31.Replace($noActionBarV31Match.Value, $noActionBarV31New)
+    Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 }
-$noActionBarV31Body = [regex]::Replace($noActionBarV31Match.Groups[2].Value, '\\s*<item\\s+name="android:windowBackground">[^<]*</item>', '')
-$noActionBarV31New = $noActionBarV31Match.Groups[1].Value + $noActionBarV31Body.TrimEnd() + [Environment]::NewLine + '    <item name="android:windowBackground">@drawable/splash</item>' + [Environment]::NewLine + $noActionBarV31Match.Groups[3].Value
-$stylesV31 = $stylesV31.Replace($noActionBarV31Match.Value, $noActionBarV31New)
-Set-Content -LiteralPath $stylesV31Path -Value $stylesV31 -Encoding UTF8
 
 foreach ($themeFile in @($stylesPath, $stylesV31Path)) {
     $themeText = Get-Content -LiteralPath $themeFile -Raw
