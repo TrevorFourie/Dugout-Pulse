@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Edit2, Layers, Plus, Star, Trash2, Trophy, Calendar, Users, X } from 'lucide-react';
+import { Check, Edit2, Layers, Plus, Trash2, Trophy, Calendar, Users, X } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 
 type PresetKind = 'seasons' | 'tournaments' | 'ageGroups';
