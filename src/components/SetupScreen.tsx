@@ -181,6 +181,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         if (result.success) {
           setImportMessage({ text: result.message, isError: false });
           setIsFirstTimeUser(false);
+          if (result.message !== 'Season data successfully restored!') {
+            // This screen closes after a successful restore, so surface recovery warnings first.
+            window.alert(result.message);
+          }
           if (onComplete) onComplete();
         } else {
           setImportMessage({ text: result.message, isError: true });
