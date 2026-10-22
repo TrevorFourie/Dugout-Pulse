@@ -383,7 +383,8 @@ function validateCheckpointPayload(value: unknown): value is RecoveryPayload {
 }
 
 async function writeLogoFiles(files: Record<string, string>): Promise<void> {
-  if (Object.keys(files).length) await Filesystem.mkdir({ path: 'team-logos', directory: Directory.Data, recursive: true });
+  // writeFile uses recursive:true below, which creates the directory when needed.
+  // Avoid mkdir here: some Capacitor platforms reject mkdir when the directory already exists.
   for (const [fileName, base64] of Object.entries(files)) {
     if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..') || !base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
       throw new Error('A saved custom logo has invalid file data.');
