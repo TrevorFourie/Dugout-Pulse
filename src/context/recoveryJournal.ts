@@ -3,6 +3,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 const RECOVERY_DIR = 'dugout-pulse-recovery';
 const INDEX_FILE = RECOVERY_DIR + '/index.json';
 const KEEP_RECENT = 10;
+const KEEP_FAILED_CHECKPOINTS = 10;
 const DAILY_RETENTION_DAYS = 7;
 const WEEKLY_RETENTION_WEEKS = 4;
 const PRE_RECOVERY_PROTECTION_DAYS = 7;
@@ -82,6 +83,13 @@ function retentionKeepSet(entries: Checkpoint[], now = new Date()): Set<string> 
   const keep = new Set<string>();
   const add = (entry: Checkpoint) => { if (entry?.id) keep.add(entry.id); };
   valid.slice(0, KEEP_RECENT).forEach(add);
+  // Corrupt checkpoints are useful for diagnosing recent failures, but must not
+  // accumulate forever. Keep a bounded newest set; cleanup is only invoked after
+  // at least one verified recovery point is confirmed to remain.
+  entries.filter((entry) => entry.status === 'failed')
+    .sort((a, b) => checkpointTime(b) - checkpointTime(a))
+    .slice(0, KEEP_FAILED_CHECKPOINTS)
+    .forEach(add);
   const verified = valid.filter((entry) => entry.status === 'verified');
   const localDay = (entry: Checkpoint) => {
     const date = new Date(checkpointTime(entry));
@@ -127,7 +135,7 @@ function retentionKeepSet(entries: Checkpoint[], now = new Date()): Set<string> 
 async function pruneCheckpoints(previous: RecoveryIndex, next: RecoveryIndex): Promise<void> {
   const keep = new Set(next.checkpoints.map((entry) => entry.id));
   for (const entry of previous.checkpoints) {
-    if (keep.has(entry.id) || entry.status === 'failed' || !entry.file.startsWith(RECOVERY_DIR + '/checkpoint-')) continue;
+    if (keep.has(entry.id) || !entry.file.startsWith(RECOVERY_DIR + '/checkpoint-')) continue;
     try { await Filesystem.deleteFile({ path: entry.file, directory: Directory.Data }); }
     catch { /* Cleanup failure leaves an unindexed orphan; never removes an indexed recovery point. */ }
   }
@@ -150,7 +158,16 @@ async function reconcileRecoveryJournal(): Promise<void> {
         const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: 'utf8' });
         const raw = result.data as string;
         const parsed: unknown = JSON.parse(raw);
-        if (!validateCheckpointPayload(parsed)) continue;
+        if (!validateCheckpointPayload(parsed)) {
+          const id = name.slice('checkpoint-'.length, -'.json'.length);
+          const timestamp = Number.parseInt(id.split('-')[0] || '', 36);
+          discovered.push({
+            id, createdAt: Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date(0).toISOString(),
+            reason: 'Invalid orphaned recovery checkpoint', file: path, byteLength: raw.length,
+            checksum: checksum(raw), status: 'failed', pinned: false,
+          });
+          continue;
+        }
         const payload = parsed as RecoveryPayload;
         // Reuse the same structural and referenced-logo validation as user-selected restore.
         const required = (() => { try { const items: unknown = JSON.parse(payload.values['dugoutPulse.logoLibrary.v1'] || '[]'); return Array.isArray(items) ? items : []; } catch { return []; } })();
@@ -164,7 +181,17 @@ async function reconcileRecoveryJournal(): Promise<void> {
           pinned: false, contentHash: checksum(JSON.stringify({ values: payload.values, logoFiles: payload.logoFiles || {} })),
           schemaVersion: 1,
         });
-      } catch { /* Keep unrecognized orphan files rather than deleting possible recovery data. */ }
+      } catch {
+        // Track recognized but unreadable checkpoint files so retention can bound them
+        // after another verified recovery point has been confirmed.
+        const id = name.slice('checkpoint-'.length, -'.json'.length);
+        const timestamp = Number.parseInt(id.split('-')[0] || '', 36);
+        discovered.push({
+          id, createdAt: Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date(0).toISOString(),
+          reason: 'Unreadable orphaned recovery checkpoint', file: path, byteLength: 0,
+          checksum: '', status: 'failed', pinned: false,
+        });
+      }
     }
   } catch {
     // A missing/unreadable directory is not permission to prune existing checkpoint files.
