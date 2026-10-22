@@ -56,12 +56,15 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
     };
   }, [isOpen, value]);
 
+  const isSearching = query.trim().toLocaleLowerCase() !== value.trim().toLocaleLowerCase();
+
   const filteredTeams = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase();
+    // Opening a selected field shows the full list; changing the text filters it.
+    const term = (isSearching ? query : '').trim().toLocaleLowerCase();
     return [...oppositionTeams]
       .filter((team) => !term || team.name.toLocaleLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  }, [oppositionTeams, query]);
+  }, [oppositionTeams, query, isSearching]);
 
   const exactMatch = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();
@@ -160,7 +163,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[70] w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-[#354050] dark:bg-[#252D38]"
         >
           <div className="max-h-60 overflow-y-auto overscroll-contain p-1">
-            {query.trim() && !exactMatch && (
+            {isSearching && query.trim() && !exactMatch && (
               <button
                 type="button"
                 onClick={handleAddTeam}
@@ -202,7 +205,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
             {filteredTeams.length === 0 && !query.trim() && (
               <p className="px-3 py-4 text-center text-xs text-slate-500 dark:text-[#9CA3AF]">No opposition teams have been added yet.</p>
             )}
-            {filteredTeams.length === 0 && query.trim() && exactMatch === false && (
+            {filteredTeams.length === 0 && isSearching && query.trim() && exactMatch === false && (
               <p className="px-3 py-3 text-center text-[11px] text-slate-500 dark:text-[#9CA3AF]">No matching team. Use the action above to add it to Opposition Teams.</p>
             )}
           </div>
