@@ -1,90 +1,28 @@
 import React from 'react';
-import { createDiagnosticReport, recordDiagnosticError } from '../utils/errorDiagnostics';
+import { recordDiagnosticError, showDiagnosticScreen } from '../utils/errorDiagnostics';
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  reference: string | null;
-  diagnosticReport: string;
-  copyStatus: string;
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, reference: null, diagnosticReport: '', copyStatus: '' };
-  private diagnosticTextarea = React.createRef<HTMLTextAreaElement>();
+  state: ErrorBoundaryState = { hasError: false };
 
-  static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
+  static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error): void {
     const reference = recordDiagnosticError('react_render', error);
-    this.setState({ reference, diagnosticReport: createDiagnosticReport(reference) });
+    // The HTML bootstrap owns the only error-screen implementation, including
+    // its source details, report format, reference, and restart action.
+    showDiagnosticScreen(reference);
   }
 
-  private retry = (): void => {
-    this.setState({ hasError: false, reference: null, diagnosticReport: '', copyStatus: '' });
-  };
-
-  private reload = (): void => {
-    window.location.reload();
-  };
-
-  private copyDiagnosticReport = async (): Promise<void> => {
-    const report = this.state.diagnosticReport;
-    if (!report) return;
-
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
-      await navigator.clipboard.writeText(report);
-      this.setState({ copyStatus: 'Diagnostic report copied. Paste it into your message or support request.' });
-    } catch {
-      const textarea = this.diagnosticTextarea.current;
-      if (textarea) {
-        textarea.focus();
-        textarea.select();
-      }
-      this.setState({ copyStatus: 'Automatic copy was blocked. The report is selected below: press Ctrl+C (or right-click and choose Copy).' });
-    }
-  };
-
   render(): React.ReactNode {
-    if (this.state.hasError) {
-      return (
-        <main className="min-h-full h-full overflow-auto flex items-center justify-center bg-[#F4F6F8] dark:bg-[#101419] px-5 py-10 text-[#18212D] dark:text-[#FAFAFA]">
-          <section className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] p-6 shadow-lg" role="alert">
-            <div className="text-xs font-bold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">Dugout Pulse</div>
-            <h1 className="mt-2 text-xl font-bold">Something went wrong</h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB]">
-              The app hit a problem and could not display this screen. Your data has not been intentionally deleted. Try again or restart the app.
-            </p>
-            {this.state.reference && (
-              <p className="mt-3 text-xs text-slate-500 dark:text-[#9CA3AF]">Error reference: {this.state.reference}</p>
-            )}
-            {this.state.diagnosticReport && (
-              <details open className="mt-4 text-sm">
-                <summary className="cursor-pointer font-semibold">View diagnostic details</summary>
-                <textarea
-                  readOnly
-                  ref={this.diagnosticTextarea}
-                  aria-label="Sanitised diagnostic report"
-                  value={this.state.diagnosticReport}
-                  rows={10}
-                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2 font-mono text-xs text-slate-900"
-                  onFocus={(event) => event.currentTarget.select()}
-                />
-                <button type="button" onClick={this.copyDiagnosticReport} className="mt-2 rounded-xl bg-[#007A6A] px-4 py-2.5 text-sm font-semibold text-white dark:bg-[#00D7BC] dark:text-[#101419]">Copy diagnostic report</button>
-                {this.state.copyStatus && <p role="status" className="mt-2 text-xs text-slate-600 dark:text-[#D1D5DB]">{this.state.copyStatus}</p>}
-                <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Check the report before sharing it. It is not sent automatically.</p>
-              </details>
-            )}
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button type="button" onClick={this.retry} className="rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D]">Try again</button>
-              <button type="button" onClick={this.reload} className="rounded-xl border border-slate-300 dark:border-[#354050] px-4 py-2.5 text-sm font-semibold">Restart app</button>
-            </div>
-          </section>
-        </main>
-      );
-    }
+    // Avoid rendering a second, competing error UI. The shared screen is mounted
+    // directly by the HTML bootstrap and remains available even if React failed.
+    if (this.state.hasError) return null;
     return this.props.children;
   }
 }
