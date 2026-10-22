@@ -56,7 +56,7 @@ export function useGameOpponents({
     // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
+  }, [oppositionTeams, storageWritesBlocked]);
 
   const deleteOppositionTeam = useCallback((teamId: string): boolean => {
     if (storageWritesBlocked) return false;
