@@ -542,7 +542,9 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
       await verifyLogoFilesForValues(after, payload.logoFiles || {});
       return { success: true, message: 'Recovery completed and verified, including the restored custom logo files. The app will reload to apply the restored data.' };
     } catch (restoreError) {
-      // Best-effort rollback. The pre-restore checkpoint remains in the journal even if rollback fails.
+      // Roll back all live keys and logo files, then verify the rollback rather than
+      // assuming that successful write calls mean the previous state was recovered.
+      let rollbackVerified = false;
       try {
         await writeLogoFiles(beforeLogoFiles);
         for (let i = localStorage.length - 1; i >= 0; i -= 1) {
@@ -550,8 +552,27 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
           if (key && !preserved.has(key) && !(key in before)) localStorage.removeItem(key);
         }
         for (const [key, value] of Object.entries(before)) if (!preserved.has(key)) localStorage.setItem(key, value);
+
+        const rolledBack: Record<string, string> = {};
+        for (let i = 0; i < localStorage.length; i += 1) {
+          const key = localStorage.key(i);
+          if (!key || preserved.has(key)) continue;
+          const value = localStorage.getItem(key);
+          if (value !== null) rolledBack[key] = value;
+        }
+        const beforeKeys = Object.keys(before);
+        const rollbackKeys = Object.keys(rolledBack);
+        if (beforeKeys.length !== rollbackKeys.length ||
+            beforeKeys.some((key) => rolledBack[key] !== before[key])) {
+          throw new Error('Pre-restore values failed read-back verification during rollback.');
+        }
+        await verifyLogoFilesForValues(rolledBack, beforeLogoFiles);
+        rollbackVerified = true;
       } catch (rollbackError) {
-        console.error('Recovery rollback failed; pre-restore journal checkpoint is retained.', rollbackError);
+        console.error('Recovery rollback failed verification; pre-restore journal checkpoint is retained.', rollbackError);
+      }
+      if (!rollbackVerified) {
+        throw new Error('Restore failed and automatic rollback could not be verified. The pre-restore checkpoint remains available for manual recovery.');
       }
       throw restoreError;
     }
