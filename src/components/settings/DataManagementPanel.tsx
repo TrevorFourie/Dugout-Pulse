@@ -3,7 +3,7 @@ import { Download, Upload, AlertOctagon } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
 
 interface DataManagementPanelProps {
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onExportBackup: () => void | Promise<void>;
   onImportFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenResetConfirm: () => void;
