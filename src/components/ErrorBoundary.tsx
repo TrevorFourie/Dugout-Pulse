@@ -18,7 +18,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
 
   componentDidCatch(error: Error): void {
     const reference = recordDiagnosticError('react_render', error);
-    this.setState({ reference, diagnosticReport: createDiagnosticReport() });
+    this.setState({ reference, diagnosticReport: createDiagnosticReport(reference) });
   }
 
   private retry = (): void => {
