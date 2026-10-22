@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, Upload, AlertOctagon, ShieldCheck } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
-import { getRecoveryJournalStorageInfo, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, setRecoveryCheckpointPinned, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
+import { createVerifiedRecoveryCheckpoint, getRecoveryJournalStorageInfo, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, setRecoveryCheckpointPinned, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
 
 interface DataManagementPanelProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -32,6 +32,22 @@ const RecoveryJournalPanel: React.FC = () => {
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  const createCheckpoint = async () => {
+    if (busy || loading) return;
+    setBusy(true);
+    setMessage('Creating and verifying a checkpoint of the current saved data and custom logos…');
+    try {
+      const created = await createVerifiedRecoveryCheckpoint('User-created manual checkpoint');
+      await refresh();
+      setMessage(created
+        ? 'Checkpoint created and verified. It is now available in the recovery-point list.'
+        : 'Checkpoint creation failed. No existing checkpoint was intentionally deleted; check whether saved custom logos are missing or unreadable, then review diagnostics.');
+    } catch {
+      setMessage('Checkpoint creation failed. Your saved data has not been intentionally changed.');
+    } finally {
+      setBusy(false);
+    }
+  };
   const restore = async () => {
     if (!selectedId || busy) return;
     setBusy(true);
@@ -60,9 +76,14 @@ const RecoveryJournalPanel: React.FC = () => {
         <p className="text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
           Checkpoints are stored in this app’s private data directory. Only checkpoints that pass integrity and data-structure checks are selectable. Restoring first creates a checkpoint of the current state. Do not close the app while recovery is running.
         </p>
-        <button type="button" onClick={() => void refresh()} disabled={loading || busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-[#354050]">
-          {loading ? 'Checking checkpoints…' : 'Refresh checkpoints'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => void createCheckpoint()} disabled={loading || busy} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] disabled:opacity-50 dark:bg-[#00D7BC]">
+            {busy ? 'Working…' : 'Create checkpoint now'}
+          </button>
+          <button type="button" onClick={() => void refresh()} disabled={loading || busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-[#354050]">
+            {loading ? 'Checking checkpoints…' : 'Refresh checkpoints'}
+          </button>
+        </div>
         {journalInfo && <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">Verified recovery points: {journalInfo.verifiedCount} · Journal size: {(journalInfo.estimatedBytes / (1024 * 1024)).toFixed(1)} MB</p>}
         {journalInfo?.warning && <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">The private recovery journal is using more than 25 MB. Review retained checkpoints and available device storage. No recovery files will be automatically deleted just to meet a storage limit.</p>}
         {checkpoints.length > 0 && (
