@@ -81,7 +81,7 @@ const CustomNumberInput: React.FC<{
   );
 };
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -146,6 +146,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Presets management state (Tournaments, Seasons, Age Groups)
   const [activePresetTab, setActivePresetTab] = useState<'seasons' | 'tournaments' | 'ageGroups'>('seasons');
+  const presetSection: 'seasons' | 'tournaments' | 'ageGroups' = settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups' ? settingsSection : activePresetTab;
   const [newSeasonInput, setNewSeasonInput] = useState('');
   const [newTournamentInput, setNewTournamentInput] = useState('');
   const [newAgeGroupInput, setNewAgeGroupInput] = useState('');
@@ -880,7 +881,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {settingsSection === 'teamLists' && (
+            {(settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups') && (
               <div className="space-y-6">
             {/* Master Presets: Seasons, Tournaments & Age Groups */}
             <div>
@@ -888,22 +889,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] flex items-center gap-2">
                     <Layers className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                    Seasons, Tournaments & Age Groups
+                    {presetSection === 'seasons' ? 'Seasons' : presetSection === 'tournaments' ? 'Tournaments & Leagues' : 'Age Groups'}
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-                    Manage the seasons, tournaments, and age groups available when setting up teams.
+                    {presetSection === 'seasons' ? 'Manage the seasons available when setting up teams.' : presetSection === 'tournaments' ? 'Manage tournaments and leagues available when setting up teams.' : 'Manage the age groups available when setting up teams.'}
                   </p>
                 </div>
               </div>
 
               <div className="bg-slate-50 dark:bg-[#252D38]/40 p-4 rounded-xl border border-slate-200 dark:border-[#354050] space-y-4">
+                {settingsSection === 'teamLists' && (
                 {/* 3 Tab Switchers */}
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-white dark:bg-[#1A2028] rounded-xl border border-slate-200 dark:border-[#354050]/80">
                   <button
                     type="button"
                     onClick={() => setActivePresetTab('seasons')}
                     className={`min-w-0 py-2 px-1 sm:px-2 rounded-md text-[11px] sm:text-xs font-extrabold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all ${
-                      activePresetTab === 'seasons'
+                      presetSection === 'seasons'
                         ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
                         : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
                     }`}
@@ -912,7 +914,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="truncate max-w-full">Seasons</span>
                     <span
                       className={`text-[10px] px-1.5 leading-4 rounded-full font-semibold ${
-                        activePresetTab === 'seasons'
+                        presetSection === 'seasons'
                           ? 'bg-white/20 text-white'
                           : 'bg-slate-100 dark:bg-[#252D38] text-slate-500'
                       }`}
@@ -925,7 +927,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     onClick={() => setActivePresetTab('tournaments')}
                     className={`min-w-0 py-2 px-1 sm:px-2 rounded-md text-[11px] sm:text-xs font-extrabold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all ${
-                      activePresetTab === 'tournaments'
+                      presetSection === 'tournaments'
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
                     }`}
@@ -934,7 +936,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="truncate max-w-full">Tournaments</span>
                     <span
                       className={`text-[10px] px-1.5 leading-4 rounded-full font-semibold ${
-                        activePresetTab === 'tournaments'
+                        presetSection === 'tournaments'
                           ? 'bg-white/20 text-white'
                           : 'bg-slate-100 dark:bg-[#252D38] text-slate-500'
                       }`}
@@ -947,7 +949,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     onClick={() => setActivePresetTab('ageGroups')}
                     className={`min-w-0 py-2 px-1 sm:px-2 rounded-md text-[11px] sm:text-xs font-extrabold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition-all ${
-                      activePresetTab === 'ageGroups'
+                      presetSection === 'ageGroups'
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'text-slate-600 dark:text-[#9CA3AF] hover:text-slate-900 dark:hover:text-[#FAFAFA]'
                     }`}
@@ -956,7 +958,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="truncate max-w-full">Age Groups</span>
                     <span
                       className={`text-[10px] px-1.5 leading-4 rounded-full font-semibold ${
-                        activePresetTab === 'ageGroups'
+                        presetSection === 'ageGroups'
                           ? 'bg-white/20 text-white'
                           : 'bg-slate-100 dark:bg-[#252D38] text-slate-500'
                       }`}
@@ -965,9 +967,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                   </button>
                 </div>
+                )}
 
                 {/* TAB 1: SEASONS */}
-                {activePresetTab === 'seasons' && (
+                {presetSection === 'seasons' && (
                   <div className="space-y-3">
                     <form onSubmit={handleAddSeason} className="flex flex-col sm:flex-row gap-2">
                       <input
@@ -1065,7 +1068,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
 
                 {/* TAB 2: TOURNAMENTS */}
-                {activePresetTab === 'tournaments' && (
+                {presetSection === 'tournaments' && (
                   <div className="space-y-3">
                     <form onSubmit={handleAddTournament} className="flex flex-col sm:flex-row gap-2">
                       <input
@@ -1163,7 +1166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
 
                 {/* TAB 3: AGE GROUPS */}
-                {activePresetTab === 'ageGroups' && (
+                {presetSection === 'ageGroups' && (
                   <div className="space-y-3">
                     <form onSubmit={handleAddAgeGroup} className="flex flex-col sm:flex-row gap-2">
                       <input
@@ -1606,7 +1609,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div>
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] mb-3 flex items-center gap-2">
                 <Sun className="w-4 h-4 text-blue-500" />
-                Display Theme
+                Theme
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
