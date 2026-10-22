@@ -52,11 +52,25 @@ const RecoveryJournalPanel: React.FC = () => {
     if (!selectedId || busy) return;
     setBusy(true);
     setMessage('Creating a safety checkpoint and validating the selected recovery point…');
-    const result = await restoreVerifiedRecoveryCheckpoint(selectedId);
-    setMessage(result.message);
-    setBusy(false);
-    if (result.success) window.location.reload();
-    else void refresh();
+    try {
+      const result = await restoreVerifiedRecoveryCheckpoint(selectedId);
+      if (result.success) {
+        setMessage(result.message);
+        window.location.reload();
+        return;
+      }
+      // Refreshing the list also updates the status line, so do it first and
+      // set the restore result last; otherwise the useful error flashes away.
+      await refresh();
+      setMessage(result.message);
+    } catch (error) {
+      await refresh();
+      setMessage(error instanceof Error && error.message
+        ? 'Recovery stopped: ' + error.message + ' Your saved data has not been intentionally reset. Do not retry until this message has been reviewed.'
+        : 'Recovery stopped unexpectedly. Your saved data has not been intentionally reset. Do not retry until diagnostics have been reviewed.');
+    } finally {
+      setBusy(false);
+    }
   };
   const selected = checkpoints.find((item) => item.id === selectedId);
   const togglePin = async () => {
