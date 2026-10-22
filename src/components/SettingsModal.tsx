@@ -5,14 +5,8 @@ import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
 import { exportJsonBackup } from '../utils/backup';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
-  X,
   ArrowLeft,
-  Trash2,
   CheckCircle2,
-  Plus,
-  Edit2,
-  Check,
-  MapPin,
 } from 'lucide-react';
 import { processLogoImage } from '../utils/logoImage';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
