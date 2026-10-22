@@ -19,12 +19,33 @@
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #ffffff;
+            position: relative;
         }
+
+        /* Floating Webpage Control Button - Completely separate from your tablet design layout */
+        .rotation-control-btn {
+            position: fixed;
+            top: 20px;
+            background-color: #00c2cb;
+            color: #000000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+            z-index: 10000;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .rotation-control-btn:hover { background-color: #009ba1; }
+        .rotation-control-btn:active { transform: scale(0.96); }
 
         /* Landscape Android Tablet Outer Bezel Frame */
         .tablet-container {
             width: 1024px;
             height: 768px;
+            max-height: calc(100vh - 80px); /* Hard ceiling to lock it within your display viewport */
             background-color: #000000;
             border-radius: 28px;
             padding: 16px;
@@ -34,7 +55,29 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 50px; /* Gives room for the toggle button */
         }
+
+        /* Portrait orientation mode override sizes */
+        .tablet-container.portrait {
+            width: 768px;
+            height: 1024px;
+            max-height: calc(100vh - 80px);
+        }
+
+/* Central Tablet Workspace Frame */
+.screen-content {
+    flex: 1;
+    min-height: 0; /* Forces the iframe window to resize internally instead of expanding the page height */
+    background-color: #11141a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
 
         /* Tablet Top Status Bar Layout */
         .status-bar {
@@ -75,17 +118,6 @@
             width: 15px;
             height: 15px;
             fill: #ffffff;
-        }
-
-        /* Central Tablet Workspace Frame */
-        .screen-content {
-            flex: 1;
-            background-color: #11141a;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            border-radius: 8px;
-            overflow: hidden;
         }
 
         /* Embedded Application Frame Workspace */
@@ -135,10 +167,13 @@
 </head>
 <body>
 
+    <!-- Floating Toggle Trigger Switch Controls -->
+    <button class="rotation-control-btn" onclick="toggleTabletRotation()">🔄 Rotate Tablet</button>
+
     <!-- Tablet Outer Frame Container -->
-    <div class="tablet-container">
+    <div class="tablet-container" id="tabletChassis">
         
-        <!-- Top Status Bar Area -->
+        <!-- Top Status Bar Area (Unchanged & fully intact) -->
         <div class="status-bar">
             <div class="status-left">
                 <span class="volte-tag">VoLTE</span>
@@ -161,7 +196,7 @@
             <iframe class="app-iframe" src="http://localhost:3000" title="Dugout Puls"></iframe>
         </div>
 
-        <!-- Central Android Bottom Taskbar Navigation System -->
+        <!-- Central Android Bottom Taskbar Navigation System (Unchanged & fully intact) -->
         <div class="navigation-bar">
             <!-- App Switcher / Overview (Square Icon) -->
             <button class="nav-button" aria-label="Recent Applications">
@@ -194,5 +229,12 @@
 
     </div>
 
+    <!-- Toggle Action Script handler -->
+    <script>
+        function toggleTabletRotation() {
+            const chassis = document.getElementById('tabletChassis');
+            chassis.classList.toggle('portrait');
+        }
+    </script>
 </body>
 </html>

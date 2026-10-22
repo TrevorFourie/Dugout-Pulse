@@ -19,7 +19,27 @@
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: #ffffff;
+            position: relative;
         }
+
+        /* Floating Webpage Control Button - Placed completely outside your phone layout */
+        .rotation-control-btn {
+            position: fixed;
+            top: 20px;
+            background-color: #00c2cb;
+            color: #000000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+            z-index: 10000;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .rotation-control-btn:hover { background-color: #009ba1; }
+        .rotation-control-btn:active { transform: scale(0.96); }
 
         /* Realistic Phone Frame Outer Bezel */
         .phone-container {
@@ -34,6 +54,13 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Landscape orientation mode override override sizes */
+        .phone-container.landscape {
+            width: 844px;
+            height: 390px;
         }
 
         /* Realistic Android Top Status Bar */
@@ -105,6 +132,13 @@
             padding: 0 30px;
             border-bottom-left-radius: 28px;
             border-bottom-right-radius: 28px;
+            transition: border-radius 0.3s;
+        }
+
+        /* Adapts the corner rounding safely when running in landscape configuration modes */
+        .phone-container.landscape .navigation-bar {
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
         }
 
         .nav-button {
@@ -135,10 +169,13 @@
 </head>
 <body>
 
+    <!-- Floating Toggle Trigger Switch Controls -->
+    <button class="rotation-control-btn" onclick="toggleDeviceRotation()">🔄 Rotate Mockup</button>
+
     <!-- Phone Wrapper Shell -->
-    <div class="phone-container">
+    <div class="phone-container" id="deviceChassis">
         
-        <!-- Top Status Bar Section -->
+        <!-- Top Status Bar Section (Unchanged & fully intact) -->
         <div class="status-bar">
             <div class="status-left">
                 <span class="volte-tag">VoLTE</span>
@@ -161,7 +198,7 @@
             <iframe class="app-iframe" src="http://localhost:3000" title="Dugout Pulse"></iframe>
         </div>
 
-        <!-- Android Classic 3-Button Software Navigation Bar -->
+        <!-- Android Classic 3-Button Software Navigation Bar (Unchanged & fully intact) -->
         <div class="navigation-bar">
             <!-- App Switcher (Square) Button -->
             <button class="nav-button" aria-label="Recent Apps">
@@ -192,5 +229,13 @@
             </button>
         </div>
     </div>
+
+    <!-- Toggle Action Script handler -->
+    <script>
+        function toggleDeviceRotation() {
+            const chassis = document.getElementById('deviceChassis');
+            chassis.classList.toggle('landscape');
+        }
+    </script>
 </body>
 </html>
