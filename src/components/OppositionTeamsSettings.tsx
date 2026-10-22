@@ -14,6 +14,7 @@ export const OppositionTeamsSettings: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   useEffect(() => {
     let cancelled = false;
     const migrate = async () => {
@@ -40,23 +41,28 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
+    setSuccess(`“${name}” added to opposition teams.`);
     setNewName('');
   };
 
   const setTeamLogo = (teamId: string, logo?: string) => {
+    setSuccess('');
     if (!updateOppositionTeam(teamId, { logo })) {
       setError('Could not update this team logo.');
       return;
     }
     setError('');
+    setSuccess(logo ? 'Team logo saved and linked.' : 'Team logo removed. The default team icon will be used.');
   };
 
   const removeLogo = (teamId: string) => {
+    setSuccess('');
     if (!updateOppositionTeam(teamId, { logo: undefined })) {
       setError('Could not save this team. The logo may be too large or storage may be full.');
       return;
     }
     setError('');
+    setSuccess('Team logo removed. The default team icon will be used.');
   };
 
   const removeTeam = (teamId: string) => {
@@ -65,6 +71,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
+    setSuccess('Opposition team deleted.');
   };
 
   const saveRename = (team: OppositionTeam) => {
@@ -79,6 +86,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
+    setSuccess('Opposition team name updated.');
     setEditingId(null);
   };
 
@@ -93,6 +101,7 @@ export const OppositionTeamsSettings: React.FC = () => {
         <button type="submit" disabled={!newName.trim()} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] hover:bg-[#00A892] disabled:opacity-50 dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"><Plus className="h-3.5 w-3.5" />Add Team</button>
       </form>
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-[#FF5252]/15 dark:text-[#D4626D]">{error}</p>}
+      {success && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">✓ {success}</p>}
       {teams.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center dark:border-[#354050]">
           <Shield className="mx-auto h-6 w-6 text-slate-400 dark:text-[#6B7280]" />
