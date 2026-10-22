@@ -42,7 +42,14 @@
 
         function showStartupFallback(event) {
           if (event) capturedEvent = event;
-          if (fallbackShown || !document.body) return;
+          if (fallbackShown) {
+            var existingReference = document.getElementById('dp-error-reference');
+            if (existingReference && capturedEvent && capturedEvent.id) {
+              existingReference.textContent = 'Error reference: ' + capturedEvent.id;
+            }
+            return;
+          }
+          if (!document.body) return;
           fallbackShown = true;
 
           var latest = capturedEvent || null;
@@ -66,6 +73,7 @@
           source.textContent = '';
           source.style.cssText = 'font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:#d1d5db;';
           var referenceText = document.createElement('p');
+          referenceText.id = 'dp-error-reference';
           referenceText.textContent = 'Error reference: ' + reference;
           referenceText.style.cssText = 'font-size:12px;color:#9ca3af;margin-top:10px;';
           var reportButton = document.createElement('button');
