@@ -22,8 +22,8 @@ This tracker stays in the repository so the refactoring is not accidentally trea
 
 ## Still open
 
-- [ ] Review the remaining responsibilities in `ScoreTab.tsx` (still a large component); continue extracting focused UI and logic modules without changing scoring behavior.
-- [ ] Review `SettingsModal.tsx` for remaining section UI that should be split into focused panels.
+- [ ] Continue decomposing `ScoreTab.tsx`; the new-game setup flow is now isolated in `src/components/score/NewGameForm.tsx` (ScoreTab reduced from 4,341 to 3,852 lines), but the live scoring board, event handlers, and play history still need focused extraction without changing scoring behavior.
+- [ ] Continue splitting `SettingsModal.tsx`; player details UI is now isolated in `src/components/settings/PlayerDetailsPanel.tsx` (SettingsModal reduced from 1,590 to 1,495 lines), while team management, master presets, venues, player management, and backup/data UI remain embedded.
 - [ ] Review the other large source files and only refactor where it meaningfully improves separation of responsibilities.
 - [ ] Confirm the Legal policy destinations with the owner, then connect the Terms and Conditions and Privacy Policy entries. They intentionally remain inactive until approved destinations are known.
 - [ ] Complete a final source review for accidental behavior changes and missing imports/exports.
