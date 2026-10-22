@@ -3,7 +3,7 @@ import { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import type { GameContextType, OppositionTeam } from './gameContextTypes';
 export type { OppositionTeam } from './gameContextTypes';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, getInningsPlayed, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 import { clearAppDataPreservingDiagnostics } from '../utils/errorDiagnostics';
 import { useGamePersistence } from './useGamePersistence';
