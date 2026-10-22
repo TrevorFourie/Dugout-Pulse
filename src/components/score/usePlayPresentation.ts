@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Play } from '../../types/baseball';
-import { RUNNER_OUT_REASONS } from '../types/baseball';
+import { RUNNER_OUT_REASONS } from '../../types/baseball';
 import { PLAY_DEFINITIONS } from '../../utils/playDefinitions';
 import { positionName } from './scoreTabConstants';
 
