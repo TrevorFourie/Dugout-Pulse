@@ -167,6 +167,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="space-y-6">
 
             {/* Player & team details (auto-saved) */}
+            {settingsSection === 'playerDetails' && (
             <PlayerDetailsPanel
               activeProfile={activeProfile}
               updateActiveProfile={updateActiveProfile}
@@ -177,6 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 setStatusMessage({ text: 'Logo removed. Using the default logo.', isError: false });
               }}
             />
+            )}
 
             {/* Teams for this Player (Multi-team with Tournament, Age Group, Season) */}
             <TeamsSettingsPanel isActive={settingsSection === 'teams'} onStatusMessage={setStatusMessage} />
