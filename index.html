@@ -149,6 +149,7 @@
             var column = location ? location[3] : '';
             message = ('Vite compile error: ' + message + (file && line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
               .replace(/[\r\n\t]+/g, ' ')
+              .replace(/(["'])(?:src[\\/])?(?:[^"'\\/\s]+[\\/])+([^"'\\/\s]+\.(?:tsx?|jsx?|mjs|cjs|json))\1/gi, '$1$2$1')
               .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
               .slice(0, 240);
 
