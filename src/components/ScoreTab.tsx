@@ -103,6 +103,8 @@ interface ScoreTabProps {
   onCancelResume?: () => void;
   view?: 'score' | 'plays';
   onChangeView?: (view: 'score' | 'plays') => void;
+  startGameDate: string;
+  onStartGameDateChange: (date: string) => void;
 }
 
 // Wrapper: remount the inner component whenever a live game starts/ends. The inner component
@@ -169,7 +171,7 @@ const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; descript
   { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
 ];
 
-const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, onCancelResume, view = 'score', onChangeView }) => {
+const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, onCancelResume, view = 'score', onChangeView, startGameDate, onStartGameDateChange }) => {
   const {
     games,
     liveGame,
@@ -241,7 +243,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   }, [activeProfile]);
 
   // New game form state
-  const [newGameDate, setNewGameDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const newGameDate = startGameDate;
+  const setNewGameDate = onStartGameDateChange;
   const [newGameTime, setNewGameTime] = useState(() => new Date().toTimeString().slice(0, 5));
   const [newGameOpponent, setNewGameOpponent] = useState('');
   const [newGameFormError, setNewGameFormError] = useState('');
