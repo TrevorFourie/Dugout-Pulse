@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Home,
   Plane,
+  CalendarDays,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ThemedDropdown } from './ThemedDropdown';
@@ -146,9 +147,10 @@ const GameHistoryRow: React.FC<GameHistoryRowProps> = ({
 
 interface GamesTabProps {
   onNavigateToScore: () => void;
+  view?: 'schedule' | 'past';
 }
 
-export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
+export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'past' }) => {
   const {
     games,
     liveGame,
@@ -261,6 +263,20 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore }) => {
       onNavigateToScore();
     }
   };
+
+  if (view === 'schedule') {
+    return (
+      <div className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl space-y-4 animate-in fade-in duration-200">
+          <header className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-[#354050] dark:bg-[#252D38] sm:p-5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E6FBF8] text-[#007A6A] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]"><CalendarDays className="h-5 w-5" /></div>
+            <div><p className="text-[10px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC]">Fixtures</p><h1 className="text-xl font-semibold text-slate-900 dark:text-[#FAFAFA]">Schedule</h1><p className="mt-0.5 text-xs text-slate-500 dark:text-[#9CA3AF]">View and update your upcoming games.</p></div>
+          </header>
+          <UpcomingGames />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto pb-24 px-4 sm:px-6 pt-4 max-w-4xl mx-auto w-full space-y-4 animate-in fade-in duration-200">
