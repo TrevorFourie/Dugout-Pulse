@@ -22,6 +22,7 @@ export interface RecoverySnapshotInfo {
   createdAt?: string;
   gameCount: number;
   profileCount: number;
+  upcomingGameCount: number;
   hasMeaningfulData: boolean;
 }
 
@@ -63,7 +64,7 @@ function getSnapshotMetrics(snapshot: RecoverySnapshot) {
     const upcoming = JSON.parse(snapshot.values['dugoutPulse.upcomingGames.v1'] || '[]');
     if (Array.isArray(upcoming)) upcomingCount = upcoming.length;
   } catch { /* optional */ }
-  const score = gameCount * 10 + meaningfulProfiles * 5 + upcomingCount * 2 +
+  const score = gameCount * 10 + meaningfulProfiles * 20 + upcomingCount * 2 +
     (snapshot.values[STORAGE_KEYS.LIVE_GAME] ? 3 : 0);
   return { gameCount, profileCount, upcomingCount, meaningfulProfiles, score, hasMeaningfulData: score > 0 };
 }
@@ -141,13 +142,14 @@ export function protectedStorageRemoveItem(key: string): boolean {
 /** Summarize the best available snapshot without exposing its stored contents. */
 export function getRecoverySnapshotInfo(): RecoverySnapshotInfo {
   const snapshot = selectRecoverySnapshot();
-  if (!snapshot) return { available: false, gameCount: 0, profileCount: 0, hasMeaningfulData: false };
+  if (!snapshot) return { available: false, gameCount: 0, profileCount: 0, upcomingGameCount: 0, hasMeaningfulData: false };
   const metrics = getSnapshotMetrics(snapshot);
   return {
     available: true,
     createdAt: snapshot.createdAt,
     gameCount: metrics.gameCount,
-    profileCount: metrics.profileCount,
+    profileCount: metrics.meaningfulProfiles,
+    upcomingGameCount: metrics.upcomingCount,
     hasMeaningfulData: metrics.hasMeaningfulData,
   };
 }
