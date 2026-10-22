@@ -42,15 +42,36 @@ function getBuild(): string {
   }
 }
 
+const ALLOWED_CATEGORIES = new Set([
+  'window_error',
+  'unhandled_rejection',
+  'app_startup',
+  'react_render',
+  'storage_load',
+  'storage_write_opposition_teams',
+  'native_text_export',
+  'browser_text_export',
+  'native_binary_export',
+  'browser_binary_export',
+  'native_text_share',
+]);
+
+const ALLOWED_ERROR_TYPES = new Set([
+  'Error', 'TypeError', 'SyntaxError', 'RangeError', 'ReferenceError',
+  'URIError', 'EvalError', 'QuotaExceededError', 'SecurityError',
+  'AbortError', 'NotFoundError', 'NetworkError', 'InvalidStateError',
+  'DataError', 'OperationError', 'TimeoutError', 'UnknownError',
+]);
+
 function safeCategory(value: string): string {
-  // Categories must be fixed technical labels, never user-entered text.
-  return value.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 48) || 'unknown';
+  // Only allow code-defined labels, never user-entered text from storage.
+  const category = value.toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 48);
+  return ALLOWED_CATEGORIES.has(category) ? category : 'unknown';
 }
 
 function safeErrorType(error: unknown): string {
   if (error && typeof error === 'object' && 'name' in error && typeof error.name === 'string') {
-    const name = error.name.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
-    return name || 'Error';
+    return ALLOWED_ERROR_TYPES.has(error.name) ? error.name : 'Error';
   }
   return error === null ? 'NullError' : `${typeof error}Rejection`.slice(0, 40);
 }
