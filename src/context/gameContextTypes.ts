@@ -196,7 +196,7 @@ export interface GameContextType {
   setActiveProfileId: (id: string) => void;
   deleteProfile: (id: string) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
-  importJsonData: (jsonStr: string) => { success: boolean; message: string };
+  importJsonData: (jsonStr: string) => Promise<{ success: boolean; message: string }>;
   resetAllData: () => void;
 
   // First time user setup
