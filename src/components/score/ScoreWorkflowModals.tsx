@@ -5,7 +5,7 @@ import { LINEUP_SPOTS, type PlayMode, type DefensivePosition } from '../../types
 import { DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS } from './scoreTabConstants';
 import type { MultiOutPlayAction } from './scoreTabConstants';
 
-type PendingPositionChange = { inning: number; from: string; to: string };
+type PendingPositionChange = { inning: number; from: DefensivePosition; to: DefensivePosition };
 type FieldingChain = { endsHalfInning: boolean; playType: 'doublePlay' | 'triplePlay' } | null;
 
 interface ScoreWorkflowModalsProps {
