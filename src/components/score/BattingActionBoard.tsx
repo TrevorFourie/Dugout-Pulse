@@ -2,7 +2,6 @@ import React from 'react';
 import { ChevronRight, Footprints } from 'lucide-react';
 import type { PlayCode } from '../../types/baseball';
 import { PRIMARY_BATTING_CODES } from './scoreTabConstants';
-import { getPlaysForMode } from '../../utils/playDefinitions';
 import type { ActiveRunnerChip } from './scoreTypes';
 
 interface Props {
@@ -11,7 +10,6 @@ interface Props {
   playerName: string;
   activeRunnerChip: ActiveRunnerChip | null;
   onResumeRunner: () => void;
-  currentPlaysForMode: ReturnType<typeof getPlaysForMode>;
   onScoringPlay: (code: PlayCode) => void;
   isPrimaryEventDisabled: boolean;
   onBatterStrike: () => void;
