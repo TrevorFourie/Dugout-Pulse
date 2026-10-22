@@ -322,6 +322,21 @@ export type RecoveryCheckpointSummary = {
 
 type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string>; logoFiles?: Record<string, string> };
 
+async function readLogoFileAsBase64(fileName: string): Promise<string> {
+  const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+  if (typeof result.data === 'string') return result.data;
+  if (result.data instanceof Blob) {
+    const bytes = new Uint8Array(await result.data.arrayBuffer());
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length)));
+    }
+    return btoa(binary);
+  }
+  throw new Error('Custom logo file returned an unsupported data format.');
+}
+
 async function captureLogoFiles(values: Record<string, string>): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
   if (!('dugoutPulse.logoLibrary.v1' in values)) return files;
@@ -338,9 +353,9 @@ async function captureLogoFiles(values: Record<string, string>): Promise<Record<
     const fileName = (item as { fileName: string }).fileName;
     if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..')) throw new Error('A custom-logo filename is invalid.');
     try {
-      const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
-      if (typeof result.data !== 'string' || !result.data.length) throw new Error('Empty file');
-      files[fileName] = result.data;
+      const base64 = await readLogoFileAsBase64(fileName);
+      if (!base64.length) throw new Error('Empty file');
+      files[fileName] = base64;
     } catch {
       throw new Error('Custom logo "' + fileName + '" is missing or unreadable; refusing to create an incomplete checkpoint.');
     }
@@ -375,8 +390,8 @@ async function writeLogoFiles(files: Record<string, string>): Promise<void> {
     }
     // Capacitor Filesystem represents binary file contents as base64 when encoding is omitted.
     await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, recursive: true });
-    const verify = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
-    if (typeof verify.data !== 'string' || verify.data !== base64) throw new Error('Custom logo file could not be read back exactly after recovery.');
+    const verify = await readLogoFileAsBase64(fileName);
+    if (verify !== base64) throw new Error('Custom logo file could not be read back exactly after recovery.');
   }
 }
 
@@ -391,8 +406,8 @@ async function verifyLogoFilesForValues(values: Record<string, string>, files: R
     const fileName = (item as { fileName: string }).fileName;
     const expected = files[fileName];
     if (!expected) throw new Error('A required custom logo is missing from the recovery checkpoint.');
-    const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
-    if (typeof result.data !== 'string' || result.data !== expected) throw new Error('A restored custom logo is missing or unreadable.');
+    const actual = await readLogoFileAsBase64(fileName);
+    if (actual !== expected) throw new Error('A restored custom logo is missing or unreadable.');
   }
 }
 function validateRecoveryValues(values: unknown): values is Record<string, string> {
