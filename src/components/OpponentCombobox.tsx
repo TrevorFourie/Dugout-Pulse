@@ -113,7 +113,10 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           aria-label="Search opposition teams"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
-          onFocus={() => setIsOpen(true)}
+          onFocus={(event) => {
+            setIsOpen(true);
+            if (value && query === value) event.currentTarget.select();
+          }}
           onChange={(event) => {
             setQuery(event.target.value);
             setAddError('');
