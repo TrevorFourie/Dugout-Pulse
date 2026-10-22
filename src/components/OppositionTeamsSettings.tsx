@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGame, type OppositionTeam } from '../context/GameContext';
 import { Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 import teamIcon from '../assets/TeamIcon.png';
@@ -15,6 +15,13 @@ export const OppositionTeamsSettings: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current); }, []);
+  const showSuccess = (message: string) => {
+    if (successTimer.current) clearTimeout(successTimer.current);
+    setSuccess(message);
+    successTimer.current = setTimeout(() => setSuccess(''), 3200);
+  };
   useEffect(() => {
     let cancelled = false;
     const migrate = async () => {
@@ -41,7 +48,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
-    setSuccess(`“${name}” added to opposition teams.`);
+    showSuccess(`“${name}” added to opposition teams.`);
     setNewName('');
   };
 
@@ -52,7 +59,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
-    setSuccess(logo ? 'Team logo saved and linked.' : 'Team logo removed. The default team icon will be used.');
+    showSuccess(logo ? 'Team logo saved and linked.' : 'Team logo removed. The default team icon will be used.');
   };
 
   const removeLogo = (teamId: string) => {
@@ -62,7 +69,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
-    setSuccess('Team logo removed. The default team icon will be used.');
+    showSuccess('Team logo removed. The default team icon will be used.');
   };
 
   const removeTeam = (teamId: string) => {
@@ -71,7 +78,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
-    setSuccess('Opposition team deleted.');
+    showSuccess('Opposition team deleted.');
   };
 
   const saveRename = (team: OppositionTeam) => {
@@ -86,7 +93,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     setError('');
-    setSuccess('Opposition team name updated.');
+    showSuccess('Opposition team name updated.');
     setEditingId(null);
   };
 
@@ -101,7 +108,9 @@ export const OppositionTeamsSettings: React.FC = () => {
         <button type="submit" disabled={!newName.trim()} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] hover:bg-[#00A892] disabled:opacity-50 dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"><Plus className="h-3.5 w-3.5" />Add Team</button>
       </form>
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-[#FF5252]/15 dark:text-[#D4626D]">{error}</p>}
-      {success && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">✓ {success}</p>}
+      {success && <div role="status" aria-live="polite" className="fixed top-5 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 animate-in fade-in slide-in-from-top-3 duration-200 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-xl dark:border-[#236B60] dark:bg-[#1A2028]">
+        <div className="flex items-start gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">✓</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">Done</p><p className="mt-0.5 text-xs text-slate-600 dark:text-[#D1D5DB]">{success}</p></div><button type="button" onClick={() => { if (successTimer.current) clearTimeout(successTimer.current); setSuccess(''); }} aria-label="Dismiss notification" className="rounded-md px-1 text-lg leading-5 text-slate-400 hover:bg-slate-100 dark:hover:bg-[#354050]">×</button></div>
+      </div>}
       {teams.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center dark:border-[#354050]">
           <Shield className="mx-auto h-6 w-6 text-slate-400 dark:text-[#6B7280]" />
