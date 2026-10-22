@@ -292,6 +292,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeProfile,
         settings,
         isLoading,
+        restoreFailed,
         resumePromptPending,
         dismissResumePrompt,
         savedOpponents,
