@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Check, X, Plus, LucideIcon, Trash2 } from 'lucide-react';
+import { THEMED_DROPDOWN_CONTROL_CLASS } from './ThemedDropdown';
 
 interface ValueComboboxProps {
   value: string;
@@ -151,7 +152,7 @@ export const ValueCombobox: React.FC<ValueComboboxProps> = ({
             setIsOpen(true);
             setIsBrowsingAll(true);
           }}
-          className={`w-full py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 placeholder:font-normal focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:focus:ring-[#00D7BC]/30 transition-colors ${
+          className={`${THEMED_DROPDOWN_CONTROL_CLASS} py-2.5 placeholder:text-slate-400 placeholder:font-normal ${
             Icon ? 'pl-9.5' : 'pl-3.5'
           } ${value ? 'pr-16' : 'pr-9'}`}
         />
