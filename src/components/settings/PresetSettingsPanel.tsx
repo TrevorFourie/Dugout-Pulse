@@ -112,7 +112,8 @@ export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ isActi
   if (!isActive) return null;
 
   return (
-            {(settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups') && (
+    <>
+      {(settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups') && (
               <div className="space-y-6">
             {/* Master Presets: Seasons, Tournaments & Age Groups */}
             <div>
@@ -497,6 +498,7 @@ export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ isActi
             </div>
 
               </div>
-
+      )}
+    </>
   );
 };
