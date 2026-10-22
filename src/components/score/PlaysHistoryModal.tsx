@@ -184,7 +184,7 @@ export const PlaysHistoryModal: React.FC<PlaysHistoryModalProps> = ({
                     reachedInning={reachedInning}
                     playFeedFilter={playFeedFilter}
                     onRemoveBench={(inning) => onRemoveBench(inning)}
-                    onUndoEmptyCurrentInning={undoEmptyCurrentInning}
+                    onUndoEmptyCurrentInning={onUndoEmptyCurrentInning}
                     renderPlayCard={renderPlayCard}
                     renderPositionChangeCard={renderPositionChangeCard}
                   />
