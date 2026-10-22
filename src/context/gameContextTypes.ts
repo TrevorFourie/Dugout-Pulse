@@ -29,6 +29,7 @@ export interface GameContextType {
   activeProfile: PlayerProfile;
   settings: AppSettings;
   isLoading: boolean;
+  restoreFailed: boolean;
   resumePromptPending: boolean;
   dismissResumePrompt: () => void;
 
