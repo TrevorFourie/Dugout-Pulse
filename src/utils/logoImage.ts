@@ -1,6 +1,6 @@
 const MAX_LOGO_FILE_BYTES = 5 * 1024 * 1024;
-const MAX_LOGO_DIMENSION = 12_000;
-const MAX_LOGO_PIXELS = 40_000_000;
+const MAX_LOGO_DIMENSION = 8_000;
+const MAX_LOGO_PIXELS = 16_000_000;
 
 const ALLOWED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp']);
 const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
