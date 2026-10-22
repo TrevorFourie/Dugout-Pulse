@@ -1,23 +1,6 @@
 import React, { useRef, useState } from 'react';
+import { useGame, type OppositionTeam } from '../context/GameContext';
 import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
-
-const STORAGE_KEY = 'dugoutPulse.oppositionTeams.v1';
-
-interface OppositionTeam {
-  id: string;
-  name: string;
-  logo?: string;
-}
-
-const readTeams = (): OppositionTeam[] => {
-  try {
-    const value = localStorage.getItem(STORAGE_KEY);
-    const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
 
 const resizeImage = (file: File, maxSize = 256): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
@@ -43,32 +26,22 @@ const resizeImage = (file: File, maxSize = 256): Promise<string> => new Promise(
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const OppositionTeamsSettings: React.FC = () => {
-  const [teams, setTeams] = useState<OppositionTeam[]>(readTeams);
+  const { oppositionTeams: teams, addOppositionTeam, updateOppositionTeam, deleteOppositionTeam } = useGame();
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [error, setError] = useState('');
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const persist = (next: OppositionTeam[]) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      setTeams(next);
-      setError('');
-    } catch {
-      setError('Could not save this team. The logo may be too large; try a smaller image.');
-    }
-  };
-
   const addTeam = (event: React.FormEvent) => {
     event.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    if (teams.some((team) => team.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    if (!addOppositionTeam(name)) {
       setError('That opposition team has already been added.');
       return;
     }
-    persist([{ id: `opponent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name }, ...teams]);
+    setError('');
     setNewName('');
   };
 
@@ -78,7 +51,11 @@ export const OppositionTeamsSettings: React.FC = () => {
     if (file.size > 10 * 1024 * 1024) { setError('Please choose an image smaller than 10 MB.'); return; }
     try {
       const logo = await resizeImage(file);
-      persist(teams.map((team) => team.id === teamId ? { ...team, logo } : team));
+      if (!updateOppositionTeam(teamId, { logo })) {
+        setError('Could not update this team logo.');
+      } else {
+        setError('');
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not process that image.');
     }
@@ -87,11 +64,11 @@ export const OppositionTeamsSettings: React.FC = () => {
   const saveRename = (team: OppositionTeam) => {
     const name = editName.trim();
     if (!name) return;
-    if (teams.some((item) => item.id !== team.id && item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    if (!updateOppositionTeam(team.id, { name })) {
       setError('An opposition team with that name already exists.');
       return;
     }
-    persist(teams.map((item) => item.id === team.id ? { ...item, name } : item));
+    setError('');
     setEditingId(null);
   };
 
@@ -137,8 +114,8 @@ export const OppositionTeamsSettings: React.FC = () => {
                     <ImagePlus className="h-4 w-4" />
                     <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
                   </label>
-                  {team.logo && <button type="button" onClick={() => persist(teams.map((item) => item.id === team.id ? { ...item, logo: undefined } : item))} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
-                  <button type="button" onClick={() => persist(teams.filter((item) => item.id !== team.id))} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
+                  {team.logo && <button type="button" onClick={() => updateOppositionTeam(team.id, { logo: undefined })} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
+                  <button type="button" onClick={() => deleteOppositionTeam(team.id)} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
                 </>
               )}
             </article>
