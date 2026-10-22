@@ -7,7 +7,7 @@ import { PlayHistoryCard } from './score/PlayHistoryCard';
 import { PlaysHistoryModal } from './score/PlaysHistoryModal';
 import { GameSprayChartModal } from './score/GameSprayChartModal';
 import { GameDetailsModal } from './score/GameDetailsModal';
-import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS, PRIMARY_BATTING_CODES, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
+import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, PRIMARY_BATTING_CODES, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
 import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
@@ -25,7 +25,7 @@ import {
   LINEUP_SPOTS,
 } from '../types/baseball';
 import { getFieldingPlaysForPosition, getPlaysForMode, PLAY_DEFINITIONS } from '../utils/playDefinitions';
-import { calculateGameStats, calculatePitchingStats, formatRate } from '../utils/stats';
+import { calculateGameStats, calculatePitchingStats } from '../utils/stats';
 import { usePlayFlow } from '../hooks/usePlayFlow';
 import { usePlayDragReorder } from '../hooks/usePlayDragReorder';
 import { usePlayPresentation } from './score/usePlayPresentation';
@@ -34,7 +34,7 @@ import { EditPlayModal } from './EditPlayModal';
 import { PitcherOutModal, PitcherOutSelection } from './PitcherOutModal';
 import { HitLocationModal } from './HitLocationModal';
 import { SprayChart } from './SprayChart';
-import { isBattedBallPlay, isHitPlay, getTrajectoryLabel, getZoneLabel, resolveZone } from '../utils/sprayChart';
+import { isHitPlay } from '../utils/sprayChart';
 import {
   ChevronLeft,
   ChevronRight,
