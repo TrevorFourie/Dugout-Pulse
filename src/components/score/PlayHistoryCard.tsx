@@ -3,7 +3,7 @@ import { Crosshair, Edit2, Trash2 } from 'lucide-react';
 import type { Play } from '../../types/baseball';
 import { ordinal, positionName } from './scoreTabConstants';
 import { getTrajectoryLabel, isHitPlay, resolveZone } from '../../utils/sprayChart';
-import type { PlayPitchMeta } from '../../hooks/usePlayPresentation';
+import type { PlayPitchMeta } from './usePlayPresentation';
 
 interface PlayDragProps {
   'data-play-id': string;
