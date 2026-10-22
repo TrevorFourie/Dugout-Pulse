@@ -505,7 +505,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
                 <p className="sm:col-span-2 text-[11px] text-slate-500 dark:text-[#9CA3AF]">
-                  Saved automatically on this device.
+                  Stored only on this device. Custom logos are lost if app data is reset or the app is uninstalled.
                 </p>
               </div>
             </div>
