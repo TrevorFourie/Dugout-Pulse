@@ -28,7 +28,7 @@ export async function exportJsonBackup(data: {
   };
   const safeBackup = createLogoSafeBackup(completeBackup);
   const exportPayload = {
-    ...safeBackup.data as Record<string, unknown>,
+    ...safeBackup.data,
     backupVersion: 2,
     logoBackupPolicy: {
       imagesIncluded: false,
