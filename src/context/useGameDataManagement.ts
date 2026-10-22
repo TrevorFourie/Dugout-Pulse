@@ -6,6 +6,7 @@ import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/l
 import { clearAppDataPreservingDiagnostics } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
+import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -21,6 +22,7 @@ interface GameDataManagementOptions {
   setHiddenAgeGroups: StateSetter<string[]>;
   setHiddenSeasons: StateSetter<string[]>;
   setIsFirstTimeUser: StateSetter<boolean>;
+  setRestoreFailed: StateSetter<boolean>;
   saveTournament: (name: string) => void;
   saveAgeGroup: (name: string) => void;
   saveSeason: (name: string) => void;
@@ -40,6 +42,7 @@ export function useGameDataManagement({
   setHiddenAgeGroups,
   setHiddenSeasons,
   setIsFirstTimeUser,
+  setRestoreFailed,
   saveTournament,
   saveAgeGroup,
   saveSeason,
@@ -80,13 +83,18 @@ export function useGameDataManagement({
         setSettings((prev) => ({ ...prev, ...data.settings }));
       }
       if (data && Array.isArray(data.upcomingGames)) {
-        localStorage.setItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames));
+        if (!protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
+          throw new Error('Could not protect storage before importing upcoming games');
+        }
       }
       if (data && Array.isArray(data.oppositionTeams)) {
         setOppositionTeams(data.oppositionTeams);
-        localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams));
+        if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
+          throw new Error('Could not protect storage before importing opposition teams');
+        }
       }
 
+      setRestoreFailed(false);
       if (restored.missingReferences.size > 0) {
         const count = restored.missingReferences.size;
         return {
@@ -102,6 +110,7 @@ export function useGameDataManagement({
   }, []);
 
   const resetAllData = useCallback(() => {
+    if (!snapshotBeforeGameWrite()) return;
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
