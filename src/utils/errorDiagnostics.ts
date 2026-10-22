@@ -60,7 +60,7 @@ const ALLOWED_ERROR_TYPES = new Set([
   'Error', 'TypeError', 'SyntaxError', 'RangeError', 'ReferenceError',
   'URIError', 'EvalError', 'QuotaExceededError', 'SecurityError',
   'AbortError', 'NotFoundError', 'NetworkError', 'InvalidStateError',
-  'DataError', 'OperationError', 'TimeoutError', 'UnknownError',
+  'DataError', 'OperationError', 'TimeoutError', 'UnknownError', 'NullError',
 ]);
 
 function safeCategory(value: string): string {
@@ -82,7 +82,7 @@ function safeStackFrames(error: unknown): string[] {
     .split('\n')
     .slice(1, 13)
     .map((line) => {
-      // Keep only a function label and source basename/line/column. Never retain full
+      // Keep only source basename/line/column. Never retain full
       // local paths, URLs, query strings, or the exception message (which may contain data).
       const location = line.match(/([^/\\()?#]+\.(?:tsx?|jsx?|mjs|cjs):\d+:\d+)\)?\s*$/i)?.[1];
       if (!location) return '';
