@@ -24,140 +24,166 @@
       html.native-launch, html.native-launch body, html.native-launch #root { background-color: transparent !important; }
     </style>
     <script>
-      // Vite can fail while transforming/loading a module, before src/main.tsx
-      // executes. In that case its React/app-level startup fallback cannot run.
-      // Detect Vite's error overlay from this HTML bootstrap and show an app-branded
-      // explanation while leaving the original Vite details available underneath.
+      // Keep one startup-error presentation. Capture Vite's compile error before
+      // the app entry module can execute, then show the actual error and report here.
       (function () {
         var fallbackShown = false;
-        function showStartupFallback() {
+        var capturedEvent = null;
+        var storageKey = 'dugoutPulse.diagnostics.v1';
+
+        function readEvents() {
+          try {
+            var events = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            return Array.isArray(events) ? events : [];
+          } catch (_) {
+            return [];
+          }
+        }
+
+        function showStartupFallback(event) {
+          if (event) capturedEvent = event;
           if (fallbackShown || !document.body) return;
           fallbackShown = true;
-          var panel = document.createElement('section');
+
+          var events = readEvents();
+          var latest = capturedEvent || events.slice(-1)[0] || null;
+          var reference = latest && latest.id ? latest.id : 'unavailable';
+
+          var panel = document.createElement('main');
           panel.setAttribute('role', 'alert');
-          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:24px;background:#121923;color:#f8fafc;font-family:system-ui,sans-serif;';
-          var card = document.createElement('div');
-          card.style.cssText = 'box-sizing:border-box;width:100%;max-width:480px;padding:24px;border:1px solid #354050;border-radius:18px;background:#1a2028;';
+          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;overflow:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:#121923;color:#f8fafc;font-family:system-ui,sans-serif;';
+          var card = document.createElement('section');
+          card.style.cssText = 'box-sizing:border-box;width:100%;max-width:560px;padding:24px;border:1px solid #354050;border-radius:18px;background:#1a2028;';
           var heading = document.createElement('h1');
           heading.textContent = "Dugout Pulse couldn't start";
-          heading.style.cssText = 'font-size:22px;margin:0 0 10px;';
+          heading.style.cssText = 'font-size:22px;font-weight:700;margin:0 0 10px;';
           var message = document.createElement('p');
-          message.textContent = 'Vite reported a module error before the app could load. The normal app startup handler could not run. The Vite error details are still available behind this message.';
-          message.style.cssText = 'font-size:14px;line-height:1.6;color:#d1d5db;';
-          var button = document.createElement('button');
-          button.type = 'button';
-          button.textContent = 'Show Vite error details';
-          button.style.cssText = 'margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:#00d7bc;color:#101419;font-weight:600;cursor:pointer;';
-          button.addEventListener('click', function () { panel.remove(); });
-          card.append(heading, message, button);
+          message.textContent = latest && latest.errorMessage
+            ? latest.errorMessage
+            : 'The app could not load its startup module. No detailed error message was captured.';
+          message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:#fca5a5;margin:0 0 12px;';
+          var source = document.createElement('p');
+          source.textContent = latest && latest.frames && latest.frames.length
+            ? 'Source: ' + latest.frames.join(' · ')
+            : 'Source location unavailable.';
+          source.style.cssText = 'font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:#d1d5db;';
+          var referenceText = document.createElement('p');
+          referenceText.textContent = 'Error reference: ' + reference;
+          referenceText.style.cssText = 'font-size:12px;color:#9ca3af;margin-top:10px;';
+          var reportButton = document.createElement('button');
+          reportButton.type = 'button';
+          reportButton.textContent = 'Show diagnostic report';
+          reportButton.style.cssText = 'margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:#00d7bc;color:#101419;font-weight:600;cursor:pointer;';
+          var report = document.createElement('textarea');
+          report.readOnly = true;
+          report.rows = 12;
+          report.hidden = true;
+          report.setAttribute('aria-label', 'Sanitised diagnostic report');
+          report.style.cssText = 'box-sizing:border-box;width:100%;margin-top:12px;padding:10px;border-radius:8px;color:#111827;background:#fff;font:11px monospace;';
+          reportButton.addEventListener('click', function () {
+            report.hidden = !report.hidden;
+            reportButton.textContent = report.hidden ? 'Show diagnostic report' : 'Hide diagnostic report';
+            if (!report.hidden) {
+              var reportEvents = readEvents();
+              var selected = capturedEvent || reportEvents.slice(-1)[0] || null;
+              report.value = JSON.stringify({
+                reportFormat: 2,
+                app: 'Dugout Pulse',
+                appVersion: '1.0.0',
+                build: selected && selected.build ? selected.build : 'unknown',
+                platform: selected && selected.platform ? selected.platform : (/Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web')),
+                privacy: 'Offline report. Review before sharing. Error messages are sanitised and truncated; no game data is intentionally collected.',
+                events: selected ? [selected] : []
+              }, null, 2);
+              report.select();
+            }
+          });
+          var restartButton = document.createElement('button');
+          restartButton.type = 'button';
+          restartButton.textContent = 'Restart app';
+          restartButton.style.cssText = 'margin:12px 0 0 8px;padding:10px 14px;border-radius:10px;border:1px solid #526071;background:transparent;color:#f8fafc;font-weight:600;cursor:pointer;';
+          restartButton.addEventListener('click', function () { window.location.reload(); });
+          var note = document.createElement('p');
+          note.textContent = 'The report stays on this device. Nothing is sent automatically.';
+          note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:#9ca3af;';
+          card.append(heading, message, source, referenceText, reportButton, restartButton, report, note);
           panel.append(card);
           document.body.append(panel);
         }
+
         function captureViteCompileError(overlay) {
-          // Vite transform errors happen before the imported app module can load.
-          // Read the structured overlay fields first; textContent alone can omit
-          // rendered/shadow-DOM details in some browser versions.
           try {
             var detailRoot = overlay && overlay.shadowRoot;
-            if (!detailRoot) return;
-
+            if (!detailRoot) return null;
             var pieces = [];
-            var selectors = ['.message-body', '.message', '.file', '.frame', '.plugin', '.stack'];
-            selectors.forEach(function (selector) {
-              var nodes = detailRoot.querySelectorAll(selector);
-              nodes.forEach(function (node) {
+            ['.message-body', '.message', '.file', '.frame', '.plugin', '.stack'].forEach(function (selector) {
+              detailRoot.querySelectorAll(selector).forEach(function (node) {
                 var value = (node.innerText || node.textContent || '').trim();
                 if (value && pieces.indexOf(value) === -1) pieces.push(value);
               });
             });
             var detailText = pieces.join('\n');
             if (!detailText) detailText = detailRoot.innerText || detailRoot.textContent || '';
-            if (!detailText) return;
+            if (!detailText) return null;
 
-            var parseMatch = detailText.match(/\[(?:PARSE_ERROR|ERROR)\]\s*([^\n]+)/i);
-            var message = parseMatch ? parseMatch[1].trim() : '';
+            var messageNode = detailRoot.querySelector('.message-body, .message');
+            var message = messageNode ? (messageNode.innerText || messageNode.textContent || '').trim().split(/\r?\n/)[0] : '';
             if (!message) {
-              var expectedMatch = detailText.match(/\b(Expected\s+.{1,100}?\s+but\s+found\s+.{1,100}?)(?:\n|$)/i);
-              var unexpectedMatch = detailText.match(/\b(Unexpected\s+(?:token|character|end of input).{0,140})/i);
-              var messageNode = detailRoot.querySelector('.message-body, .message');
-              var nodeMessage = messageNode ? (messageNode.innerText || messageNode.textContent || '').trim().split(/\r?\n/)[0] : '';
-              message = (expectedMatch && expectedMatch[1]) ||
-                (unexpectedMatch && unexpectedMatch[1]) ||
-                nodeMessage ||
-                'Vite failed to transform a source module';
+              var expected = detailText.match(/\b(Expected\s+.{1,100}?\s+but\s+found\s+.{1,100}?)(?:\n|$)/i);
+              var unexpected = detailText.match(/\b(Unexpected\s+(?:token|character|end of input).{0,140})/i);
+              message = (expected && expected[1]) || (unexpected && unexpected[1]) || 'Vite failed to transform a source module';
             }
-
-            var locationMatch = detailText.match(/(?:src[\\/])?((?:[^/\\\s:\]]+[\\/])*[^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
-            if (!locationMatch) {
-              var frameMatch = detailText.match(/(?:^|\n)\s*(\d+)\s*[│|]\s*/m);
-              var fileNode = detailRoot.querySelector('.file');
-              var fileText = fileNode ? (fileNode.innerText || fileNode.textContent || '') : '';
-              var fileOnlyMatch = fileText.match(/([^/\\\s:]+\.(?:tsx?|jsx?))/i);
-              if (frameMatch && fileOnlyMatch) {
-                locationMatch = [frameMatch[0], fileOnlyMatch[1], frameMatch[1], '1'];
-              }
-            }
-            var file = locationMatch ? locationMatch[1].replace(/^src[\\/]/, '') : 'unknown source';
-            var line = locationMatch ? locationMatch[2] : '';
-            var column = locationMatch ? locationMatch[3] : '';
-            message = ('Vite compile error: ' + message + (line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
+            var location = detailText.match(/(?:src[\\/])?((?:[^/\\\s:\]]+[\\/])*[^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
+            var file = location ? location[1].replace(/^src[\\/]/, '') : '';
+            var line = location ? location[2] : '';
+            var column = location ? location[3] : '';
+            message = ('Vite compile error: ' + message + (file && line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
               .replace(/[\r\n\t]+/g, ' ')
               .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
               .slice(0, 240);
 
-            var storageKey = 'dugoutPulse.diagnostics.v1';
-            var events = [];
-            try {
-              var stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-              if (Array.isArray(stored)) events = stored;
-            } catch (_) {}
-
-            // Avoid adding the same compile error on repeated MutationObserver callbacks.
-            var signature = message + '|' + (line || '') + '|' + (column || '');
-            var alreadyCaptured = events.some(function (item) {
-              return item && item.category === 'app_startup' &&
-                typeof item.errorMessage === 'string' &&
-                item.errorMessage.indexOf('Vite compile error:') === 0 &&
-                item.errorMessage === message;
+            var events = readEvents();
+            var existing = events.find(function (item) {
+              return item && item.category === 'app_startup' && item.errorMessage === message;
             });
-            if (alreadyCaptured) return;
+            if (existing) return existing;
 
-            var time = new Date(Math.round(Date.now() / 900000) * 900000).toISOString();
+            var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            var id = 'DP-' + Array.from({ length: 6 }, function () {
+              return alphabet[Math.floor(Math.random() * alphabet.length)];
+            }).join('');
             var event = {
-              id: 'DP-' + Array.from({ length: 6 }, function () { return 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]; }).join(''),
-              time: time,
+              id: id,
+              time: new Date(Math.round(Date.now() / 900000) * 900000).toISOString(),
               category: 'app_startup',
               errorType: 'SyntaxError',
               errorMessage: message,
-              frames: line ? [file + ':' + line + ':' + (column || '1')] : [],
+              frames: file && line ? [file + ':' + line + ':' + (column || '1')] : [],
               platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
               build: 'unknown'
             };
             events.push(event);
             localStorage.setItem(storageKey, JSON.stringify(events.slice(-40)));
+            return event;
           } catch (_) {
-            // Diagnostics must never prevent the startup fallback from being shown.
+            return null;
           }
         }
+
         function detectViteOverlay() {
           var overlay = document.querySelector('vite-error-overlay');
-          if (overlay) {
-            captureViteCompileError(overlay);
-            showStartupFallback();
-          }
+          if (overlay) showStartupFallback(captureViteCompileError(overlay));
         }
         if (typeof MutationObserver !== 'undefined') {
           new MutationObserver(detectViteOverlay).observe(document.documentElement, { childList: true, subtree: true });
         }
-        window.addEventListener('vite:preloadError', showStartupFallback);
+        window.addEventListener('vite:preloadError', function () { showStartupFallback(); });
         window.addEventListener('error', function (event) {
           if (event.target && event.target.tagName === 'SCRIPT') {
             window.setTimeout(function () {
-            detectViteOverlay();
-            // A failed module script can occur without a visible Vite overlay.
-            // Never leave the user staring at a blank splash while entry is broken.
-            showStartupFallback();
-          }, 0);
+              detectViteOverlay();
+              showStartupFallback(capturedEvent);
+            }, 0);
           }
         }, true);
       })();
