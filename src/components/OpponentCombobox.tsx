@@ -271,7 +271,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       {team.logo ? (
-                        <img src={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
+                        <TeamLogoImage value={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
                       ) : (
                         <img src={teamIcon} alt="" className="h-6 w-6 shrink-0 rounded-sm object-contain" />
                       )}
