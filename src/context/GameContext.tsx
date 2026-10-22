@@ -39,6 +39,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [restoreFailed, setRestoreFailed] = useState(false);
   const [resumePromptPending, setResumePromptPending] = useState(false);
   const dismissResumePrompt = useCallback(() => setResumePromptPending(false), []);
+  const handleStorageProtectionFailure = useCallback(() => setRestoreFailed(true), []);
 
   // First time user detection: true if setup has not been completed and no profile is filled out
   const [isFirstTimeUser, setIsFirstTimeUser] = useState<boolean>(() => {
@@ -87,7 +88,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Persistence writes are kept separate from the context's game and profile logic.
   useGamePersistence({
     isLoading: isLoading || restoreFailed,
-    onStorageProtectionFailure: () => setRestoreFailed(true),
+    onStorageProtectionFailure: handleStorageProtectionFailure,
     games,
     oppositionTeams,
     savedOpponents,
