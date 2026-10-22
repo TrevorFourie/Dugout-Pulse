@@ -6,6 +6,7 @@ import { STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { hasOrphanedGameReferences } from './gameStorageSafety';
+import { ensureRecoveryBaseline } from './recoveryJournal';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -53,6 +54,14 @@ export function useGameRestore({
   setRestoreFailed,
 }: GameRestoreOptions): void {
   useEffect(() => {
+    void (async () => {
+      const recoveryReady = await ensureRecoveryBaseline();
+      if (!recoveryReady) {
+        setRestoreFailed(true);
+        setIsLoading(false);
+        recordDiagnosticError('storage_load', new Error('Private recovery baseline could not be verified; automatic persistence is paused'));
+        return;
+      }
     // Restore each key independently. A malformed game record must not abort
     // profile/settings restoration simply because it appears earlier in storage.
     const read = <T,>(key: string, apply: (parsed: T) => void, validate: (value: unknown) => value is T) => {
@@ -120,5 +129,6 @@ export function useGameRestore({
     } finally {
       setIsLoading(false);
     }
+    })();
   }, []);
 }
