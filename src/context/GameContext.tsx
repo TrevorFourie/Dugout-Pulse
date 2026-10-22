@@ -284,6 +284,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenAgeGroups,
     setHiddenSeasons,
     setIsFirstTimeUser,
+    setRestoreFailed,
     saveTournament,
     saveAgeGroup,
     saveSeason,
