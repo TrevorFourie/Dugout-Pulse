@@ -54,20 +54,16 @@
           var card = document.createElement('section');
           card.style.cssText = 'box-sizing:border-box;width:100%;max-width:560px;padding:24px;border:1px solid #354050;border-radius:18px;background:#1a2028;';
           var heading = document.createElement('h1');
-          heading.textContent = 'Dugout Pulse encountered an error';
+          heading.textContent = 'Dugout Pulse couldn’t start correctly';
           heading.style.cssText = 'font-size:22px;font-weight:700;margin:0 0 10px;';
           var errorKind = document.createElement('p');
-          errorKind.textContent = latest ? ((latest.errorType || 'Error') + ' · ' + (latest.category || 'unknown')) : 'Startup error';
+          errorKind.textContent = '';
           errorKind.style.cssText = 'font-size:12px;line-height:1.5;color:#9ca3af;margin:0 0 8px;';
           var message = document.createElement('p');
-          message.textContent = latest && latest.errorMessage
-            ? latest.errorMessage
-            : 'No detailed error message was captured. Restart the app and include the diagnostic report if the problem continues.';
+          message.textContent = 'Something went wrong while starting the app. Your saved game data has not been intentionally deleted. Restart the app. If the problem continues, share the diagnostic report with support.';
           message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:#fca5a5;margin:0 0 12px;';
           var source = document.createElement('p');
-          source.textContent = latest && latest.frames && latest.frames.length
-            ? 'Source: ' + latest.frames.join(' · ')
-            : 'Source location unavailable.';
+          source.textContent = '';
           source.style.cssText = 'font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:#d1d5db;';
           var referenceText = document.createElement('p');
           referenceText.textContent = 'Error reference: ' + reference;
@@ -107,7 +103,7 @@
           var note = document.createElement('p');
           note.textContent = 'The report stays on this device. Nothing is sent automatically.';
           note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:#9ca3af;';
-          card.append(heading, errorKind, message, source, referenceText, reportButton, restartButton, report, note);
+          card.append(heading, message, referenceText, reportButton, restartButton, report, note);
           panel.append(card);
           document.body.append(panel);
         }
