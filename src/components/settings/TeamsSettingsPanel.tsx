@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import teamIcon from '../../assets/TeamIcon.png';
 import { Check, Edit2, Plus, Shield, Star, Trash2, Trophy } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { TeamLogoPicker } from '../TeamLogoPicker';
