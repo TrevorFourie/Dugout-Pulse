@@ -55,10 +55,9 @@ export default defineConfig(() => {
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
-      // Keep Vite's technical diagnostics in the developer terminal/console, but do not
-      // cover the app with the raw error overlay. The app's friendly startup fallback
-      // can then be seen when a runtime module import fails.
-      hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: true },
+      // Keep Vite's technical diagnostics in the developer terminal/console, but never
+      // replace Dugout Pulse's own diagnostic/startup UI with Vite's raw overlay.
+      hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: false },
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
