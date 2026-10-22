@@ -13,7 +13,7 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
-import { X, LayoutDashboard, UserRound, SlidersHorizontal, CalendarDays, ChevronDown, FileText, Settings2 } from 'lucide-react';
+import { X, LayoutDashboard, UserRound, SlidersHorizontal, CalendarDays, ChevronDown, FileText, Settings2, PlayCircle, History } from 'lucide-react';
 import { exportStatsPdf } from './utils/pdfReport';
 import defaultLogoSrc from './assets/dugout-pulse-logo.png?inline';
 import { AppLogo } from './components/AppLogo';
@@ -90,6 +90,7 @@ const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [expandedMenuGroup, setExpandedMenuGroup] = useState<'profile' | 'setup' | 'preferences' | null>(null);
+  const [gamesView, setGamesView] = useState<'schedule' | 'past'>('past');
   const [isPdfBusy, setIsPdfBusy] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
@@ -280,7 +281,7 @@ const MainApp: React.FC = () => {
           />
         </div>
         {activeTab === 'games' && (
-          <GamesTab onNavigateToScore={() => { setScoreView('score'); setActiveTab('score'); }} />
+          <GamesTab view={gamesView} onNavigateToScore={() => { setScoreView('score'); setActiveTab('score'); }} />
         )}
       </main>
       </>
@@ -323,17 +324,27 @@ const MainApp: React.FC = () => {
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'profile' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'profile' && (
-              <div className="ml-3 flex flex-col gap-1 border-l-2 border-[#00BFA5]/40 pl-3 dark:border-[#00D7BC]/40">
-                <button type="button" onClick={() => handleSelectSettingsSection('playerDetails')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Player Name &amp; Primary Team</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('players')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Other Profiles</button>
+              <div className="ml-2 flex flex-col gap-1.5 rounded-xl border border-[#00BFA5]/20 bg-[#E8F8F5] p-2 shadow-inner dark:border-[#00D7BC]/20 dark:bg-[#172A2B]">
+                <button type="button" onClick={() => handleSelectSettingsSection('playerDetails')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Player Name &amp; Primary Team</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('players')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Other Profiles</button>
                 <button type="button" disabled={isPdfBusy || !games.some((game) => !game.playerId || game.playerId === activeProfile.id)} onClick={() => void handleExportReport()} title={games.some((game) => !game.playerId || game.playerId === activeProfile.id) ? 'Export player statistics as a PDF' : 'Save a game before creating a report'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"><FileText className="h-3.5 w-3.5" />{isPdfBusy ? 'Creating Report…' : 'Export Report'}</button>
               </div>
             )}
 
-            <button type="button" onClick={() => { setIsSettingsMenuOpen(false); setIsSettingsOpen(false); setActiveTab('games'); }} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${activeTab === 'games' ? 'border-[#00BFA5] bg-[#E6FBF8] dark:border-[#00D7BC] dark:bg-[#252D38]' : 'border-slate-200 bg-white hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]'}`}>
-              <CalendarDays className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Matches / Schedule</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Manage upcoming matches and game history</span></span>
-            </button>
+            <div className="mt-1 flex flex-col gap-1.5">
+              <button type="button" onClick={() => { setIsSettingsMenuOpen(false); setIsSettingsOpen(false); setGamesView('schedule'); setActiveTab('games'); }} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${activeTab === 'games' && gamesView === 'schedule' ? 'border-[#00BFA5] bg-[#E6FBF8] dark:border-[#00D7BC] dark:bg-[#252D38]' : 'border-slate-200 bg-white hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]'}`}>
+                <CalendarDays className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Schedule</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Upcoming fixtures and times</span></span>
+              </button>
+              <button type="button" onClick={() => { setIsSettingsMenuOpen(false); setIsSettingsOpen(false); handleStartGame(); }} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:border-[#00D7BC] dark:hover:bg-[#354050]">
+                <PlayCircle className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Manage Matches</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Open a scheduled or saved game</span></span>
+              </button>
+              <button type="button" onClick={() => { setIsSettingsMenuOpen(false); setIsSettingsOpen(false); setGamesView('past'); setActiveTab('games'); }} className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${activeTab === 'games' && gamesView === 'past' ? 'border-[#00BFA5] bg-[#E6FBF8] dark:border-[#00D7BC] dark:bg-[#252D38]' : 'border-slate-200 bg-white hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]'}`}>
+                <History className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
+                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Past Matches</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Review saved game history</span></span>
+              </button>
+            </div>
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'setup' ? null : 'setup')} aria-expanded={expandedMenuGroup === 'setup'} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <Settings2 className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
@@ -341,11 +352,13 @@ const MainApp: React.FC = () => {
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'setup' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'setup' && (
-              <div className="ml-3 flex flex-col gap-1 border-l-2 border-[#00BFA5]/40 pl-3 dark:border-[#00D7BC]/40">
-                <button type="button" onClick={() => handleSelectSettingsSection('teams')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Teams (Player)</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('oppositionTeams')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Opposition Teams</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('teamLists')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Seasons, Tournaments &amp; Age Groups</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('venue')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Venues</button>
+              <div className="ml-2 flex flex-col gap-1.5 rounded-xl border border-[#00BFA5]/20 bg-[#E8F8F5] p-2 shadow-inner dark:border-[#00D7BC]/20 dark:bg-[#172A2B]">
+                <button type="button" onClick={() => handleSelectSettingsSection('teams')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Teams (Player)</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('oppositionTeams')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Opposition Teams</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('seasons')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]" >Seasons</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('tournaments')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Tournaments &amp; Leagues</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('ageGroups')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Age Groups</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('venue')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Venues</button>
               </div>
             )}
 
@@ -355,11 +368,11 @@ const MainApp: React.FC = () => {
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'preferences' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'preferences' && (
-              <div className="ml-3 flex flex-col gap-1 border-l-2 border-[#00BFA5]/40 pl-3 dark:border-[#00D7BC]/40">
-                <button type="button" onClick={() => handleSelectSettingsSection('notifications')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Notifications</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('scoring')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Scoring Settings</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('displayTheme')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Display</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('data')} className="rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">Data &amp; About</button>
+              <div className="ml-2 flex flex-col gap-1.5 rounded-xl border border-[#00BFA5]/20 bg-[#E8F8F5] p-2 shadow-inner dark:border-[#00D7BC]/20 dark:bg-[#172A2B]">
+                <button type="button" onClick={() => handleSelectSettingsSection('notifications')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Notifications</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('scoring')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Scoring Settings</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('displayTheme')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Theme</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('data')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Data &amp; About</button>
               </div>
             )}
 
