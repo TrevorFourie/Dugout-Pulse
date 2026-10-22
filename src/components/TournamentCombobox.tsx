@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Check, X, Trophy, Plus, Trash2 } from 'lucide-react';
+import { THEMED_DROPDOWN_CONTROL_CLASS } from './ThemedDropdown';
 
 interface TournamentComboboxProps {
   value: string;
@@ -92,7 +93,7 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
               setIsOpen(true);
             }
           }}
-          className="w-full pl-3.5 pr-16 py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 dark:placeholder:text-[#6B7280] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:focus:ring-[#00D7BC]/30 transition-all shadow-2xs"
+          className={`${THEMED_DROPDOWN_CONTROL_CLASS} py-2.5 pl-3.5 pr-16 placeholder:text-slate-400 dark:placeholder:text-[#6B7280]`}
         />
 
         <div className="absolute right-1.5 flex items-center gap-1">
