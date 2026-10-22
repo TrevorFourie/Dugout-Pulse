@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { processLogoImage } from './logoImage';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
+import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
@@ -16,6 +17,9 @@ const writeTeamLogoLibrary = (items: TeamLogoItem[]): void => {
 };
 const extensionForMime = (mime: string) => mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
 export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
+  if (!(await createVerifiedRecoveryCheckpoint('Before adding a custom team logo'))) {
+    throw new Error('Could not create and verify a recovery checkpoint. The logo was not added.');
+  }
   const dataUrl = await processLogoImage(file, 512);
   const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'));
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -30,6 +34,9 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   return item;
 }
 export async function deleteTeamLogo(item: TeamLogoItem): Promise<void> {
+  if (!(await createVerifiedRecoveryCheckpoint('Before deleting a custom team logo'))) {
+    throw new Error('Could not create and verify a recovery checkpoint. The logo was not deleted.');
+  }
   // Update protected metadata before deleting the file, so a failed metadata write cannot destroy a referenced image.
   writeTeamLogoLibrary(readTeamLogoLibrary().filter((entry) => entry.id !== item.id));
   try { await Filesystem.deleteFile({ path: DIR + '/' + item.fileName, directory: Directory.Data }); } catch { /* Preserve an orphaned file rather than risk deleting referenced data. */ }
