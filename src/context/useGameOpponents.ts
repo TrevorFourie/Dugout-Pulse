@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game } from '../types/baseball';
 import type { OppositionTeam } from './gameContextTypes';
-import { protectedStorageSetItem } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -39,14 +38,7 @@ export function useGameOpponents({
       { id: `opponent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: trimmed },
       ...oppositionTeams,
     ];
-    try {
-      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
-        onStorageProtectionFailure();
-        return false;
-      }
-    } catch {
-      return false;
-    }
+    // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
   }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
@@ -62,14 +54,7 @@ export function useGameOpponents({
     const next = oppositionTeams.map((team) => team.id === teamId
       ? { ...team, ...updates, ...(trimmedName ? { name: trimmedName } : {}) }
       : team);
-    try {
-      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
-        onStorageProtectionFailure();
-        return false;
-      }
-    } catch {
-      return false;
-    }
+    // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
   }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
@@ -78,14 +63,7 @@ export function useGameOpponents({
     if (storageWritesBlocked) return false;
     const next = oppositionTeams.filter((team) => team.id !== teamId);
     if (next.length === oppositionTeams.length) return false;
-    try {
-      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
-        onStorageProtectionFailure();
-        return false;
-      }
-    } catch {
-      return false;
-    }
+    // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
   }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
