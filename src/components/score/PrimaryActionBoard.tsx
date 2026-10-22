@@ -61,7 +61,6 @@ export const PrimaryActionBoard: React.FC<PrimaryActionBoardProps> = ({
           playerName={playerName}
           activeRunnerChip={activeRunnerChip}
           onResumeRunner={onResumeRunner}
-          currentPlaysForMode={currentPlaysForMode}
           onScoringPlay={onScoringPlay}
           isPrimaryEventDisabled={isPrimaryEventDisabled}
           onBatterStrike={onBatterStrike}
