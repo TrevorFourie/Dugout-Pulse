@@ -12,3 +12,7 @@ All dropdowns in Dugout Pulse must use the same visual style as the **Filter Sta
 - When adding or modifying a dropdown, check this standard and update the shared component if the styling needs to change globally.
 
 The source of truth is `src/components/ThemedDropdown.tsx`; this file defines the canonical implementation and visual tokens.
+
+## AI-agent instruction files and app packaging
+- `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are development-time guidance only.
+- Never copy these files into `public/`, `dist/`, Capacitor web assets, or Android resources. The production Vite build has a safeguard that removes their paths from `dist` before Capacitor syncs it into an APK/AAB.
