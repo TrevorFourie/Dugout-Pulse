@@ -64,7 +64,7 @@ async function writeAndVerify(path: string, content: string): Promise<void> {
  * The checkpoint file is verified before the index is advanced. Files live in the
  * app's private data directory and are not part of JSON user exports or app bundles.
  */
-export async function createVerifiedRecoveryCheckpoint(reason: string): Promise<boolean> {
+async function createCheckpointSerially(reason: string): Promise<boolean> {
   try {
     const values = captureStorage();
     const payload = JSON.stringify({ version: 1, createdAt: new Date().toISOString(), reason, values });
@@ -92,6 +92,18 @@ export async function createVerifiedRecoveryCheckpoint(reason: string): Promise<
     console.error('Could not create and verify the private recovery checkpoint.', error);
     return false;
   }
+}
+
+/**
+ * Serialize journal writes. Persistence effects can fire together after React state
+ * changes; serializing prevents concurrent index read/modify/write races from
+ * dropping references to otherwise verified checkpoint files.
+ */
+let checkpointQueue: Promise<boolean> = Promise.resolve(true);
+export function createVerifiedRecoveryCheckpoint(reason: string): Promise<boolean> {
+  const next = checkpointQueue.then(() => createCheckpointSerially(reason), () => createCheckpointSerially(reason));
+  checkpointQueue = next;
+  return next;
 }
 
 /** Called before initial restore; establishes a durable baseline before app code mutates stored state. */
