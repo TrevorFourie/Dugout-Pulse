@@ -154,11 +154,6 @@
               .slice(0, 240);
 
             var events = readEvents();
-            var existing = events.find(function (item) {
-              return item && item.category === 'app_startup' && item.errorMessage === message;
-            });
-            if (existing) return existing;
-
             var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             var id = 'DP-' + Array.from({ length: 6 }, function () {
               return alphabet[Math.floor(Math.random() * alphabet.length)];
