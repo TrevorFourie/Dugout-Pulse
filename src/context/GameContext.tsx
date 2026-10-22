@@ -18,6 +18,12 @@ import { sortGames } from '../utils/stats';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
 
+export interface OppositionTeam {
+  id: string;
+  name: string;
+  logo?: string;
+}
+
 interface GameContextType {
   games: Game[];
   liveGame: Game | null;
@@ -104,6 +110,10 @@ interface GameContextType {
   recentOpponents: string[];
   saveOpponent: (opponent: string) => void;
   deleteOpponent: (opponent: string) => void;
+  oppositionTeams: OppositionTeam[];
+  addOppositionTeam: (name: string) => boolean;
+  updateOppositionTeam: (teamId: string, updates: Partial<Pick<OppositionTeam, 'name' | 'logo'>>) => boolean;
+  deleteOppositionTeam: (teamId: string) => void;
 
   // Tournaments, Age Groups, Seasons, Teams
   savedTournaments: string[];
@@ -323,6 +333,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profiles, setProfiles] = useState<PlayerProfile[]>([DEFAULT_PROFILE]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [savedOpponents, setSavedOpponents] = useState<string[]>([]);
+  const [oppositionTeams, setOppositionTeams] = useState<OppositionTeam[]>([]);
   const [savedTournaments, setSavedTournaments] = useState<string[]>([]);
   const [savedAgeGroups, setSavedAgeGroups] = useState<string[]>([]);
   const [savedSeasons, setSavedSeasons] = useState<string[]>([]);
@@ -398,6 +409,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSettings((prev) => ({ ...prev, ...JSON.parse(storedSettings) }));
       }
 
+      const storedOppositionTeams = localStorage.getItem('dugoutPulse.oppositionTeams.v1');
+      if (storedOppositionTeams) {
+        const parsed = JSON.parse(storedOppositionTeams);
+        if (Array.isArray(parsed)) setOppositionTeams(parsed);
+      }
+
       const storedOpponents = localStorage.getItem(STORAGE_KEYS.SAVED_OPPONENTS);
       if (storedOpponents) {
         const parsed = JSON.parse(storedOpponents);
@@ -453,6 +470,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
     }
   }, [games, isLoading]);
+
+  // Keep Opposition Teams shared between Settings and scoring, using the existing storage key.
+  useEffect(() => {
+    if (!isLoading) {
+      try {
+        localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams));
+      } catch (error) {
+        console.error('Failed to persist opposition teams:', error);
+      }
+    }
+  }, [oppositionTeams, isLoading]);
 
   // Save savedOpponents whenever changed
   useEffect(() => {
@@ -569,6 +597,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Haptic vibration has been removed from the app
   const triggerHaptic = useCallback(() => {}, []);
 
+  // Opposition Teams are the canonical list used by scoring and Settings.
+  const addOppositionTeam = useCallback((name: string): boolean => {
+    const trimmed = name.trim();
+    if (!trimmed || oppositionTeams.some((team) => team.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase())) {
+      return false;
+    }
+    setOppositionTeams((previous) => [
+      { id: `opponent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: trimmed },
+      ...previous,
+    ]);
+    return true;
+  }, [oppositionTeams]);
+
+  const updateOppositionTeam = useCallback((teamId: string, updates: Partial<Pick<OppositionTeam, 'name' | 'logo'>>): boolean => {
+    const target = oppositionTeams.find((team) => team.id === teamId);
+    if (!target) return false;
+    const trimmedName = updates.name?.trim();
+    if (updates.name !== undefined && (!trimmedName || oppositionTeams.some((team) => team.id !== teamId && team.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase()))) {
+      return false;
+    }
+    setOppositionTeams((previous) => previous.map((team) => team.id === teamId
+      ? { ...team, ...updates, ...(trimmedName ? { name: trimmedName } : {}) }
+      : team));
+    return true;
+  }, [oppositionTeams]);
+
+  const deleteOppositionTeam = useCallback((teamId: string) => {
+    setOppositionTeams((previous) => previous.filter((team) => team.id !== teamId));
+  }, []);
+
+  // Legacy remembered-opponent helpers remain available for old data, but scoring no longer writes to this list.
   // Opponent management helpers
   const saveOpponent = useCallback((name: string) => {
     const trimmed = name.trim();
@@ -1038,9 +1097,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isHome?: boolean;
     }) => {
       const trimmedOpponent = details.opponent?.trim() || '';
-      if (trimmedOpponent) {
-        saveOpponent(trimmedOpponent);
-      }
       const trimmedTournament = details.tournament?.trim() || '';
       if (trimmedTournament) {
         saveTournament(trimmedTournament);
@@ -1895,7 +1951,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...prev, ...details, plays: updatedPlays };
       });
     },
-    [saveOpponent, saveTournament, saveAgeGroup, saveSeason]
+    [saveTournament, saveAgeGroup, saveSeason]
   );
 
   // Save current game (either adding new or updating edited)
@@ -1903,9 +1959,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!liveGame) return;
     const gameToSave = { ...liveGame, finalResult, innings: getInningsPlayed(liveGame) };
 
-    if (liveGame.opponent && liveGame.opponent.trim()) {
-      saveOpponent(liveGame.opponent.trim());
-    }
     if (liveGame.tournament && liveGame.tournament.trim()) {
       saveTournament(liveGame.tournament.trim());
     }
@@ -1948,7 +2001,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveOpponent, saveTournament, saveAgeGroup, saveSeason]);
+  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason]);
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
@@ -2099,6 +2152,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames));
       }
       if (data && Array.isArray(data.oppositionTeams)) {
+        setOppositionTeams(data.oppositionTeams);
         localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams));
       }
       return { success: true, message: 'Season data successfully restored!' };
@@ -2115,6 +2169,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setReopenedGameId(null);
     setProfiles([DEFAULT_PROFILE]);
     setSettings(DEFAULT_SETTINGS);
+    setOppositionTeams([]);
     setHiddenTournaments([]);
     setHiddenAgeGroups([]);
     setHiddenSeasons([]);
@@ -2196,6 +2251,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recentOpponents,
         saveOpponent,
         deleteOpponent,
+        oppositionTeams,
+        addOppositionTeam,
+        updateOppositionTeam,
+        deleteOppositionTeam,
         savedTournaments,
         allTournaments,
         saveTournament,
