@@ -1,35 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
-import { protectedStorageSetItem } from '../context/gameStorageSafety';
-import { CustomNumberInput } from './settings/CustomNumberInput';
 import { ScoringSettingsPanel } from './settings/ScoringSettingsPanel';
 import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
 import { exportJsonBackup } from '../utils/backup';
 import { ConfirmationModal } from './ConfirmationModal';
-import teamIcon from '../assets/TeamIcon.png';
 import {
   X,
   ArrowLeft,
-  Sliders,
-  Moon,
-  Sun,
-  Upload,
   Trash2,
   CheckCircle2,
   Plus,
   Edit2,
-  Shield,
-  Trophy,
   Check,
-  Star,
-  Users,
-  Calendar,
-  Layers,
-  Palette,
-  ListOrdered,
   MapPin,
 } from 'lucide-react';
-import { ValueCombobox } from './ValueCombobox';
 import { processLogoImage } from '../utils/logoImage';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
@@ -49,7 +33,6 @@ interface SettingsModalProps {
   onOpenSetupWizard?: () => void;
 }
 
-type PresetKind = 'seasons' | 'tournaments' | 'ageGroups';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -66,7 +49,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     games,
     importJsonData,
     resetAllData,
-    restoreFailed,
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
