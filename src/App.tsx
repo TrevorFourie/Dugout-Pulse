@@ -367,7 +367,7 @@ const MainApp: React.FC = () => {
                 <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">
                   {recoveryError}
                 </p>
-              )}     </button>
+              )}
             </div>
           ) : (
             <p className="mt-2 text-xs">
