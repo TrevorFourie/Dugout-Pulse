@@ -18,7 +18,6 @@ import { TeamsSettingsPanel } from './settings/TeamsSettingsPanel';
 import { PresetSettingsPanel } from './settings/PresetSettingsPanel';
 import { VenuesSettingsPanel } from './settings/VenuesSettingsPanel';
 
-/** Small number box so a value outside the presets can be typed in manually. */
 export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
 
 interface SettingsModalProps {
@@ -27,7 +26,6 @@ interface SettingsModalProps {
   initialSection?: SettingsSectionId;
   onOpenSetupWizard?: () => void;
 }
-
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -49,10 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
-
-
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +61,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [isOpen, initialSection]);
 
   if (!isOpen) return null;
-
 
   const handleLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,7 +77,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     }
   };
-
 
   const handleExportBackup = async () => {
     const ok = await exportJsonBackup({
