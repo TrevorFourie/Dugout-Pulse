@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, Shield, X } from 'lucide-react';
 import type { OppositionTeam } from '../context/GameContext';
+import teamIcon from '../assets/TeamIcon.png';
 
 interface OpponentComboboxProps {
   value: string;
@@ -271,7 +272,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
                       {team.logo ? (
                         <img src={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
                       ) : (
-                        <Shield className="h-4 w-4 shrink-0 text-slate-400 dark:text-[#9CA3AF]" />
+                        <img src={teamIcon} alt="" className="h-6 w-6 shrink-0 rounded-sm object-contain" />
                       )}
                       <span className="truncate">{team.name}</span>
                     </span>
