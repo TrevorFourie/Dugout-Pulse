@@ -2144,7 +2144,6 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         confirmLabel={isEditing ? 'Yes, Cancel Edit' : 'Yes, Discard'}
         variant="danger"
         onConfirm={() => {
-          setNewGameFormError('');
           if (isEditing) {
             cancelEditing();
           } else {
