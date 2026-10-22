@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { exportJsonBackup } from '../utils/backup';
 import { ConfirmationModal } from './ConfirmationModal';
 import { AppLogo } from './AppLogo';
+import teamIcon from '../assets/TeamIcon.png';
 import {
   X,
   ArrowLeft,
@@ -736,7 +737,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {(teamLogoPreviews[team.id] || team.logo) ? (
                             <img src={teamLogoPreviews[team.id] || team.logo} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => setStatusMessage({ text: `The ${team.name} logo image could not be displayed. Please try a different image.`, isError: true })} />
                           ) : (
-                            <div className="h-12 w-12 shrink-0 rounded-md border border-dashed border-slate-300 dark:border-[#354050] flex items-center justify-center text-[9px] text-slate-400">Logo</div>
+                            <img src={teamIcon} alt={`${team.name} default logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
