@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useGame, type OppositionTeam } from '../context/GameContext';
 import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
+import teamIcon from '../assets/TeamIcon.png';
 
 const resizeImage = (file: File, maxSize = 256): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
@@ -114,13 +115,13 @@ export const OppositionTeamsSettings: React.FC = () => {
           {teams.map((team) => (
             <article key={team.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/50">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-[#354050] dark:bg-[#1A2028]">
-                {team.logo ? <img src={team.logo} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <Shield className="h-5 w-5 text-slate-400 dark:text-[#6B7280]" />}
+                {team.logo ? <img src={team.logo} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${team.name} default icon`} className="h-full w-full object-contain p-1" />}
               </div>
               <div className="min-w-0 flex-1">
                 {editingId === team.id ? (
                   <input autoFocus value={editName} onChange={(event) => setEditName(event.target.value)} className={fieldClass} aria-label="Edit opposition team name" />
                 ) : <p className="truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">{team.name}</p>}
-                <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{team.logo ? 'Logo uploaded' : 'No logo uploaded'}</p>
+                <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{team.logo ? 'Logo uploaded' : 'Using default team icon'}</p>
               </div>
               {editingId === team.id ? (
                 <>
