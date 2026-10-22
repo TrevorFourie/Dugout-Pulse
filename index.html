@@ -24,6 +24,50 @@
       html.native-launch, html.native-launch body, html.native-launch #root { background-color: transparent !important; }
     </style>
     <script>
+      // Vite can fail while transforming/loading a module, before src/main.tsx
+      // executes. In that case its React/app-level startup fallback cannot run.
+      // Detect Vite's error overlay from this HTML bootstrap and show an app-branded
+      // explanation while leaving the original Vite details available underneath.
+      (function () {
+        var fallbackShown = false;
+        function showStartupFallback() {
+          if (fallbackShown || !document.body) return;
+          fallbackShown = true;
+          var panel = document.createElement('section');
+          panel.setAttribute('role', 'alert');
+          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:24px;background:#121923;color:#f8fafc;font-family:system-ui,sans-serif;';
+          var card = document.createElement('div');
+          card.style.cssText = 'box-sizing:border-box;width:100%;max-width:480px;padding:24px;border:1px solid #354050;border-radius:18px;background:#1a2028;';
+          var heading = document.createElement('h1');
+          heading.textContent = "Dugout Pulse couldn't start";
+          heading.style.cssText = 'font-size:22px;margin:0 0 10px;';
+          var message = document.createElement('p');
+          message.textContent = 'Vite reported a module error before the app could load. The normal app startup handler could not run. The Vite error details are still available behind this message.';
+          message.style.cssText = 'font-size:14px;line-height:1.6;color:#d1d5db;';
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Show Vite error details';
+          button.style.cssText = 'margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:#00d7bc;color:#101419;font-weight:600;cursor:pointer;';
+          button.addEventListener('click', function () { panel.remove(); });
+          card.append(heading, message, button);
+          panel.append(card);
+          document.body.append(panel);
+        }
+        function detectViteOverlay() {
+          if (document.querySelector('vite-error-overlay')) showStartupFallback();
+        }
+        if (typeof MutationObserver !== 'undefined') {
+          new MutationObserver(detectViteOverlay).observe(document.documentElement, { childList: true, subtree: true });
+        }
+        window.addEventListener('vite:preloadError', showStartupFallback);
+        window.addEventListener('error', function (event) {
+          if (event.target && event.target.tagName === 'SCRIPT') {
+            window.setTimeout(detectViteOverlay, 0);
+          }
+        }, true);
+      })();
+    </script>
+    <script>
       if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
         document.documentElement.classList.add('native-launch');
       }
