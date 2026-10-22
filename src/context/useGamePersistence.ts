@@ -3,7 +3,7 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { snapshotBeforeGameWrite } from './gameStorageSafety';
+import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -24,11 +24,7 @@ interface GamePersistenceOptions {
   settings: AppSettings;
 }
 
-/**
- * Keeps the GameContext's persisted state in localStorage.
- * The initial restore remains in GameContext so loading and resume-prompt
- * behavior stay coordinated; these effects only write subsequent state changes.
- */
+/** Persist state only after restore is complete and a pre-mutation snapshot exists. */
 export function useGamePersistence({
   isLoading,
   onStorageProtectionFailure,
@@ -49,111 +45,87 @@ export function useGamePersistence({
 }: GamePersistenceOptions): void {
   useEffect(() => {
     if (isLoading) return;
-    if (!snapshotBeforeGameWrite()) {
+    if (!protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(games))) {
       onStorageProtectionFailure();
-      return;
-    }
-    try {
-      localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
-    } catch (error) {
-      onStorageProtectionFailure();
-      recordDiagnosticError('storage_write_games', error);
-      console.error('Failed to persist games; automatic persistence has been paused.', error);
+      recordDiagnosticError('storage_write_games', new Error('Protected write failed for saved games'));
     }
   }, [games, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams));
-      } catch (error) {
-        recordDiagnosticError('storage_write_opposition_teams', error);
-        console.error('Failed to persist opposition teams:', error);
-      }
+    if (isLoading) return;
+    if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams))) {
+      onStorageProtectionFailure();
+      recordDiagnosticError('storage_write_opposition_teams', new Error('Protected write failed for opposition teams'));
     }
-  }, [oppositionTeams, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents));
-    }
-  }, [savedOpponents, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments));
-    }
-  }, [savedTournaments, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups));
-    }
-  }, [savedAgeGroups, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons));
-    }
-  }, [savedSeasons, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments));
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups));
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons));
-    }
-  }, [hiddenTournaments, hiddenAgeGroups, hiddenSeasons, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (liveGame) {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.LIVE_GAME);
-      }
-    }
-  }, [liveGame, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (editingGameId) {
-        localStorage.setItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.EDITING_GAME_ID);
-      }
-    }
-  }, [editingGameId, isLoading]);
+  }, [oppositionTeams, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
     if (isLoading) return;
-    if (reopenedGameId) {
-      localStorage.setItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.REOPENED_GAME_ID);
-    }
-  }, [reopenedGameId, isLoading]);
+    if (!protectedStorageSetItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents))) onStorageProtectionFailure();
+  }, [savedOpponents, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
     if (isLoading) return;
-    // Profiles are just as important as games: snapshot the complete storage
-    // before a profile write so a startup/default-profile overwrite is recoverable.
-    if (!snapshotBeforeGameWrite()) {
+    if (!protectedStorageSetItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments))) onStorageProtectionFailure();
+  }, [savedTournaments, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!protectedStorageSetItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups))) onStorageProtectionFailure();
+  }, [savedAgeGroups, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!protectedStorageSetItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons))) onStorageProtectionFailure();
+  }, [savedSeasons, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!protectedStorageSetItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments))) {
       onStorageProtectionFailure();
       return;
     }
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
-    } catch (error) {
+    if (!protectedStorageSetItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups))) {
       onStorageProtectionFailure();
-      recordDiagnosticError('storage_write_profiles', error);
-      console.error('Failed to persist profiles; automatic persistence has been paused.', error);
+      return;
+    }
+    if (!protectedStorageSetItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons))) onStorageProtectionFailure();
+  }, [hiddenTournaments, hiddenAgeGroups, hiddenSeasons, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const ok = liveGame
+      ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame))
+      : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME);
+    if (!ok) onStorageProtectionFailure();
+  }, [liveGame, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const ok = editingGameId
+      ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId))
+      : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID);
+    if (!ok) onStorageProtectionFailure();
+  }, [editingGameId, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const ok = reopenedGameId
+      ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId))
+      : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID);
+    if (!ok) onStorageProtectionFailure();
+  }, [reopenedGameId, isLoading, onStorageProtectionFailure]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!protectedStorageSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles))) {
+      onStorageProtectionFailure();
+      recordDiagnosticError('storage_write_profiles', new Error('Protected write failed for player profiles'));
     }
   }, [profiles, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-    }
-  }, [settings, isLoading]);
+    if (isLoading) return;
+    if (!protectedStorageSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings))) onStorageProtectionFailure();
+  }, [settings, isLoading, onStorageProtectionFailure]);
 }
