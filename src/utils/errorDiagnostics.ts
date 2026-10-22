@@ -51,6 +51,7 @@ const ALLOWED_CATEGORIES = new Set([
   'storage_load',
   'storage_write_opposition_teams',
   'storage_write_games',
+  'storage_write_profiles',
   'native_text_export',
   'browser_text_export',
   'native_binary_export',
