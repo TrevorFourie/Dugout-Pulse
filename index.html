@@ -172,7 +172,11 @@
 
         function detectViteOverlay() {
           var overlay = document.querySelector('vite-error-overlay');
-          if (overlay) showStartupFallback(captureViteCompileError(overlay));
+          if (overlay) {
+            var event = captureViteCompileError(overlay);
+            overlay.remove();
+            showStartupFallback(event);
+          }
         }
         if (typeof MutationObserver !== 'undefined') {
           new MutationObserver(detectViteOverlay).observe(document.documentElement, { childList: true, subtree: true });
