@@ -240,6 +240,9 @@ const MainApp: React.FC = () => {
   // Android may remove scheduled alarms when exact-alarm access changes. Rebuild
   // reminders on launch and whenever the app returns to the foreground.
   useEffect(() => {
+    // Notification synchronization writes reminder metadata to localStorage. Do not
+    // mutate any storage while the main restore has been flagged as unsafe.
+    if (restoreFailed) return;
     const syncReminders = () => {
       void syncStoredGameReminders(settings.gameRemindersEnabled === true).catch(() => {
         // The Notifications settings panel shows status and a test button for recovery.
@@ -251,7 +254,7 @@ const MainApp: React.FC = () => {
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [settings.gameRemindersEnabled]);
+  }, [settings.gameRemindersEnabled, restoreFailed]);
 
   // Keep the complete app shell hidden until persisted data has loaded. Rendering
   // Navigation/dashboard first and replacing them after localStorage loads caused
