@@ -90,7 +90,7 @@ const MainApp: React.FC = () => {
   const [helpInitialMode, setHelpInitialMode] = useState<PlayMode>('batting');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
-  const [expandedMenuGroup, setExpandedMenuGroup] = useState<'profile' | 'matches' | 'setup' | 'preferences' | null>(null);
+  const [expandedMenuGroup, setExpandedMenuGroup] = useState<'profile' | 'matches' | 'setup' | 'preferences' | 'legal' | null>(null);
   const [gamesView, setGamesView] = useState<'schedule' | 'past'>('past');
   const [isPdfBusy, setIsPdfBusy] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
