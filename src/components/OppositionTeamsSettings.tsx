@@ -38,7 +38,7 @@ export const OppositionTeamsSettings: React.FC = () => {
     const name = newName.trim();
     if (!name) return;
     if (!addOppositionTeam(name)) {
-      setError('That opposition team has already been added.');
+      setError('Could not add this team. It may already exist, or there may not be enough storage.');
       return;
     }
     setError('');
@@ -61,11 +61,27 @@ export const OppositionTeamsSettings: React.FC = () => {
     }
   };
 
+  const removeLogo = (teamId: string) => {
+    if (!updateOppositionTeam(teamId, { logo: undefined })) {
+      setError('Could not save this team. The logo may be too large or storage may be full.');
+      return;
+    }
+    setError('');
+  };
+
+  const removeTeam = (teamId: string) => {
+    if (!deleteOppositionTeam(teamId)) {
+      setError('Could not delete this team. Please try again.');
+      return;
+    }
+    setError('');
+  };
+
   const saveRename = (team: OppositionTeam) => {
     const name = editName.trim();
     if (!name) return;
     if (!updateOppositionTeam(team.id, { name })) {
-      setError('An opposition team with that name already exists.');
+      setError('Could not save this team. Check the name and available storage.');
       return;
     }
     setError('');
@@ -114,8 +130,8 @@ export const OppositionTeamsSettings: React.FC = () => {
                     <ImagePlus className="h-4 w-4" />
                     <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
                   </label>
-                  {team.logo && <button type="button" onClick={() => updateOppositionTeam(team.id, { logo: undefined })} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
-                  <button type="button" onClick={() => deleteOppositionTeam(team.id)} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
+                  {team.logo && <button type="button" onClick={() => removeLogo(team.id)} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
+                  <button type="button" onClick={() => removeTeam(team.id)} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
                 </>
               )}
             </article>
