@@ -9,7 +9,26 @@ export default defineConfig(() => {
   const buildId = `${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
   return {
     define: { __BUILD_ID__: JSON.stringify(buildId) },
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        // The splash-source/*.png originals are only used by the browser-only web splash
+        // (skipped on native). Android's native splash is generated from the files on disk by
+        // build-apk.ps1, so keep these ~10 MB of PNGs out of the production bundle (APK/AAB).
+        name: 'exclude-splash-source-images',
+        apply: 'build',
+        enforce: 'pre',
+        resolveId(id: string) {
+          if (/splash-source\/[^/]+\.(png|jpe?g|webp|gif|avif|svg)$/i.test(id)) return '\0empty-splash-image';
+          return null;
+        },
+        load(id: string) {
+          if (id === '\0empty-splash-image') return 'export default "";';
+          return null;
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

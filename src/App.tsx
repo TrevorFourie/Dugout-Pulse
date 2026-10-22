@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import mobileSplashSrc from '../splash-source/splash-mobile.png';
-import tabletSplashSrc from '../splash-source/splash-tablet.png';
-import largeSplashSrc from '../splash-source/splash-large.png';
+import mobileSplashSrc from '../splash-source/splash-mobile.jpg';
+import tabletSplashSrc from '../splash-source/splash-tablet.jpg';
+import largeSplashSrc from '../splash-source/splash-large.jpg';
 import { GameProvider, useGame } from './context/GameContext';
 import { DashboardTab } from './components/DashboardTab';
 import { StatsTab } from './components/StatsTab';
@@ -46,6 +46,16 @@ const MainApp: React.FC = () => {
     }, remainingMs);
     return () => window.clearTimeout(minimumDisplay);
   }, [isNativeLaunch]);
+
+  // Preload the 3D field code (three.js chunk) while the splash is still showing, so
+  // opening the 3D view later doesn't wait on "Loading 3D field…". SprayChart and
+  // HitLocationModal lazy-load the same module, so this just warms it up.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void import('./components/HitField3D').catch(() => {});
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const markSplashArtworkReady = () => setSplashArtworkReady(true);
 

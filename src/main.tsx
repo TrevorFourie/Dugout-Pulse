@@ -1,9 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import { Capacitor } from '@capacitor/core';
 import './index.css';
-import mobileSplashSrc from '../splash-source/splash-mobile.png';
-import tabletSplashSrc from '../splash-source/splash-tablet.png';
-import largeSplashSrc from '../splash-source/splash-large.png';
+import mobileSplashSrc from '../splash-source/splash-mobile.jpg';
+import tabletSplashSrc from '../splash-source/splash-tablet.jpg';
+import largeSplashSrc from '../splash-source/splash-large.jpg';
 
 const root = document.getElementById('root')!;
 

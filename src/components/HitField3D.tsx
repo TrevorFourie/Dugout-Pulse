@@ -196,7 +196,7 @@ function makeTrailMaterial(opts: { color: THREE.Color; power: number; strength: 
   });
 }
 
-function createScene(canvas: HTMLCanvasElement): SceneApi {
+function createScene(canvas: HTMLCanvasElement, onFirstFrame?: () => void): SceneApi {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -392,6 +392,11 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
   let curve: THREE.CatmullRomCurve3 | null = null;
   let duration = 1.5;
   let playStart = 0;
+  // The replay clock starts only once the first frame has actually been drawn. The first render
+  // compiles shaders and can take seconds on a phone; without this the hit has already finished
+  // by the time anything appears on screen.
+  let startPending = false;
+  let firstFrameDone = false;
   let playing = false;
   let behindWall = false;
   let showGroundShadow = true;
@@ -483,6 +488,7 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     if (replay && !reduceMotion) {
       playing = true;
       playStart = performance.now();
+      startPending = !firstFrameDone;
       applyProgress(0);
     } else {
       playing = false;
@@ -567,7 +573,9 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
       beamMaterial.opacity = 0.45 + Math.sin(s * 2.4) * 0.08;
       glowMaterial.opacity = 0.75 + Math.sin(s * 2.4) * 0.1;
     }
-    if (playing) {
+    if (playing && startPending) {
+      applyProgress(0);
+    } else if (playing) {
       const t = Math.min(1, (performance.now() - playStart) / 1000 / duration);
       applyProgress(t);
       if (t >= 1) playing = false;
@@ -582,6 +590,16 @@ function createScene(canvas: HTMLCanvasElement): SceneApi {
     if (behindWall) renderer.render(occluderScene, camera);
     // Pass 3: flight path and ball on top
     renderer.render(trailScene, camera);
+
+    if (!firstFrameDone) {
+      firstFrameDone = true;
+      // Restart the replay clock now that the (slow) first render is over
+      if (startPending) {
+        startPending = false;
+        playStart = performance.now();
+      }
+      onFirstFrame?.();
+    }
   };
 
   const homeView = () => viewPreset('home', camera.aspect || 1);
@@ -642,26 +660,47 @@ const HitField3D: React.FC<HitField3DProps> = ({ location, isHit, playCode, onUn
   const unsupportedRef = useRef(onUnsupported);
   unsupportedRef.current = onUnsupported;
   const [view, setView] = useState<ViewName>('home');
+  const [ready, setReady] = useState(false);
   const trajectory = location.trajectory ?? 'lineDrive';
   const outcome = outcomeFor(playCode, isHit, location);
+  const hitRef = useRef({ location, trajectory, isHit, outcome });
+  hitRef.current = { location, trajectory, isHit, outcome };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    let api: SceneApi;
-    try {
-      api = createScene(canvas);
-    } catch {
-      unsupportedRef.current?.();
-      return;
-    }
-    apiRef.current = api;
-    const observer = new ResizeObserver(() => api.resize());
-    observer.observe(canvas);
-    api.start();
+    let cancelled = false;
+    let api: SceneApi | null = null;
+    let observer: ResizeObserver | null = null;
+    // Building the scene blocks the main thread for a while. Wait for two animation frames so the
+    // "Loading 3D field…" overlay is painted first, instead of the screen freezing with nothing shown.
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+        try {
+          api = createScene(canvas, () => {
+            if (!cancelled) setReady(true);
+          });
+        } catch {
+          unsupportedRef.current?.();
+          return;
+        }
+        apiRef.current = api;
+        const h = hitRef.current;
+        api.setHit(h.location.x, h.location.y, h.trajectory, h.isHit, h.outcome, true);
+        const created = api;
+        observer = new ResizeObserver(() => created.resize());
+        observer.observe(canvas);
+        api.start();
+      });
+    });
     return () => {
-      observer.disconnect();
-      api.dispose();
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      observer?.disconnect();
+      api?.dispose();
       apiRef.current = null;
     };
   }, []);
@@ -684,6 +723,11 @@ const HitField3D: React.FC<HitField3DProps> = ({ location, isHit, playCode, onUn
           style={{ touchAction: 'none' }}
           aria-label="3D baseball field. Drag to rotate, pinch to zoom."
         />
+        {!ready && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#2f7a3d] text-xs font-semibold text-white/70">
+            Loading 3D field…
+          </div>
+        )}
         <div className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-xs">
           Drag to rotate · pinch to zoom
         </div>
