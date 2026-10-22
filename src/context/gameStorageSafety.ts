@@ -16,12 +16,9 @@ interface RecoverySnapshot {
  */
 export function snapshotBeforeGameWrite(): boolean {
   try {
-    const existingGames = localStorage.getItem(STORAGE_KEYS.GAMES);
-    if (!existingGames) return true;
-
-    const parsedGames: unknown = JSON.parse(existingGames);
-    if (!Array.isArray(parsedGames) || parsedGames.length === 0) return true;
-
+    // Snapshot the complete current storage before any game-list write, including
+    // empty/new installs. Other profile/settings keys can be overwritten by the
+    // same startup persistence cycle, so protection must not depend on game count.
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
