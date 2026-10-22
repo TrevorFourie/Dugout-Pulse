@@ -21,6 +21,7 @@ import { NotificationBlockedModal } from './components/NotificationBlockedModal'
 import { StartGamePicker } from './components/StartGamePicker';
 import { SettingsNavigationDrawer } from './components/SettingsNavigationDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { getRecoverySnapshotInfo, restoreRecoverySnapshot } from './context/gameStorageSafety';
 
 const getLocalDate = () => {
   const now = new Date();
@@ -32,6 +33,7 @@ const getLocalDate = () => {
 
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading, restoreFailed, games, activeProfile } = useGame();
+  const recoverySnapshot = getRecoverySnapshotInfo();
 
   // On Android the full-screen splash artwork is the native launch window
   // background, visible through the transparent WebView from the first frame, so
@@ -339,7 +341,32 @@ const MainApp: React.FC = () => {
           role="alert"
           className="shrink-0 border-b border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
         >
-          <strong>Saved data needs recovery.</strong> Automatic saving has been paused to protect existing browser data. Do not reset app data or clear browser storage.
+          <strong>Saved data needs recovery.</strong> Automatic saving is paused to protect existing browser data. Do not reset app data or clear browser storage.
+          {recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? (
+            <div className="mt-2 flex flex-col items-start gap-2">
+              <p className="text-xs">
+                A local recovery snapshot from {recoverySnapshot.createdAt ? new Date(recoverySnapshot.createdAt).toLocaleString() : 'an earlier session'} contains {recoverySnapshot.gameCount} saved game(s) and {recoverySnapshot.profileCount} profile(s).
+              </p>
+              <button
+                type="button"
+                className="rounded-lg border border-amber-700/40 px-3 py-2 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                onClick={() => {
+                  const confirmed = window.confirm('Restore the saved snapshot? Current browser data will first be retained in a separate local recovery copy. The app will reload after restoration.');
+                  if (!confirmed) return;
+                  if (restoreRecoverySnapshot()) window.location.reload();
+                  else window.alert('The recovery snapshot could not be fully restored. The recovery copies were retained; do not clear browser storage.');
+                }}
+              >
+                Restore local recovery snapshot
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs">
+              {recoverySnapshot.available
+                ? 'A local snapshot exists, but it does not contain a non-empty saved game, player/team profile, or upcoming-fixture list.'
+                : 'No usable local recovery snapshot is available.'}
+            </p>
+          )}
         </div>
       )}
       <NotificationBlockedModal
@@ -452,7 +479,7 @@ const MainApp: React.FC = () => {
         onClose={() => setIsHelpOpen(false)}
       />
 
-      {(isFirstTimeUser || isManualSetupOpen) && (
+      {((isFirstTimeUser || isManualSetupOpen) && !restoreFailed) && (
         <SetupScreen
           onComplete={() => {
             setIsManualSetupOpen(false);
