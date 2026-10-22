@@ -556,6 +556,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
     }
   } catch (error) {
     console.error('Private journal recovery failed; recovery checkpoints were retained.', error);
-    return { success: false, message: 'Recovery could not be completed. The original recovery checkpoint and the pre-recovery checkpoint were retained. No further changes should be made until the data is reviewed.' };
+    const detail = error instanceof Error && error.message ? error.message.slice(0, 240) : 'Unknown error';
+    return { success: false, message: 'Recovery failed: ' + detail + ' The original recovery checkpoint and pre-recovery checkpoint were retained. Do not retry until this error has been reviewed.' };
   }
 }
