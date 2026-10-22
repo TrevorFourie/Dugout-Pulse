@@ -252,7 +252,7 @@ export function createDiagnosticReport(reference?: string): string {
   // Reports are intentionally focused on the current build's latest actionable
   // error, not a pile of stale errors from earlier builds or earlier failures.
   const reportEvents = reference
-    ? events.filter((event) => event.id === reference && event.build === currentBuild)
+    ? events.filter((event) => event.id === reference)
     : (() => {
         const latest = events
           .filter((event) => event.build === currentBuild && (event.errorType || event.errorMessage))
@@ -270,6 +270,15 @@ export function createDiagnosticReport(reference?: string): string {
   }, null, 2);
 }
 
+/** Route every user-visible failure through the single diagnostic screen in index.html. */
+export function showDiagnosticScreen(reference: string): void {
+  if (typeof window === 'undefined') return;
+  const host = window as Window & {
+    __dugoutPulseShowDiagnostic?: (errorReference: string) => void;
+  };
+  host.__dugoutPulseShowDiagnostic?.(reference);
+}
+
 /** Install once at bootstrap, before React or the rest of the app is loaded. */
 export function installGlobalDiagnosticHandlers(): void {
   if (typeof window === 'undefined') return;
@@ -279,9 +288,13 @@ export function installGlobalDiagnosticHandlers(): void {
   target[marker] = true;
 
   window.addEventListener('error', (event) => {
-    recordDiagnosticError('window_error', event.error ?? new Error('WindowError'));
+    // Ignore resource-loading events; index.html owns startup/module-load failures.
+    if (event.target && event.target !== window) return;
+    const reference = recordDiagnosticError('window_error', event.error ?? new Error(event.message || 'WindowError'));
+    showDiagnosticScreen(reference);
   });
   window.addEventListener('unhandledrejection', (event) => {
-    recordDiagnosticError('unhandled_rejection', event.reason);
+    const reference = recordDiagnosticError('unhandled_rejection', event.reason);
+    showDiagnosticScreen(reference);
   });
 }
