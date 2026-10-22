@@ -22,6 +22,7 @@ import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 import { clearAppDataPreservingDiagnostics, recordDiagnosticError } from '../utils/errorDiagnostics';
+import { useGamePersistence } from './useGamePersistence';
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -169,105 +170,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save games whenever changed
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
-    }
-  }, [games, isLoading]);
-
-  // Keep Opposition Teams shared between Settings and scoring, using the existing storage key.
-  useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams));
-      } catch (error) {
-        recordDiagnosticError('storage_write_opposition_teams', error);
-        console.error('Failed to persist opposition teams:', error);
-      }
-    }
-  }, [oppositionTeams, isLoading]);
-
-  // Save savedOpponents whenever changed
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents));
-    }
-  }, [savedOpponents, isLoading]);
-
-  // Save tournaments, age groups, seasons whenever changed
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments));
-    }
-  }, [savedTournaments, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups));
-    }
-  }, [savedAgeGroups, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons));
-    }
-  }, [savedSeasons, isLoading]);
-
-  // Save removed built-in defaults
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments));
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups));
-      localStorage.setItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons));
-    }
-  }, [hiddenTournaments, hiddenAgeGroups, hiddenSeasons, isLoading]);
-
-  // Save live game whenever changed
-  useEffect(() => {
-    if (!isLoading) {
-      if (liveGame) {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.LIVE_GAME);
-      }
-    }
-  }, [liveGame, isLoading]);
-
-  // Save editingGameId whenever changed
-  useEffect(() => {
-    if (!isLoading) {
-      if (editingGameId) {
-        localStorage.setItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.EDITING_GAME_ID);
-      }
-    }
-  }, [editingGameId, isLoading]);
-
-  // Persist which completed game is being continued so a reload does not turn it into a duplicate.
-  useEffect(() => {
-    if (isLoading) return;
-    if (reopenedGameId) {
-      localStorage.setItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.REOPENED_GAME_ID);
-    }
-  }, [reopenedGameId, isLoading]);
-
-  // Save profiles
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
-    }
-  }, [profiles, isLoading]);
-
-  // Save settings
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-    }
-  }, [settings, isLoading]);
+  // Persistence writes are kept separate from the context's game and profile logic.
+  useGamePersistence({
+    isLoading,
+    games,
+    oppositionTeams,
+    savedOpponents,
+    savedTournaments,
+    savedAgeGroups,
+    savedSeasons,
+    hiddenTournaments,
+    hiddenAgeGroups,
+    hiddenSeasons,
+    liveGame,
+    editingGameId,
+    reopenedGameId,
+    profiles,
+    settings,
+  });
 
   // Dark mode effect
   useEffect(() => {
