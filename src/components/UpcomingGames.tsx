@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
-import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 
