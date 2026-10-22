@@ -2043,7 +2043,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           ? 1
           : 0;
 
-      if (currentInningPosition === 'C'      if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
+      if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
         playFlow.handleCatcherEvent(code as any);
         if (code === 'catcherGloveDeadBall') advanceTrackedRunnerForAward('deadBall');
       } else {
