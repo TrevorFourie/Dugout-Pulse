@@ -175,9 +175,8 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     liveGame,
     editingGameId,
     activeProfile,
-    allOpponents,
-    recentOpponents,
-    deleteOpponent,
+    oppositionTeams,
+    addOppositionTeam,
     allTournaments,
     saveTournament,
     deleteTournament,
@@ -575,7 +574,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       const missingFields = [
         !newGameDate.trim() && 'game date',
         !newGameTime.trim() && 'game time',
-        !newGameOpponent.trim() && 'opponent',
+        (!newGameOpponent.trim() || !oppositionTeams.some((team) => team.name.trim().toLocaleLowerCase() === newGameOpponent.trim().toLocaleLowerCase())) && 'an opposition team from Opposition Teams',
         !gameTeamName && 'team',
         !gameAgeGroup && 'age group',
         !gameSeason && 'season',
@@ -828,10 +827,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               <OpponentCombobox
                 value={newGameOpponent}
                 onChange={setNewGameOpponent}
-                required
-                allOpponents={allOpponents}
-                onDeleteOpponent={deleteOpponent}
-                placeholder="Type team name or select remembered opponent"
+                oppositionTeams={oppositionTeams}
+                onAddTeam={addOppositionTeam}
+                placeholder="Search or select an opposition team"
               />
             </div>
 
@@ -2907,10 +2905,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 <OpponentCombobox
                   value={liveGame.opponent || ''}
                   onChange={(val) => updateLiveGameDetails({ opponent: val })}
-                  allOpponents={allOpponents}
-                  recentOpponents={recentOpponents}
-                  onDeleteOpponent={deleteOpponent}
-                  placeholder="Opponent name"
+                  oppositionTeams={oppositionTeams}
+                  onAddTeam={addOppositionTeam}
+                  placeholder="Search or select an opposition team"
                 />
               </div>
               <div>
