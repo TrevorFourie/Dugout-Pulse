@@ -179,15 +179,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
 
             {/* Teams for this Player (Multi-team with Tournament, Age Group, Season) */}
-            {settingsSection === 'teams' && (
-              <TeamsSettingsPanel onStatusMessage={setStatusMessage} />
-            )}
-            {(settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups') && (
-              <PresetSettingsPanel settingsSection={settingsSection} onStatusMessage={setStatusMessage} />
-            )}
-            {settingsSection === 'venue' && (
-              <VenuesSettingsPanel onStatusMessage={setStatusMessage} />
-            )}
+            <TeamsSettingsPanel isActive={settingsSection === 'teams'} onStatusMessage={setStatusMessage} />
+            <PresetSettingsPanel
+              isActive={settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups'}
+              settingsSection={settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups' ? settingsSection : 'teamLists'}
+              onStatusMessage={setStatusMessage}
+            />
+            <VenuesSettingsPanel isActive={settingsSection === 'venue'} onStatusMessage={setStatusMessage} />
             {settingsSection === 'scoring' && <ScoringSettingsPanel settings={settings} updateSettings={updateSettings} />}
 
             {settingsSection === 'displayTheme' && <ThemeSettingsPanel settings={settings} updateSettings={updateSettings} />}
@@ -195,9 +193,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {settingsSection === 'notifications' && <NotificationsSettingsPanel />}
 
             {/* Player management */}
-            {settingsSection === 'players' && (
-              <PlayerProfilesPanel onStatusMessage={setStatusMessage} />
-            )}
+            <PlayerProfilesPanel isActive={settingsSection === 'players'} onStatusMessage={setStatusMessage} />
             {settingsSection === 'oppositionTeams' && <OppositionTeamsSettings />}
 
             {settingsSection === 'data' && (
