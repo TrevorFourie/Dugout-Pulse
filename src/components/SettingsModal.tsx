@@ -36,6 +36,7 @@ import { processLogoImage } from '../utils/logoImage';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 
 /** Small number box so a value outside the presets can be typed in manually. */
 const CustomNumberInput: React.FC<{
@@ -1793,6 +1794,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
             </div>
+            <DiagnosticsPanel />
             </div>
             )}
           </div>
