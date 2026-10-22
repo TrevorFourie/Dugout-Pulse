@@ -173,6 +173,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGames,
     setLiveGame,
     setProfiles,
+    savedTournaments,
     setSavedTournaments,
     setSavedAgeGroups,
     setSavedSeasons,
