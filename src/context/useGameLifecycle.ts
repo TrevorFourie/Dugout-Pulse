@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { getInningsPlayed, STORAGE_KEYS } from './gameContextDefaults';
+import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -21,6 +22,8 @@ interface GameLifecycleOptions {
   saveAgeGroup: (name: string) => void;
   saveSeason: (name: string) => void;
   triggerHaptic: () => void;
+  storageWritesBlocked: boolean;
+  onStorageProtectionFailure: () => void;
 }
 
 /** Owns starting, saving, reopening, editing, and discarding games. */
@@ -39,6 +42,8 @@ export function useGameLifecycle({
   saveAgeGroup,
   saveSeason,
   triggerHaptic,
+  storageWritesBlocked,
+  onStorageProtectionFailure,
 }: GameLifecycleOptions) {
   // Start new live game
   const startLiveGame = useCallback(
@@ -155,7 +160,7 @@ export function useGameLifecycle({
 
   // Save current game (either adding new or updating edited)
   const saveGame = useCallback((finalResult: string) => {
-    if (!liveGame) return;
+    if (storageWritesBlocked || !liveGame) return;
     const gameToSave = { ...liveGame, finalResult, innings: getInningsPlayed(liveGame) };
 
     if (liveGame.tournament && liveGame.tournament.trim()) {
@@ -182,7 +187,7 @@ export function useGameLifecycle({
       }
       const sorted = sortGames(updated, 'oldestFirst');
       try {
-        localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(sorted));
+        if (!protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(sorted))) onStorageProtectionFailure();
       } catch (storageError) {
         console.error('Failed to persist saved game locally:', storageError);
       }
@@ -190,9 +195,9 @@ export function useGameLifecycle({
     });
 
     try {
-      localStorage.removeItem(STORAGE_KEYS.LIVE_GAME);
-      localStorage.removeItem(STORAGE_KEYS.EDITING_GAME_ID);
-      localStorage.removeItem(STORAGE_KEYS.REOPENED_GAME_ID);
+      if (!protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME)) onStorageProtectionFailure();
+      if (!protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID)) onStorageProtectionFailure();
+      if (!protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID)) onStorageProtectionFailure();
     } catch (storageError) {
       console.error('Failed to clear completed live-game state locally:', storageError);
     }
@@ -200,7 +205,7 @@ export function useGameLifecycle({
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason]);
+  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason, storageWritesBlocked, onStorageProtectionFailure]);
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
