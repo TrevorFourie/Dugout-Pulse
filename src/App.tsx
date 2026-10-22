@@ -18,6 +18,7 @@ import { exportStatsPdf } from './utils/pdfReport';
 import defaultLogoSrc from './assets/dugout-pulse-logo.png?inline';
 import { checkGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
 import { NotificationBlockedModal } from './components/NotificationBlockedModal';
+import { ConfirmationModal } from './components/ConfirmationModal';
 import { StartGamePicker } from './components/StartGamePicker';
 import { SettingsNavigationDrawer } from './components/SettingsNavigationDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -34,6 +35,8 @@ const getLocalDate = () => {
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading, restoreFailed, games, activeProfile } = useGame();
   const recoverySnapshot = getRecoverySnapshotInfo();
+  const [isRecoveryConfirmOpen, setIsRecoveryConfirmOpen] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
 
   // On Android the full-screen splash artwork is the native launch window
   // background, visible through the transparent WebView from the first frame, so
@@ -354,14 +357,17 @@ const MainApp: React.FC = () => {
                 type="button"
                 className="rounded-lg border border-amber-700/40 px-3 py-2 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40"
                 onClick={() => {
-                  const confirmed = window.confirm('Restore the saved snapshot? Current browser data will first be retained in a separate local recovery copy. The app will reload after restoration.');
-                  if (!confirmed) return;
-                  if (restoreRecoverySnapshot()) window.location.reload();
-                  else window.alert('The recovery snapshot could not be fully restored. The recovery copies were retained; do not clear browser storage.');
+                  setRecoveryError(null);
+                  setIsRecoveryConfirmOpen(true);
                 }}
               >
                 Restore local recovery snapshot
               </button>
+              {recoveryError && (
+                <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">
+                  {recoveryError}
+                </p>
+              )}     </button>
             </div>
           ) : (
             <p className="mt-2 text-xs">
@@ -372,6 +378,24 @@ const MainApp: React.FC = () => {
           )}
         </div>
       )}
+      <ConfirmationModal
+        isOpen={isRecoveryConfirmOpen}
+        title="Restore saved data?"
+        message="The app will restore the local recovery snapshot. Your current browser data will first be retained in a separate recovery copy. The app will reload after restoration so the recovered data can be loaded cleanly."
+        confirmLabel="Restore snapshot"
+        cancelLabel="Cancel"
+        variant="warning"
+        onCancel={() => setIsRecoveryConfirmOpen(false)}
+        onConfirm={() => {
+          setIsRecoveryConfirmOpen(false);
+          const restored = restoreRecoverySnapshot();
+          if (restored) {
+            window.location.reload();
+          } else {
+            setRecoveryError('The recovery snapshot could not be fully restored. Recovery copies were retained. Do not clear browser storage; the app has not reloaded.');
+          }
+        }}
+      />
       <NotificationBlockedModal
         isOpen={showBlocked}
         onClose={() => {
