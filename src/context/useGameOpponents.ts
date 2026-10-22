@@ -65,7 +65,7 @@ export function useGameOpponents({
     // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
+  }, [oppositionTeams, storageWritesBlocked]);
 
   // Legacy remembered-opponent helpers remain available for old data, but scoring no longer writes to this list.
   // Opponent management helpers
