@@ -2,8 +2,7 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { getInningsPlayed, STORAGE_KEYS } from './gameContextDefaults';
-import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
+import { getInningsPlayed } from './gameContextDefaults';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -43,7 +42,6 @@ export function useGameLifecycle({
   saveSeason,
   triggerHaptic,
   storageWritesBlocked,
-  onStorageProtectionFailure,
 }: GameLifecycleOptions) {
   // Start new live game
   const startLiveGame = useCallback(
@@ -187,26 +185,16 @@ export function useGameLifecycle({
         updated = [...prevGames, completedGame];
       }
       const sorted = sortGames(updated, 'oldestFirst');
-      try {
-        if (!protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(sorted))) onStorageProtectionFailure();
-      } catch (storageError) {
-        console.error('Failed to persist saved game locally:', storageError);
-      }
+      // useGamePersistence checkpoints and verifies before persisting completed games.
       return sorted;
     });
 
-    try {
-      if (!protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME)) onStorageProtectionFailure();
-      if (!protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID)) onStorageProtectionFailure();
-      if (!protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID)) onStorageProtectionFailure();
-    } catch (storageError) {
-      console.error('Failed to clear completed live-game state locally:', storageError);
-    }
+    // useGamePersistence checkpoints and verifies before removing live-game references.
     setLiveGame(null);
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason, storageWritesBlocked, onStorageProtectionFailure]);
+  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason, storageWritesBlocked]);
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
