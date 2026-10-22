@@ -11,6 +11,7 @@ interface GameSprayChartModalProps {
 }
 
 export const GameSprayChartModal: React.FC<GameSprayChartModalProps> = ({ isOpen, plays, title, onClose }) => (
+  <>
         {/* Live Game Spray Chart Modal */}
         {isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -57,4 +58,5 @@ export const GameSprayChartModal: React.FC<GameSprayChartModalProps> = ({ isOpen
             </div>
           </div>
         )}
+  </>
 );
