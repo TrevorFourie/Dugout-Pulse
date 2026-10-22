@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, Upload, AlertOctagon, ShieldCheck } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
-import { listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
+import { getRecoveryJournalStorageInfo, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, setRecoveryCheckpointPinned, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
 
 interface DataManagementPanelProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -16,11 +16,13 @@ const RecoveryJournalPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [journalInfo, setJournalInfo] = useState<{ checkpointCount: number; verifiedCount: number; estimatedBytes: number; warning: boolean } | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await listVerifiedRecoveryCheckpoints();
+      const [items, info] = await Promise.all([listVerifiedRecoveryCheckpoints(), getRecoveryJournalStorageInfo()]);
       setCheckpoints(items);
+      setJournalInfo(info);
       setSelectedId((current) => items.some((item) => item.id === current) ? current : items[0]?.id || '');
       setMessage(items.length ? '' : 'No verified private recovery checkpoints are available.');
     } catch {
@@ -41,6 +43,14 @@ const RecoveryJournalPanel: React.FC = () => {
     else void refresh();
   };
   const selected = checkpoints.find((item) => item.id === selectedId);
+  const togglePin = async () => {
+    if (!selected || busy) return;
+    setBusy(true);
+    const ok = await setRecoveryCheckpointPinned(selected.id, !selected.pinned);
+    setMessage(ok ? (selected.pinned ? 'Checkpoint unpinned.' : 'Checkpoint pinned; retention will preserve it.') : 'Could not update checkpoint protection. No checkpoint files were deleted.');
+    await refresh();
+    setBusy(false);
+  };
   return (
     <section className="space-y-3 border-t border-slate-200 pt-5 dark:border-[#354050]">
       <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
@@ -53,6 +63,8 @@ const RecoveryJournalPanel: React.FC = () => {
         <button type="button" onClick={() => void refresh()} disabled={loading || busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-[#354050]">
           {loading ? 'Checking checkpoints…' : 'Refresh checkpoints'}
         </button>
+        {journalInfo && <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">Verified recovery points: {journalInfo.verifiedCount} · Journal size: {(journalInfo.estimatedBytes / (1024 * 1024)).toFixed(1)} MB</p>}
+        {journalInfo?.warning && <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">The private recovery journal is using more than 25 MB. Review retained checkpoints and available device storage. No recovery files will be automatically deleted just to meet a storage limit.</p>}
         {checkpoints.length > 0 && (
           <>
             <label className="block space-y-1 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
@@ -67,9 +79,14 @@ const RecoveryJournalPanel: React.FC = () => {
                 <p className="mt-1 break-words">Checkpoint: {selected.id}</p>
               </div>
             )}
-            <button type="button" onClick={() => void restore()} disabled={!selectedId || busy || loading} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] disabled:opacity-50 dark:bg-[#00D7BC]">
-              {busy ? 'Recovering…' : 'Restore selected checkpoint'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => void togglePin()} disabled={!selectedId || busy || loading} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-[#354050]">
+                {selected?.pinned ? 'Unpin checkpoint' : 'Pin checkpoint'}
+              </button>
+              <button type="button" onClick={() => void restore()} disabled={!selectedId || busy || loading} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] disabled:opacity-50 dark:bg-[#00D7BC]">
+                {busy ? 'Recovering…' : 'Restore selected checkpoint'}
+              </button>
+            </div>
           </>
         )}
         {message && <p role="status" aria-live="polite" className="text-xs leading-relaxed text-slate-700 dark:text-[#D1D5DB]">{message}</p>}

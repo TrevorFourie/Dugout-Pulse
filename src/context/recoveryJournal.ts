@@ -2,7 +2,12 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 
 const RECOVERY_DIR = 'dugout-pulse-recovery';
 const INDEX_FILE = RECOVERY_DIR + '/index.json';
-const MAX_CHECKPOINTS = 40;
+const KEEP_RECENT = 10;
+const DAILY_RETENTION_DAYS = 7;
+const WEEKLY_RETENTION_WEEKS = 4;
+const PRE_RECOVERY_PROTECTION_DAYS = 7;
+const STORAGE_WARNING_BYTES = 25 * 1024 * 1024;
+const INDEX_TEMP_FILE = RECOVERY_DIR + '/index.json.tmp';
 const EXCLUDED_KEYS = new Set([
   'dugoutPulse.recoverySnapshot.v1',
   'dugoutPulse.recoverySnapshot.previous.v1',
@@ -17,6 +22,12 @@ type Checkpoint = {
   file: string;
   byteLength: number;
   checksum: string;
+  status?: 'verified' | 'failed' | 'pending';
+  pinned?: boolean;
+  protectedUntil?: string;
+  protectionReason?: string;
+  contentHash?: string;
+  schemaVersion?: number;
 };
 
 type RecoveryIndex = { version: 1; checkpoints: Checkpoint[] };
@@ -53,6 +64,114 @@ async function readIndex(): Promise<RecoveryIndex> {
   return { version: 1, checkpoints: [] };
 }
 
+async function writeIndexSafely(index: RecoveryIndex): Promise<void> {
+  const content = JSON.stringify(index);
+  await writeAndVerify(INDEX_TEMP_FILE, content);
+  await Filesystem.rename({ from: INDEX_TEMP_FILE, to: INDEX_FILE, directory: Directory.Data });
+  const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: 'utf8' });
+  if (result.data !== content) throw new Error('Recovery index verification failed after promotion.');
+}
+
+function checkpointTime(entry: Checkpoint): number {
+  const value = Date.parse(entry.createdAt);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function retentionKeepSet(entries: Checkpoint[], now = new Date()): Set<string> {
+  const valid = entries.filter((entry) => entry.status !== 'failed').sort((a, b) => checkpointTime(b) - checkpointTime(a));
+  const keep = new Set<string>();
+  const add = (entry: Checkpoint) => { if (entry?.id) keep.add(entry.id); };
+  valid.slice(0, KEEP_RECENT).forEach(add);
+  const verified = valid.filter((entry) => entry.status === 'verified');
+  const localDay = (entry: Checkpoint) => {
+    const date = new Date(checkpointTime(entry));
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  };
+  const localWeek = (entry: Checkpoint) => {
+    const date = new Date(checkpointTime(entry));
+    const day = (date.getDay() + 6) % 7;
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - day);
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+  };
+  const dailyStart = new Date(now);
+  dailyStart.setHours(0, 0, 0, 0);
+  dailyStart.setDate(dailyStart.getDate() - DAILY_RETENTION_DAYS + 1);
+  const seenDays = new Set<string>();
+  for (const entry of verified) {
+    const time = checkpointTime(entry);
+    if (time < dailyStart.getTime() || time > now.getTime()) continue;
+    const bucket = localDay(entry);
+    if (!seenDays.has(bucket)) { seenDays.add(bucket); add(entry); }
+  }
+  const weeklyStart = new Date(now);
+  weeklyStart.setHours(0, 0, 0, 0);
+  weeklyStart.setDate(weeklyStart.getDate() - WEEKLY_RETENTION_WEEKS * 7 + 1);
+  const seenWeeks = new Set<string>();
+  for (const entry of verified) {
+    const time = checkpointTime(entry);
+    if (time < weeklyStart.getTime() || time > now.getTime()) continue;
+    const bucket = localWeek(entry);
+    if (!seenWeeks.has(bucket)) { seenWeeks.add(bucket); add(entry); }
+  }
+  const newestVerified = verified[0];
+  if (newestVerified) add(newestVerified);
+  for (const entry of valid) {
+    const reason = (entry.protectionReason || entry.reason || '').toLowerCase();
+    const until = entry.protectedUntil ? Date.parse(entry.protectedUntil) : 0;
+    if (entry.pinned || /migration|schema|upgrade|version change/i.test(reason) || until > now.getTime()) add(entry);
+  }
+  return keep;
+}
+
+async function pruneCheckpoints(previous: RecoveryIndex, next: RecoveryIndex): Promise<void> {
+  const keep = new Set(next.checkpoints.map((entry) => entry.id));
+  for (const entry of previous.checkpoints) {
+    if (keep.has(entry.id) || !entry.file.startsWith(RECOVERY_DIR + '/checkpoint-')) continue;
+    try { await Filesystem.deleteFile({ path: entry.file, directory: Directory.Data }); }
+    catch { /* Cleanup failure leaves an unindexed orphan; never removes an indexed recovery point. */ }
+  }
+}
+
+async function reconcileRecoveryJournal(): Promise<void> {
+  const index = await readIndex();
+  if (!index.checkpoints.length) return;
+  const checked: Checkpoint[] = [];
+  for (const entry of index.checkpoints) {
+    try { await readVerifiedCheckpoint(entry); checked.push({ ...entry, status: 'verified' }); }
+    catch { checked.push({ ...entry, status: 'failed' }); }
+  }
+  const keep = retentionKeepSet(checked);
+  const retained = checked.filter((entry) => keep.has(entry.id));
+  if (!retained.some((entry) => entry.status === 'verified')) return;
+  const next: RecoveryIndex = { version: 1, checkpoints: retained };
+  await writeIndexSafely(next);
+  await pruneCheckpoints(index, next);
+}
+
+export async function getRecoveryJournalStorageInfo(): Promise<{ checkpointCount: number; verifiedCount: number; estimatedBytes: number; warning: boolean }> {
+  const index = await readIndex();
+  let estimatedBytes = 0;
+  let verifiedCount = 0;
+  for (const entry of index.checkpoints) {
+    estimatedBytes += entry.byteLength || 0;
+    try { await readVerifiedCheckpoint(entry); verifiedCount += 1; } catch { /* Not a verified point. */ }
+  }
+  return { checkpointCount: index.checkpoints.length, verifiedCount, estimatedBytes, warning: estimatedBytes >= STORAGE_WARNING_BYTES };
+}
+
+export async function setRecoveryCheckpointPinned(id: string, pinned: boolean): Promise<boolean> {
+  const index = await readIndex();
+  const entry = index.checkpoints.find((item) => item.id === id);
+  if (!entry) return false;
+  try {
+    await readVerifiedCheckpoint(entry);
+    const next = { version: 1 as const, checkpoints: index.checkpoints.map((item) => item.id === id ? { ...item, status: 'verified' as const, pinned } : item) };
+    await writeIndexSafely(next);
+    return true;
+  } catch { return false; }
+}
+
 async function writeAndVerify(path: string, content: string): Promise<void> {
   await Filesystem.writeFile({ path, data: content, directory: Directory.Data, encoding: 'utf8', recursive: true });
   const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: 'utf8' });
@@ -67,26 +186,38 @@ async function writeAndVerify(path: string, content: string): Promise<void> {
 async function createCheckpointSerially(reason: string): Promise<boolean> {
   try {
     const values = captureStorage();
+    const contentHash = checksum(JSON.stringify(values));
     const payload = JSON.stringify({ version: 1, createdAt: new Date().toISOString(), reason, values });
-    const id = Date.now().toString(36) + '-' + checksum(payload);
+    const index = await readIndex();
+    const newest = [...index.checkpoints].reverse().find((entry) => entry.status !== 'failed');
+    if (newest?.contentHash === contentHash) {
+      try { await readVerifiedCheckpoint(newest); return true; } catch { /* Create a fresh point if the prior one is damaged. */ }
+    }
+    if (newest && !newest.contentHash) {
+      try {
+        const prior = await readVerifiedCheckpoint(newest);
+        if (JSON.stringify(prior.values) === JSON.stringify(values)) return true;
+      } catch { /* Damaged prior point must not block a fresh checkpoint. */ }
+    }
+    const createdAt = new Date().toISOString();
+    const id = Date.now().toString(36) + '-' + contentHash;
     const file = RECOVERY_DIR + '/checkpoint-' + id + '.json';
     await writeAndVerify(file, payload);
-
-    const index = await readIndex();
+    const isPreRecovery = /before restoring checkpoint/i.test(reason);
     const checkpoint: Checkpoint = {
-      id,
-      createdAt: new Date().toISOString(),
-      reason,
-      file,
-      byteLength: payload.length,
-      checksum: checksum(payload),
+      id, createdAt, reason, file, byteLength: payload.length, checksum: checksum(payload),
+      status: 'verified', pinned: false, contentHash, schemaVersion: 1,
+      ...(isPreRecovery ? {
+        protectedUntil: new Date(Date.now() + PRE_RECOVERY_PROTECTION_DAYS * 86400000).toISOString(),
+        protectionReason: reason,
+      } : {}),
+      ...(/migration|schema|upgrade|version change/i.test(reason) ? { protectionReason: reason } : {}),
     };
-    const next: RecoveryIndex = {
-      version: 1,
-      checkpoints: [...index.checkpoints, checkpoint].slice(-MAX_CHECKPOINTS),
-    };
-    const indexText = JSON.stringify(next);
-    await writeAndVerify(INDEX_FILE, indexText);
+    const nextAll = [...index.checkpoints, checkpoint];
+    const keep = retentionKeepSet(nextAll);
+    const next: RecoveryIndex = { version: 1, checkpoints: nextAll.filter((entry) => keep.has(entry.id)) };
+    await writeIndexSafely(next);
+    await pruneCheckpoints(index, next);
     return true;
   } catch (error) {
     console.error('Could not create and verify the private recovery checkpoint.', error);
@@ -109,8 +240,7 @@ export function createVerifiedRecoveryCheckpoint(reason: string): Promise<boolea
 /** Called before initial restore; establishes a durable baseline before app code mutates stored state. */
 export async function ensureRecoveryBaseline(): Promise<boolean> {
   try {
-    // Preserve the current pre-restore state on every launch/update, not only on
-    // first install. The journal keeps older immutable checkpoint files as history.
+    await reconcileRecoveryJournal();
     return await createVerifiedRecoveryCheckpoint('Pre-startup state before restore or migration');
   } catch (error) {
     console.error('Could not establish a private recovery baseline.', error);
@@ -124,7 +254,7 @@ export async function getRecoveryJournalStatus(): Promise<{ available: boolean; 
     try {
       const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
       const raw = result.data as string;
-      if (raw.length === entry.byteLength && checksum(raw) === entry.checksum) {
+      if (raw.length === entry.byteLength && checksum(raw) === entry.checksum && validateRecoveryValues((JSON.parse(raw) as RecoveryPayload).values)) {
         return { available: true, count: index.checkpoints.length, latest: entry.createdAt };
       }
     } catch {
@@ -141,6 +271,8 @@ export type RecoveryCheckpointSummary = {
   gameCount: number;
   profileCount: number;
   upcomingGameCount: number;
+  pinned?: boolean;
+  protectionReason?: string;
 };
 
 type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string> };
@@ -204,7 +336,7 @@ export async function listVerifiedRecoveryCheckpoints(): Promise<RecoveryCheckpo
   for (const entry of [...index.checkpoints].reverse()) {
     try {
       const payload = await readVerifiedCheckpoint(entry);
-      summaries.push({ id: entry.id, createdAt: payload.createdAt, reason: payload.reason, ...storageCounts(payload.values) });
+      summaries.push({ id: entry.id, createdAt: payload.createdAt, reason: payload.reason, pinned: entry.pinned === true, protectionReason: entry.protectionReason, ...storageCounts(payload.values) });
     } catch {
       // Invalid checkpoints are excluded from the selectable list, never deleted.
     }
