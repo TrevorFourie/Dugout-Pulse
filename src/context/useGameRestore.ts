@@ -5,6 +5,7 @@ import { sortGames } from '../utils/stats';
 import { STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { hasOrphanedGameReferences } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -57,8 +58,26 @@ export function useGameRestore({
       if (storedGames) {
         const parsed = JSON.parse(storedGames);
         if (Array.isArray(parsed)) {
-          setGames(sortGames(parsed, 'oldestFirst'));
+          if (parsed.length === 0 && hasOrphanedGameReferences()) {
+            // Other persisted state still refers to game IDs. Do not treat an
+            // empty game list as authoritative or allow defaults to be saved over it.
+            setRestoreFailed(true);
+            recordDiagnosticError(
+              'storage_load',
+              new Error('Saved games are empty but persisted game references remain; writes paused for recovery'),
+            );
+          } else {
+            setGames(sortGames(parsed, 'oldestFirst'));
+          }
+        } else {
+          throw new Error('Saved games data is not an array; storage writes paused for recovery');
         }
+      } else if (hasOrphanedGameReferences()) {
+        setRestoreFailed(true);
+        recordDiagnosticError(
+          'storage_load',
+          new Error('Saved games data is missing but persisted game references remain; writes paused for recovery'),
+        );
       }
 
       const storedLiveGame = localStorage.getItem(STORAGE_KEYS.LIVE_GAME);
