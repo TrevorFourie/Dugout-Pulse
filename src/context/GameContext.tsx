@@ -113,7 +113,7 @@ interface GameContextType {
   oppositionTeams: OppositionTeam[];
   addOppositionTeam: (name: string) => boolean;
   updateOppositionTeam: (teamId: string, updates: Partial<Pick<OppositionTeam, 'name' | 'logo'>>) => boolean;
-  deleteOppositionTeam: (teamId: string) => void;
+  deleteOppositionTeam: (teamId: string) => boolean;
 
   // Tournaments, Age Groups, Seasons, Teams
   savedTournaments: string[];
@@ -603,10 +603,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!trimmed || oppositionTeams.some((team) => team.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase())) {
       return false;
     }
-    setOppositionTeams((previous) => [
+    const next = [
       { id: `opponent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: trimmed },
-      ...previous,
-    ]);
+      ...oppositionTeams,
+    ];
+    try {
+      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+    } catch {
+      return false;
+    }
+    setOppositionTeams(next);
     return true;
   }, [oppositionTeams]);
 
@@ -617,15 +623,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (updates.name !== undefined && (!trimmedName || oppositionTeams.some((team) => team.id !== teamId && team.name.trim().toLocaleLowerCase() === trimmedName.toLocaleLowerCase()))) {
       return false;
     }
-    setOppositionTeams((previous) => previous.map((team) => team.id === teamId
+    const next = oppositionTeams.map((team) => team.id === teamId
       ? { ...team, ...updates, ...(trimmedName ? { name: trimmedName } : {}) }
-      : team));
+      : team);
+    try {
+      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+    } catch {
+      return false;
+    }
+    setOppositionTeams(next);
     return true;
   }, [oppositionTeams]);
 
-  const deleteOppositionTeam = useCallback((teamId: string) => {
-    setOppositionTeams((previous) => previous.filter((team) => team.id !== teamId));
-  }, []);
+  const deleteOppositionTeam = useCallback((teamId: string): boolean => {
+    const next = oppositionTeams.filter((team) => team.id !== teamId);
+    if (next.length === oppositionTeams.length) return false;
+    try {
+      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+    } catch {
+      return false;
+    }
+    setOppositionTeams(next);
+    return true;
+  }, [oppositionTeams]);
 
   // Legacy remembered-opponent helpers remain available for old data, but scoring no longer writes to this list.
   // Opponent management helpers
