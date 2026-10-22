@@ -58,7 +58,7 @@ export default defineConfig(() => {
       // Keep Vite's technical diagnostics in the developer terminal/console, but do not
       // cover the app with the raw error overlay. The app's friendly startup fallback
       // can then be seen when a runtime module import fails.
-      hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: false },
+      hmr: process.env.DISABLE_HMR === 'true' ? false : { overlay: true },
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
