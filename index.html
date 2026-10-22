@@ -110,6 +110,15 @@
               report.select();
             }
           });
+          var recoveryButton = document.createElement('button');
+          recoveryButton.type = 'button';
+          recoveryButton.textContent = 'Open recovery tools';
+          recoveryButton.style.cssText = 'margin:12px 0 0 8px;padding:10px 14px;border:1px solid #00d7bc;border-radius:10px;background:transparent;color:#00d7bc;font-weight:600;cursor:pointer;';
+          recoveryButton.addEventListener('click', function () {
+            var recoveryUrl = new URL('startup-recovery.html', document.baseURI);
+            if (capturedEvent && capturedEvent.id) recoveryUrl.searchParams.set('ref', capturedEvent.id);
+            window.location.href = recoveryUrl.toString();
+          });
           var restartButton = document.createElement('button');
           restartButton.type = 'button';
           restartButton.textContent = 'Restart app';
@@ -118,7 +127,7 @@
           var note = document.createElement('p');
           note.textContent = 'The report stays on this device. Nothing is sent automatically.';
           note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:#9ca3af;';
-          card.append(heading, errorKind, message, source, referenceText, reportButton, restartButton, report, note);
+          card.append(heading, errorKind, message, source, referenceText, reportButton, recoveryButton, restartButton, report, note);
           panel.append(card);
           document.body.append(panel);
         }
