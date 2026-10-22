@@ -18,6 +18,7 @@ interface ThemedDropdownProps<T extends string | number> {
   ariaLabel?: string;
   /** Show the placeholder as a selectable "clear" row at the top of the list (default true). */
   allowClear?: boolean;
+  disabled?: boolean;
 }
 
 export function ThemedDropdown<T extends string | number>({
@@ -30,6 +31,7 @@ export function ThemedDropdown<T extends string | number>({
   buttonClassName = '',
   ariaLabel,
   allowClear = true,
+  disabled = false,
 }: ThemedDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -67,8 +69,8 @@ export function ThemedDropdown<T extends string | number>({
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className={`w-full min-w-0 max-w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-white dark:bg-[#252D38] border-slate-200 dark:border-[#354050] text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA] shadow-2xs transition-colors hover:border-slate-300 dark:hover:border-[#465160] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 ${buttonClassName}`}
+        onClick={() => !disabled && setOpen((current) => !current)}
+        className={`w-full min-w-0 max-w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-white dark:bg-[#252D38] border-slate-200 dark:border-[#354050] text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA] shadow-2xs transition-colors hover:border-slate-300 dark:hover:border-[#465160] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 disabled:cursor-not-allowed disabled:opacity-50 ${buttonClassName}`}
       >
         <span className={`flex min-w-0 items-center gap-2 ${selected ? '' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
           {selected?.logo && <img src={selected.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
