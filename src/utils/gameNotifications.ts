@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 export interface GameReminder {
@@ -272,13 +273,13 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
 
   if (notifications.length) {
     if (!(await isDeliverable())) {
-      localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify({}));
+      if (!protectedStorageSetItem(REMINDER_IDS_KEY, JSON.stringify({}))) throw new Error('Could not protect storage before saving reminder IDs');
       return;
     }
     await LocalNotifications.schedule({ notifications });
   }
 
-  localStorage.setItem(REMINDER_IDS_KEY, JSON.stringify(nextIds));
+  if (!protectedStorageSetItem(REMINDER_IDS_KEY, JSON.stringify(nextIds))) throw new Error('Could not protect storage before saving reminder IDs');
 };
 
 /** Resync straight from device storage, even when the Upcoming Games screen is not mounted. */
