@@ -348,7 +348,7 @@ const MainApp: React.FC = () => {
           {recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? (
             <div className="mt-2 flex flex-col items-start gap-2">
               <p className="text-xs">
-                A local recovery snapshot from {recoverySnapshot.createdAt ? new Date(recoverySnapshot.createdAt).toLocaleString() : 'an earlier session'} contains {recoverySnapshot.gameCount} saved game(s) and {recoverySnapshot.profileCount} profile(s).
+                A local recovery snapshot from {recoverySnapshot.createdAt ? new Date(recoverySnapshot.createdAt).toLocaleString() : 'an earlier session'} contains {recoverySnapshot.gameCount} saved game(s), {recoverySnapshot.profileCount} non-empty profile(s), and {recoverySnapshot.upcomingGameCount} upcoming fixture(s).
               </p>
               <button
                 type="button"
