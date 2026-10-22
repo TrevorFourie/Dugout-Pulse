@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
+import { sortGames } from '../utils/stats';
 import { STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
@@ -23,6 +24,7 @@ interface GameRestoreOptions {
   setHiddenAgeGroups: StateSetter<string[]>;
   setHiddenSeasons: StateSetter<string[]>;
   setIsLoading: StateSetter<boolean>;
+  setResumePromptPending: StateSetter<boolean>;
 }
 
 /**
@@ -45,6 +47,7 @@ export function useGameRestore({
   setHiddenAgeGroups,
   setHiddenSeasons,
   setIsLoading,
+  setResumePromptPending,
 }: GameRestoreOptions): void {
   useEffect(() => {
     try {
