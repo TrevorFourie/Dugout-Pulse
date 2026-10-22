@@ -146,6 +146,18 @@ export function clearDiagnosticLogs(): void {
   }
 }
 
+/** Clear app/game storage while keeping diagnostics separate from game data. */
+export function clearAppDataPreservingDiagnostics(): void {
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index);
+      if (key && key !== STORAGE_KEY) localStorage.removeItem(key);
+    }
+  } catch {
+    // Reset is best-effort if the browser blocks local storage operations.
+  }
+}
+
 export function createDiagnosticReport(): string {
   return JSON.stringify({
     reportFormat: 1,
