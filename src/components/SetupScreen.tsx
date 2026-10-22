@@ -251,7 +251,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         title="Backup restored with a warning"
         message={importWarning ?? ''}
         confirmLabel="Continue"
-        cancelLabel="Continue"
+        showCancelButton={false}
         variant="warning"
         onConfirm={() => {
           setImportWarning(null);
