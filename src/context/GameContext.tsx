@@ -36,6 +36,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hiddenAgeGroups, setHiddenAgeGroups] = useState<string[]>([]);
   const [hiddenSeasons, setHiddenSeasons] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [restoreFailed, setRestoreFailed] = useState(false);
   const [resumePromptPending, setResumePromptPending] = useState(false);
   const dismissResumePrompt = useCallback(() => setResumePromptPending(false), []);
 
@@ -80,11 +81,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenSeasons,
     setIsLoading,
     setResumePromptPending,
+    setRestoreFailed,
   });
 
   // Persistence writes are kept separate from the context's game and profile logic.
   useGamePersistence({
-    isLoading,
+    isLoading: isLoading || restoreFailed,
     games,
     oppositionTeams,
     savedOpponents,
