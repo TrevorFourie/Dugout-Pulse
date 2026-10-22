@@ -62,6 +62,37 @@ export function useGameRestore({
         recordDiagnosticError('storage_load', new Error('Private recovery baseline could not be verified; automatic persistence is paused'));
         return;
       }
+    // Preserve legacy source keys; only copy valid records into an empty current-schema key.
+    const migrateLegacy = (legacyKey: string, currentKey: string): boolean => {
+      try {
+        const currentRaw = localStorage.getItem(currentKey);
+        if (currentRaw) {
+          const current = JSON.parse(currentRaw) as unknown;
+          if (!Array.isArray(current) || current.length > 0) return true;
+        }
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (!legacyRaw) return true;
+        const legacy = JSON.parse(legacyRaw) as unknown;
+        if (!Array.isArray(legacy) || legacy.length === 0 ||
+            !legacy.every((item) => !!item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string')) return true;
+        const serialized = JSON.stringify(legacy);
+        localStorage.setItem(currentKey, serialized);
+        if (localStorage.getItem(currentKey) !== serialized) throw new Error('Migration verification failed');
+        return true;
+      } catch (error) {
+        setRestoreFailed(true);
+        recordDiagnosticError('storage_load', new Error('Legacy data migration failed; original data was retained.'));
+        console.error('Legacy migration failed; automatic persistence is paused.', error);
+        return false;
+      }
+    };
+    if (!migrateLegacy('dugoutPulse.games.v1', STORAGE_KEYS.GAMES) ||
+        !migrateLegacy('dugoutPulse.savedGames.v1', STORAGE_KEYS.GAMES) ||
+        !migrateLegacy('dugoutPulse.profiles.v1', STORAGE_KEYS.PROFILES)) {
+      setIsLoading(false);
+      return;
+    }
+
     // Restore each key independently. A malformed game record must not abort
     // profile/settings restoration simply because it appears earlier in storage.
     const read = <T,>(key: string, apply: (parsed: T) => void, validate: (value: unknown) => value is T) => {
