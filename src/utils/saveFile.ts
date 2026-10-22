@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { recordDiagnosticError } from './errorDiagnostics';
 
 /**
  * Save/export a text file.
@@ -38,6 +39,7 @@ export async function saveTextFile(
       }
       return true;
     } catch (err) {
+      recordDiagnosticError('native_text_export', err);
       console.error('Native file export failed:', err);
       return false;
     }
@@ -57,6 +59,7 @@ export async function saveTextFile(
     setTimeout(() => URL.revokeObjectURL(url), 10000);
     return true;
   } catch (err) {
+    recordDiagnosticError('browser_text_export', err);
     console.error('Browser file export failed:', err);
     return false;
   }
@@ -85,6 +88,7 @@ export async function saveBase64File(
       }
       return true;
     } catch (err) {
+      recordDiagnosticError('native_binary_export', err);
       console.error('Native file save failed:', err);
       return false;
     }
@@ -100,6 +104,7 @@ export async function saveBase64File(
     document.body.removeChild(link);
     return true;
   } catch (err) {
+    recordDiagnosticError('browser_binary_export', err);
     console.error('Browser file save failed:', err);
     return false;
   }
@@ -117,6 +122,7 @@ export async function shareText(title: string, text: string): Promise<'shared' |
     } catch (err) {
       const msg = String((err as Error)?.message ?? err);
       if (/cancel/i.test(msg)) return 'shared';
+      recordDiagnosticError('native_text_share', err);
       console.error('Native text share failed:', err);
       return 'unsupported';
     }
