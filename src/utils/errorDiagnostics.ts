@@ -213,6 +213,14 @@ export function getDiagnosticEvents(): DiagnosticEvent[] {
   return readEvents();
 }
 
+/** Return only the latest actionable error recorded by this exact app build. */
+export function getCurrentBuildDiagnosticEvent(): DiagnosticEvent | undefined {
+  const currentBuild = getBuild();
+  return readEvents()
+    .filter((event) => event.build === currentBuild && (event.errorType || event.errorMessage))
+    .slice(-1)[0];
+}
+
 export function clearDiagnosticLogs(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -240,11 +248,17 @@ export function clearAppDataPreservingDiagnostics(): void {
 
 export function createDiagnosticReport(reference?: string): string {
   const events = readEvents();
-  // Crash screens should show only the error that triggered this boundary.
-  // Other callers can omit the reference to retain the full offline log export.
+  const currentBuild = getBuild();
+  // Reports are intentionally focused on the current build's latest actionable
+  // error, not a pile of stale errors from earlier builds or earlier failures.
   const reportEvents = reference
-    ? events.filter((event) => event.id === reference && event.build === getBuild())
-    : events;
+    ? events.filter((event) => event.id === reference && event.build === currentBuild)
+    : (() => {
+        const latest = events
+          .filter((event) => event.build === currentBuild && (event.errorType || event.errorMessage))
+          .slice(-1)[0];
+        return latest ? [latest] : [];
+      })();
   return JSON.stringify({
     reportFormat: 2,
     app: 'Dugout Pulse',
