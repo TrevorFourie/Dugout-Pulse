@@ -97,13 +97,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = event.target?.result as string;
       if (content) {
-        const result = importJsonData(content);
+        const result = await importJsonData(content);
         setStatusMessage({ text: result.message, isError: !result.success });
       }
     };
+    reader.onerror = () => setStatusMessage({ text: 'Could not read the selected backup file. No data was changed.', isError: true });
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
