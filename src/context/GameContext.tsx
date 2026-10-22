@@ -79,6 +79,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenAgeGroups,
     setHiddenSeasons,
     setIsLoading,
+    setResumePromptPending,
   });
 
   // Persistence writes are kept separate from the context's game and profile logic.
