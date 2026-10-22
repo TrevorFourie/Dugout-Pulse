@@ -62,35 +62,89 @@ export function useGameRestore({
         recordDiagnosticError('storage_load', new Error('Private recovery baseline could not be verified; automatic persistence is paused'));
         return;
       }
-    // Preserve legacy source keys; only copy valid records into an empty current-schema key.
-    const migrateLegacy = (legacyKey: string, currentKey: string): boolean => {
+    // Merge legacy records by ID instead of letting one legacy key overwrite another.
+    // Current-schema records win on ID conflicts; legacy keys are never deleted.
+    const migrateLegacyArrays = (
+      currentKey: string,
+      legacyKeys: string[],
+      isValidRecord: (item: unknown) => item is { id: string },
+    ): boolean => {
       try {
         const currentRaw = localStorage.getItem(currentKey);
-        if (currentRaw) {
-          const current = JSON.parse(currentRaw) as unknown;
-          if (!Array.isArray(current) || current.length > 0) return true;
+        const currentParsed: unknown = currentRaw ? JSON.parse(currentRaw) : [];
+        if (!Array.isArray(currentParsed)) throw new Error('Current data is not an array');
+        const current = currentParsed.filter(isValidRecord);
+        if (currentParsed.length !== current.length) throw new Error('Current data contains invalid records');
+        const merged = [...current];
+        const seen = new Set(current.map((item) => item.id));
+        for (const legacyKey of legacyKeys) {
+          const legacyRaw = localStorage.getItem(legacyKey);
+          if (!legacyRaw) continue;
+          const legacyParsed: unknown = JSON.parse(legacyRaw);
+          if (!Array.isArray(legacyParsed)) throw new Error('Legacy data is not an array');
+          if (!legacyParsed.every(isValidRecord)) {
+            // Keep malformed source intact and stop startup writes rather than silently skip it.
+            throw new Error('Legacy data contains records that cannot be safely migrated');
+          }
+          for (const item of legacyParsed) {
+            if (!seen.has(item.id)) {
+              merged.push(item);
+              seen.add(item.id);
+            }
+          }
         }
-        const legacyRaw = localStorage.getItem(legacyKey);
-        if (!legacyRaw) return true;
-        const legacy = JSON.parse(legacyRaw) as unknown;
-        if (!Array.isArray(legacy) || legacy.length === 0 ||
-            !legacy.every((item) => !!item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string')) return true;
-        const serialized = JSON.stringify(legacy);
+        if (merged.length === current.length) return true;
+        const serialized = JSON.stringify(merged);
         localStorage.setItem(currentKey, serialized);
-        if (localStorage.getItem(currentKey) !== serialized) throw new Error('Migration verification failed');
+        if (localStorage.getItem(currentKey) !== serialized) throw new Error('Migration read-back verification failed');
         return true;
       } catch (error) {
         setRestoreFailed(true);
-        recordDiagnosticError('storage_load', new Error('Legacy data migration failed; original data was retained.'));
+        recordDiagnosticError('storage_load', new Error('Legacy data migration could not be verified; original data was retained.'));
         console.error('Legacy migration failed; automatic persistence is paused.', error);
         return false;
       }
     };
-    if (!migrateLegacy('dugoutPulse.games.v1', STORAGE_KEYS.GAMES) ||
-        !migrateLegacy('dugoutPulse.savedGames.v1', STORAGE_KEYS.GAMES) ||
-        !migrateLegacy('dugoutPulse.profiles.v1', STORAGE_KEYS.PROFILES)) {
+    const isIdentifiedRecord = (item: unknown): item is { id: string } =>
+      !!item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string' &&
+      (item as { id: string }).id.length > 0;
+    const isLegacyProfile = (item: unknown): item is { id: string } =>
+      isIdentifiedRecord(item) && typeof (item as { playerName?: unknown }).playerName === 'string';
+    const isLegacyScheduledGame = (item: unknown): item is { id: string } =>
+      isIdentifiedRecord(item) &&
+      typeof (item as { opponent?: unknown }).opponent === 'string' &&
+      typeof (item as { date?: unknown }).date === 'string' &&
+      typeof (item as { isHome?: unknown }).isHome === 'boolean';
+    const isLegacyOppositionTeam = (item: unknown): item is { id: string } =>
+      isIdentifiedRecord(item) && typeof (item as { name?: unknown }).name === 'string';
+
+    if (!migrateLegacyArrays(STORAGE_KEYS.GAMES, ['dugoutPulse.games.v1', 'dugoutPulse.savedGames.v1'], isIdentifiedRecord) ||
+        !migrateLegacyArrays(STORAGE_KEYS.PROFILES, ['dugoutPulse.profiles.v1'], isLegacyProfile)) {
       setIsLoading(false);
       return;
+    }
+
+    // Scheduled games and opposition teams still use these established keys in the
+    // current UI. Validate them in place; do not rename/move their storage keys.
+    // This protects the saved records from being treated as an empty list if malformed.
+    for (const [key, validator] of [
+      ['dugoutPulse.upcomingGames.v1', isLegacyScheduledGame],
+      ['dugoutPulse.oppositionTeams.v1', isLegacyOppositionTeam],
+    ] as const) {
+      const raw = localStorage.getItem(key);
+      if (raw === null) continue;
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed) || !parsed.every(validator)) {
+          throw new Error('Stored legacy records failed validation');
+        }
+      } catch (error) {
+        setRestoreFailed(true);
+        recordDiagnosticError('storage_load', new Error('Saved scheduled games or opposition teams need recovery; automatic persistence is paused.'));
+        console.error(`Legacy data validation failed for ${key}; stored source was retained.`, error);
+        setIsLoading(false);
+        return;
+      }
     }
 
     // Restore each key independently. A malformed game record must not abort
