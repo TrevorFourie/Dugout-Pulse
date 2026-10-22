@@ -1,13 +1,14 @@
 import React from 'react';
-import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { createDiagnosticReport, recordDiagnosticError } from '../utils/errorDiagnostics';
 
 interface ErrorBoundaryState {
   hasError: boolean;
   reference: string | null;
+  diagnosticReport: string;
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, reference: null };
+  state: ErrorBoundaryState = { hasError: false, reference: null, diagnosticReport: '' };
 
   static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
     return { hasError: true };
@@ -15,11 +16,11 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
 
   componentDidCatch(error: Error): void {
     const reference = recordDiagnosticError('react_render', error);
-    this.setState({ reference });
+    this.setState({ reference, diagnosticReport: createDiagnosticReport() });
   }
 
   private retry = (): void => {
-    this.setState({ hasError: false, reference: null });
+    this.setState({ hasError: false, reference: null, diagnosticReport: '' });
   };
 
   private reload = (): void => {
@@ -38,6 +39,20 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
             </p>
             {this.state.reference && (
               <p className="mt-3 text-xs text-slate-500 dark:text-[#9CA3AF]">Error reference: {this.state.reference}</p>
+            )}
+            {this.state.diagnosticReport && (
+              <details className="mt-4 text-sm">
+                <summary className="cursor-pointer font-semibold">View diagnostic details</summary>
+                <textarea
+                  readOnly
+                  aria-label="Sanitised diagnostic report"
+                  value={this.state.diagnosticReport}
+                  rows={10}
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2 font-mono text-xs text-slate-900"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+                <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Review before sharing. The report stays on this device.</p>
+              </details>
             )}
             <div className="mt-5 flex flex-wrap gap-2">
               <button type="button" onClick={this.retry} className="rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D]">Try again</button>
