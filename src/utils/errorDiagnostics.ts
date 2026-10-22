@@ -69,7 +69,10 @@ function safeStackFrames(error: unknown): string[] {
       if (!match) return '';
       const file = match[1].split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9_.-]/g, '') || 'source';
       const functionMatch = line.match(/^\s*at\s+([^ (]+)(?:\s+\(|$)/);
-      const functionName = functionMatch?.[1]?.replace(/[^a-zA-Z0-9_.$<>-]/g, '').slice(0, 60);
+      const rawFunctionName = functionMatch?.[1] || '';
+      const functionName = /^(?:https?|file|capacitor):/i.test(rawFunctionName)
+        ? ''
+        : rawFunctionName.replace(/[^a-zA-Z0-9_.$<>-]/g, '').slice(0, 60);
       return `${functionName ? functionName + ' ' : ''}${file}:${match[2]}:${match[3]}`;
     })
     .filter(Boolean)
