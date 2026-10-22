@@ -1880,6 +1880,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   isBenched={isBenchedCurrentInning}
   pitchLimit={pitchLimit}
   pitches={dailyPitching.pitches}
+  pitcherPitches={pitching.pitches}
   pitchProgressPct={pitchProgressPct}
   restDaysRequired={dailyPitching.restDaysRequired}
   pitchingState={playFlow.pitchingState}
