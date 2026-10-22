@@ -41,7 +41,9 @@ if (!Capacitor.isNativePlatform()) {
 installGlobalDiagnosticHandlers();
 
 // App.tsx keeps the splash (native or web) visible until stored data has loaded.
-void import('./App.tsx').then(({ default: App }) => {
+// Resolve from Vite's project root explicitly. This avoids a malformed relative URL
+// if the dev server's document/base URL is not a directory URL.
+void import('/src/App.tsx').then(({ default: App }) => {
   createRoot(root).render(<App />);
 }).catch((error: unknown) => {
   const reference = recordDiagnosticError('app_startup', error);
