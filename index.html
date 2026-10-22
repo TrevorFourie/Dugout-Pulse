@@ -54,23 +54,52 @@
           document.body.append(panel);
         }
         function captureViteCompileError(overlay) {
-          // Vite transform errors happen before src/main.tsx runs, so module-level
-          // handlers cannot see the original parser message. Capture it from the overlay.
+          // Vite transform errors happen before the imported app module can load.
+          // Read the structured overlay fields first; textContent alone can omit
+          // rendered/shadow-DOM details in some browser versions.
           try {
             var detailRoot = overlay && overlay.shadowRoot;
-            var detailText = detailRoot ? (detailRoot.innerText || detailRoot.textContent || '') : '';
+            if (!detailRoot) return;
+
+            var pieces = [];
+            var selectors = ['.message-body', '.message', '.file', '.frame', '.plugin', '.stack'];
+            selectors.forEach(function (selector) {
+              var nodes = detailRoot.querySelectorAll(selector);
+              nodes.forEach(function (node) {
+                var value = (node.innerText || node.textContent || '').trim();
+                if (value && pieces.indexOf(value) === -1) pieces.push(value);
+              });
+            });
+            var detailText = pieces.join('\n');
+            if (!detailText) detailText = detailRoot.innerText || detailRoot.textContent || '';
             if (!detailText) return;
 
             var parseMatch = detailText.match(/\[(?:PARSE_ERROR|ERROR)\]\s*([^\n]+)/i);
             var message = parseMatch ? parseMatch[1].trim() : '';
-            var locationMatch = detailText.match(/(?:src\/)?([^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
-            var file = locationMatch ? locationMatch[1] : 'unknown source';
+            if (!message) {
+              var expectedMatch = detailText.match(/\b(Expected\s+.{1,100}?\s+but\s+found\s+.{1,100}?)(?:\n|$)/i);
+              var unexpectedMatch = detailText.match(/\b(Unexpected\s+(?:token|character|end of input).{0,140})/i);
+              var messageNode = detailRoot.querySelector('.message-body, .message');
+              var nodeMessage = messageNode ? (messageNode.innerText || messageNode.textContent || '').trim().split(/\r?\n/)[0] : '';
+              message = (expectedMatch && expectedMatch[1]) ||
+                (unexpectedMatch && unexpectedMatch[1]) ||
+                nodeMessage ||
+                'Vite failed to transform a source module';
+            }
+
+            var locationMatch = detailText.match(/(?:src[\\/])?((?:[^/\\\s:\]]+[\\/])*[^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
+            if (!locationMatch) {
+              var frameMatch = detailText.match(/(?:^|\n)\s*(\d+)\s*[│|]\s*/m);
+              var fileNode = detailRoot.querySelector('.file');
+              var fileText = fileNode ? (fileNode.innerText || fileNode.textContent || '') : '';
+              var fileOnlyMatch = fileText.match(/([^/\\\s:]+\.(?:tsx?|jsx?))/i);
+              if (frameMatch && fileOnlyMatch) {
+                locationMatch = [frameMatch[0], fileOnlyMatch[1], frameMatch[1], '1'];
+              }
+            }
+            var file = locationMatch ? locationMatch[1].replace(/^src[\\/]/, '') : 'unknown source';
             var line = locationMatch ? locationMatch[2] : '';
             var column = locationMatch ? locationMatch[3] : '';
-            if (!message) {
-              var fallbackMatch = detailText.match(/(?:SyntaxError|TypeError|ReferenceError):?\s*([^\n]+)/i);
-              message = fallbackMatch ? fallbackMatch[1].trim() : 'Vite failed to transform a source module';
-            }
             message = ('Vite compile error: ' + message + (line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
               .replace(/[\r\n\t]+/g, ' ')
               .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
@@ -82,6 +111,17 @@
               var stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
               if (Array.isArray(stored)) events = stored;
             } catch (_) {}
+
+            // Avoid adding the same compile error on repeated MutationObserver callbacks.
+            var signature = message + '|' + (line || '') + '|' + (column || '');
+            var alreadyCaptured = events.some(function (item) {
+              return item && item.category === 'app_startup' &&
+                typeof item.errorMessage === 'string' &&
+                item.errorMessage.indexOf('Vite compile error:') === 0 &&
+                item.errorMessage === message;
+            });
+            if (alreadyCaptured) return;
+
             var time = new Date(Math.round(Date.now() / 900000) * 900000).toISOString();
             var event = {
               id: 'DP-' + Array.from({ length: 6 }, function () { return 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]; }).join(''),
@@ -99,7 +139,6 @@
             // Diagnostics must never prevent the startup fallback from being shown.
           }
         }
-
         function detectViteOverlay() {
           var overlay = document.querySelector('vite-error-overlay');
           if (overlay) {
