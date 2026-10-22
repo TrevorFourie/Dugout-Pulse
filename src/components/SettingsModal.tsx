@@ -28,7 +28,6 @@ import {
   Users,
   Calendar,
   Layers,
-  ImagePlus,
   Palette,
   ListOrdered,
   MapPin,
