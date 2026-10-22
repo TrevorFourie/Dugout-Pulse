@@ -22,11 +22,11 @@ This tracker stays in the repository so the refactoring is not accidentally trea
 
 ## Still open
 
-- [ ] Continue decomposing `ScoreTab.tsx`; the new-game setup flow is now isolated in `src/components/score/NewGameForm.tsx` (ScoreTab reduced from 4,341 to 3,852 lines), but the live scoring board, event handlers, and play history still need focused extraction without changing scoring behavior.
-- [x] Split the settings UI into focused player details, team management, master presets, venue management, player profiles, and backup/data panels under `src/components/settings/`, alongside the existing scoring, theme, and notifications panels. `SettingsModal.tsx` is now a 249-line composition component rather than a 1,590-line monolith.
-- [ ] Review the other large source files and only refactor where it meaningfully improves separation of responsibilities.
+- [x] Decompose the major `ScoreTab.tsx` UI responsibilities into `NewGameForm.tsx`, `GameDetailsModal.tsx`, `PrimaryActionBoard.tsx`, `usePlayPresentation.ts`, `PlayHistoryCard.tsx`, `PlayHistoryList.tsx`, and `PlaysHistoryModal.tsx`. The file is now 2709 lines (down from 4,341); existing play-flow and drag-reorder hooks remain separate. The stateful runner/pitching event orchestration stays in `ScoreTab` to avoid a risky behaviour rewrite.
+- [x] Split the settings UI into focused player details, team management, master presets, venue management, player profiles, and backup/data panels under `src/components/settings/`, alongside the existing scoring, theme, and notifications panels. `SettingsModal.tsx` is now a 234-line composition component rather than a 1,590-line monolith.
+- [x] Review `App.tsx`, `StatsTab.tsx`, `GamesTab.tsx`, `DashboardTab.tsx`, `UpcomingGames.tsx`, `GameContext.tsx`, `HelpModal.tsx`, `Navigation.tsx`, and `SettingsNavigationDrawer.tsx`. They already delegate major responsibilities to focused components/hooks or serve cohesive app-shell roles; further splitting was not justified without adding churn.
 - [ ] Confirm the Legal policy destinations with the owner, then connect the Terms and Conditions and Privacy Policy entries. They intentionally remain inactive until approved destinations are known.
-- [ ] Complete a final source review for accidental behavior changes and missing imports/exports.
+- [x] Complete a source-level review of the extracted component boundaries, parent-local references, callback wiring, and import cleanup. Local runtime verification remains an owner step.
 - [ ] Have the owner run the app locally and report results before marking the refactoring complete.
 
 ## Working agreements
