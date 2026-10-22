@@ -17,6 +17,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
+import { TeamLogoImage } from './TeamLogoImage';
 import { MilestoneTracker } from './MilestoneTracker';
 import { PerformanceCounter } from './PerformanceCounter';
 import { UpcomingGames } from './UpcomingGames';
@@ -84,7 +85,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             {/* Team Logo Badge */}
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shrink-0 shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
               {activeProfile.logo ? (
-                <img src={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
+                <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
               ) : (
                 <AppLogo variant="logo" className="w-full h-full object-contain p-1" />
               )}

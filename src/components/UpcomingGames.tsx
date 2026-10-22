@@ -6,6 +6,7 @@ import { checkGameNotificationPermission, requestGameNotificationPermission, syn
 import { ConfirmationModal } from './ConfirmationModal';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
+import { TeamLogoImage } from './TeamLogoImage';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -388,7 +389,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
               return (
                 <article key={game.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#354050] dark:bg-[#1A2028]/60">
                   <div className="flex min-w-0 items-center gap-2">
-                    {playerTeam?.logo && <img src={playerTeam.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
+                    {playerTeam?.logo && <TeamLogoImage value={playerTeam.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
                     <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#18212D] dark:text-[#FAFAFA]">
                       {playerTeamName || 'Player team'} : {playerTeam?.ageGroup || game.ageGroup}
                     </p>
@@ -396,7 +397,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                   
                   <div className="mt-2 flex items-start gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-[#354050] dark:bg-[#252D38]">
-                      {logo ? <img src={logo} alt={`${game.opponent} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${game.opponent} default icon`} className="h-full w-full object-contain p-1" />}
+                      {logo ? <TeamLogoImage value={logo} alt={`${game.opponent} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${game.opponent} default icon`} className="h-full w-full object-contain p-1" />}
                     </div>
 
                     <div className="min-w-0 flex-1">

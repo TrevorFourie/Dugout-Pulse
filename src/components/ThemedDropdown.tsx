@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { TeamLogoImage } from './TeamLogoImage';
 
 /** Shared control styling for every dropdown and searchable combobox. */
 export const THEMED_DROPDOWN_CONTROL_CLASS =
@@ -77,7 +78,7 @@ export function ThemedDropdown<T extends string | number>({
         className={`${THEMED_DROPDOWN_CONTROL_CLASS} max-w-full flex items-center justify-between gap-2 px-3 py-2 ${buttonClassName}`}
       >
         <span className={`flex min-w-0 items-center gap-2 ${selected ? '' : 'text-slate-500 dark:text-[#9CA3AF]'}`}>
-          {selected?.logo && <img src={selected.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
+          {selected?.logo && <TeamLogoImage value={selected.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
           <span className="truncate">{selected?.label ?? placeholder}</span>
         </span>
         <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 dark:text-[#9CA3AF] transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -128,7 +129,7 @@ export function ThemedDropdown<T extends string | number>({
                   }`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    {option.logo && <img src={option.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />}
+                    {option.logo && <TeamLogoImage value={option.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />}
                     <span className="truncate">{option.label}</span>
                   </span>
                   {isSelected && <Check className="w-4 h-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />}

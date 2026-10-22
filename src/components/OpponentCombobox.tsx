@@ -3,6 +3,7 @@ import { Check, ChevronDown, Plus, X } from 'lucide-react';
 import type { OppositionTeam } from '../context/GameContext';
 import teamIcon from '../assets/TeamIcon.png';
 import { THEMED_DROPDOWN_CONTROL_CLASS } from './ThemedDropdown';
+import { TeamLogoImage } from './TeamLogoImage';
 
 interface OpponentComboboxProps {
   value: string;
@@ -351,7 +352,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"
                     >
                       {team.logo ? (
-                        <img src={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
+                        <TeamLogoImage value={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
                       ) : (
                         <Shield className="h-4 w-4 shrink-0 text-slate-400 dark:text-[#9CA3AF]" />
                       )}
