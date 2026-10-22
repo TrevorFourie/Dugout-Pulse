@@ -13,7 +13,7 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
-import { X, LayoutDashboard, UserRound, Shield, Layers, SlidersHorizontal, Palette, Users, Download, Bell, MapPin, CalendarDays, ChevronDown, FileText, Settings2, Scale } from 'lucide-react';
+import { X, LayoutDashboard, UserRound, SlidersHorizontal, CalendarDays, ChevronDown, FileText, Settings2 } from 'lucide-react';
 import { exportStatsPdf } from './utils/pdfReport';
 import defaultLogoSrc from './assets/dugout-pulse-logo.png?inline';
 import { AppLogo } from './components/AppLogo';
@@ -363,13 +363,6 @@ const MainApp: React.FC = () => {
               </div>
             )}
 
-            <div className="mt-1 border-t border-slate-200 pt-3 dark:border-[#354050]">
-              <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-500 dark:text-[#9CA3AF]">
-                <Scale className="h-4 w-4 shrink-0" />
-                <span className="text-xs font-semibold">Legal information</span>
-              </div>
-              <p className="px-3 pb-1 text-[10px] leading-relaxed text-slate-500 dark:text-[#9CA3AF]">Terms and Privacy links can be added here once the app's approved policy pages are available.</p>
-            </div>
           </nav>
 
           <div className="shrink-0 border-t border-slate-200 px-4 py-3 text-center dark:border-[#354050]">
