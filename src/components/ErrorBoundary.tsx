@@ -5,10 +5,12 @@ interface ErrorBoundaryState {
   hasError: boolean;
   reference: string | null;
   diagnosticReport: string;
+  copyStatus: string;
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, reference: null, diagnosticReport: '' };
+  state: ErrorBoundaryState = { hasError: false, reference: null, diagnosticReport: '', copyStatus: '' };
+  private diagnosticTextarea = React.createRef<HTMLTextAreaElement>();
 
   static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
     return { hasError: true };
@@ -20,11 +22,29 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
   }
 
   private retry = (): void => {
-    this.setState({ hasError: false, reference: null, diagnosticReport: '' });
+    this.setState({ hasError: false, reference: null, diagnosticReport: '', copyStatus: '' });
   };
 
   private reload = (): void => {
     window.location.reload();
+  };
+
+  private copyDiagnosticReport = async (): Promise<void> => {
+    const report = this.state.diagnosticReport;
+    if (!report) return;
+
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(report);
+      this.setState({ copyStatus: 'Diagnostic report copied. Paste it into your message or support request.' });
+    } catch {
+      const textarea = this.diagnosticTextarea.current;
+      if (textarea) {
+        textarea.focus();
+        textarea.select();
+      }
+      this.setState({ copyStatus: 'Automatic copy was blocked. The report is selected below: press Ctrl+C (or right-click and choose Copy).' });
+    }
   };
 
   render(): React.ReactNode {
@@ -41,24 +61,26 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
               <p className="mt-3 text-xs text-slate-500 dark:text-[#9CA3AF]">Error reference: {this.state.reference}</p>
             )}
             {this.state.diagnosticReport && (
-              <details className="mt-4 text-sm">
+              <details open className="mt-4 text-sm">
                 <summary className="cursor-pointer font-semibold">View diagnostic details</summary>
                 <textarea
                   readOnly
+                  ref={this.diagnosticTextarea}
                   aria-label="Sanitised diagnostic report"
                   value={this.state.diagnosticReport}
                   rows={10}
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white p-2 font-mono text-xs text-slate-900"
                   onFocus={(event) => event.currentTarget.select()}
                 />
-                <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Review before sharing. The report stays on this device.</p>
+                <button type="button" onClick={this.copyDiagnosticReport} className="mt-2 rounded-xl bg-[#007A6A] px-4 py-2.5 text-sm font-semibold text-white dark:bg-[#00D7BC] dark:text-[#101419]">Copy diagnostic report</button>
+                {this.state.copyStatus && <p role="status" className="mt-2 text-xs text-slate-600 dark:text-[#D1D5DB]">{this.state.copyStatus}</p>}
+                <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Check the report before sharing it. It is not sent automatically.</p>
               </details>
             )}
             <div className="mt-5 flex flex-wrap gap-2">
               <button type="button" onClick={this.retry} className="rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D]">Try again</button>
               <button type="button" onClick={this.reload} className="rounded-xl border border-slate-300 dark:border-[#354050] px-4 py-2.5 text-sm font-semibold">Restart app</button>
             </div>
-            <p className="mt-4 text-xs text-slate-500 dark:text-[#9CA3AF]">If the problem continues, open Settings → Data &amp; About → Diagnostics and export the report. It stays on this device until you choose to share it.</p>
           </section>
         </main>
       );
