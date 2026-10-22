@@ -54,7 +54,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
     const response = await fetch(`/src/App.tsx?diagnostic=${Date.now()}`, { cache: 'no-store' });
     if (!response.ok) {
       const body = await response.text();
-      const parseMessage = body.match(/Expected corresponding JSX closing tag[^\\n] *|Adjacent JSX elements must be wrapped in an enclosing tag\\.?|The following error occurred while transforming[^\\n]*/i);
+      const parseMessage = body.match(/Expected corresponding JSX closing tag[^\r\n]*|Adjacent JSX elements must be wrapped in an enclosing tag\.?|The following error occurred while transforming[^\r\n]*/i);
       if (parseMessage?.[0]) diagnosticError = new SyntaxError(parseMessage[0].trim());
     }
   } catch {
