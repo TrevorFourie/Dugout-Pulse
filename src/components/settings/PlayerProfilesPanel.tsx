@@ -5,10 +5,11 @@ import { LINEUP_SPOTS } from '../../types/baseball';
 import { ThemedDropdown } from '../ThemedDropdown';
 
 interface PlayerProfilesPanelProps {
+  isActive: boolean;
   onStatusMessage: (message: { text: string; isError: boolean }) => void;
 }
 
-export const PlayerProfilesPanel: React.FC<PlayerProfilesPanelProps> = ({ onStatusMessage }) => {
+export const PlayerProfilesPanel: React.FC<PlayerProfilesPanelProps> = ({ isActive, onStatusMessage }) => {
   const { profiles, activeProfile, addProfile, setActiveProfileId, deleteProfile } = useGame();
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
@@ -32,6 +33,8 @@ export const PlayerProfilesPanel: React.FC<PlayerProfilesPanelProps> = ({ onStat
     setShowAddPlayer(false);
     onStatusMessage({ text: 'New player profile added!', isError: false });
   };
+
+  if (!isActive) return null;
 
   return (
               <div>
