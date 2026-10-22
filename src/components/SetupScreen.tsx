@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { AppLogo } from './AppLogo';
 import { SetupBackupRestoreDialog } from './SetupBackupRestoreDialog';
+import { SetupProgressHeader } from './SetupProgressHeader';
 import { currentYear, PRESET_AGE_GROUPS, PRESET_SEASONS, PRESET_TOURNAMENTS } from './setupScreenConstants';
 import {
   User,
@@ -166,50 +166,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#0B132B]/85 backdrop-blur-md overflow-y-auto app-scroll">
       <div className="w-full max-w-lg bg-white dark:bg-[#1A2028] rounded-3xl shadow-2xl border border-slate-200/90 dark:border-[#354050] my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Top Header Banner */}
-        <div className="bg-gradient-to-r from-[#18212D] via-[#1E293B] to-[#18212D] dark:from-[#101419] dark:via-[#1A2028] dark:to-[#101419] text-white p-5 border-b border-slate-700/50 relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] flex items-center justify-center shadow-md">
-                <AppLogo variant="icon" className="w-6 h-6 object-contain" />
-              </div>
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#007A6A] block">
-                  DUGOUT PULSE SETUP
-                </span>
-                <h1 className="text-lg font-semibold text-white tracking-tight">
-                  Welcome to Fast Scorekeeping
-                </h1>
-              </div>
-            </div>
-
-
-          </div>
-
-          {/* 5-Step Visual Progress Bar */}
-          <div className="mt-4 pt-3 border-t border-slate-700/40">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300 mb-1.5">
-              <span>Step {step} of 5</span>
-              <span className="text-white">
-                {step === 1 && '1. Player Name'}
-                {step === 2 && '2. Age Group'}
-                {step === 3 && '3. Season'}
-                {step === 4 && '4. Tournament'}
-                {step === 5 && '5. Team & Link Options'}
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5 h-1.5 rounded-full overflow-hidden bg-slate-800">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <div
-                  key={s}
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    s <= step ? 'bg-[#00BFA5] dark:bg-[#00D7BC]' : 'bg-slate-700/60'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <SetupProgressHeader step={step} />
 
         {/* Content Body */}
         <div className="p-5 sm:p-6 space-y-5">
@@ -744,7 +701,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
       </div>
 
-            <SetupBackupRestoreDialog
+      <SetupBackupRestoreDialog
         file={pendingBackupFile}
         onCancel={() => setPendingBackupFile(null)}
         onConfirm={handleConfirmImport}
