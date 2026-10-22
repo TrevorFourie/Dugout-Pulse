@@ -3,7 +3,6 @@ import { useGame } from '../context/GameContext';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
 import { NewGameForm } from './score/NewGameForm';
-import { PlayHistoryList } from './score/PlayHistoryList';
 import { PlayHistoryCard } from './score/PlayHistoryCard';
 import { PlaysHistoryModal } from './score/PlaysHistoryModal';
 import { GameSprayChartModal } from './score/GameSprayChartModal';
