@@ -51,7 +51,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
   // plain-text or HTML responses, and retain the source location when present.
   let diagnosticError: unknown = error;
   try {
-    const response = await fetch(\`/src/App.tsx?diagnostic=\${Date.now()}\`, { cache: 'no-store' });
+    const response = await fetch(`/src/App.tsx?diagnostic=${Date.now()}`, { cache: 'no-store' });
     const body = await response.text();
     const readableBody = body
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
@@ -69,7 +69,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
     const sourceLocation = readableBody.match(/(?:src\/)?App\.tsx:\d+:\d+/i);
     if (actionableError?.[0]) {
       diagnosticError = new SyntaxError(
-        \`\${actionableError[0].trim()}\${sourceLocation?.[0] ? \` (\${sourceLocation[0]})\` : ''}\`,
+        `${actionableError[0].trim()}${sourceLocation?.[0] ? ` (${sourceLocation[0]})` : ''}`,
       );
     } else if (!response.ok && readableBody.length > 0) {
       diagnosticError = new Error(readableBody.slice(0, 220));
