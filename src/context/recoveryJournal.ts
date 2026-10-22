@@ -135,9 +135,42 @@ async function pruneCheckpoints(previous: RecoveryIndex, next: RecoveryIndex): P
 
 async function reconcileRecoveryJournal(): Promise<void> {
   const index = await readIndex();
-  if (!index.checkpoints.length) return;
+  const known = new Map(index.checkpoints.map((entry) => [entry.file, entry]));
+  const discovered: Checkpoint[] = [...index.checkpoints];
+  // Recover valid checkpoint files that were written before a crash interrupted the
+  // index update. Invalid/unrecognized files are left untouched for manual diagnosis.
+  try {
+    const listing = await Filesystem.readdir({ path: RECOVERY_DIR, directory: Directory.Data });
+    for (const fileEntry of listing.files || []) {
+      const name = fileEntry.name;
+      if (!name.startsWith('checkpoint-') || !name.endsWith('.json')) continue;
+      const path = RECOVERY_DIR + '/' + name;
+      if (known.has(path)) continue;
+      try {
+        const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: 'utf8' });
+        const raw = result.data as string;
+        const parsed: unknown = JSON.parse(raw);
+        if (!validateCheckpointPayload(parsed)) continue;
+        const payload = parsed as RecoveryPayload;
+        // Reuse the same structural and referenced-logo validation as user-selected restore.
+        const required = (() => { try { const items: unknown = JSON.parse(payload.values['dugoutPulse.logoLibrary.v1'] || '[]'); return Array.isArray(items) ? items : []; } catch { return []; } })();
+        if (required.some((item) => item && typeof item === 'object' &&
+          typeof (item as { fileName?: unknown }).fileName === 'string' &&
+          !payload.logoFiles?.[(item as { fileName: string }).fileName])) continue;
+        const id = name.slice('checkpoint-'.length, -'.json'.length);
+        discovered.push({
+          id, createdAt: payload.createdAt, reason: payload.reason, file: path,
+          byteLength: raw.length, checksum: checksum(raw), status: 'verified',
+          pinned: false, contentHash: checksum(JSON.stringify({ values: payload.values, logoFiles: payload.logoFiles || {} })),
+          schemaVersion: 1,
+        });
+      } catch { /* Keep unrecognized orphan files rather than deleting possible recovery data. */ }
+    }
+  } catch {
+    // A missing/unreadable directory is not permission to prune existing checkpoint files.
+  }
   const checked: Checkpoint[] = [];
-  for (const entry of index.checkpoints) {
+  for (const entry of discovered) {
     try { await readVerifiedCheckpoint(entry); checked.push({ ...entry, status: 'verified' }); }
     catch { checked.push({ ...entry, status: 'failed' }); }
   }
@@ -146,7 +179,7 @@ async function reconcileRecoveryJournal(): Promise<void> {
   if (!retained.some((entry) => entry.status === 'verified')) return;
   const next: RecoveryIndex = { version: 1, checkpoints: retained };
   await writeIndexSafely(next);
-  await pruneCheckpoints(index, next);
+  await pruneCheckpoints({ version: 1, checkpoints: [...index.checkpoints, ...discovered.filter((entry) => !known.has(entry.file))] }, next);
 }
 
 export async function getRecoveryJournalStorageInfo(): Promise<{ checkpointCount: number; verifiedCount: number; estimatedBytes: number; warning: boolean }> {
@@ -196,13 +229,14 @@ async function createCheckpointSerially(reason: string): Promise<boolean> {
     const payload = JSON.stringify({ version: 1, createdAt: new Date().toISOString(), reason, values, logoFiles });
     const index = await readIndex();
     const newest = [...index.checkpoints].reverse().find((entry) => entry.status !== 'failed');
-    if (newest?.contentHash === contentHash) {
+    const isProtectedOperation = /before restoring checkpoint|before.*(migration|schema|upgrade|version change)/i.test(reason);
+    if (!isProtectedOperation && newest?.contentHash === contentHash) {
       try { await readVerifiedCheckpoint(newest); return true; } catch { /* Create a fresh point if the prior one is damaged. */ }
     }
-    if (newest && !newest.contentHash) {
+    if (!isProtectedOperation && newest && !newest.contentHash) {
       try {
         const prior = await readVerifiedCheckpoint(newest);
-        if (JSON.stringify(prior.values) === JSON.stringify(values)) return true;
+        if (JSON.stringify(prior.values) === JSON.stringify(values) && JSON.stringify(prior.logoFiles || {}) === JSON.stringify(logoFiles)) return true;
       } catch { /* Damaged prior point must not block a fresh checkpoint. */ }
     }
     const createdAt = new Date().toISOString();
