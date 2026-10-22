@@ -82,8 +82,11 @@ export function restoreLocalLogoReferences<T>(
           if (local) result.logo = local;
           else missingReferences.add(child);
         } else if (isLogoDataUrl(child)) {
-          // Older backups embedded image bytes. Do not trust or import embedded images from JSON.
-          missingReferences.add(logoReferenceForDataUrl(child));
+          // Legacy backups embedded image bytes. Reuse only an identical image already stored locally.
+          const reference = logoReferenceForDataUrl(child);
+          const local = localLogos.get(reference);
+          if (local) result.logo = local;
+          else missingReferences.add(reference);
         } else if (child.trim()) {
           // Never trust arbitrary paths, URLs, or inline content supplied by a JSON backup.
           missingReferences.add(child);
