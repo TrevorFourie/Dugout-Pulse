@@ -191,8 +191,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenAgeGroups,
     setHiddenSeasons,
     triggerHaptic,
-    storageWritesBlocked: restoreFailed,
-    onStorageProtectionFailure: handleStorageProtectionFailure,
   });
 
   const { addPlayerTeam, updatePlayerTeam, deletePlayerTeam, setDefaultPlayerTeam } = usePlayerTeams({
@@ -226,6 +224,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveAgeGroup,
     saveSeason,
     triggerHaptic,
+    storageWritesBlocked: restoreFailed,
+    onStorageProtectionFailure: handleStorageProtectionFailure,
   });
 
   const {
