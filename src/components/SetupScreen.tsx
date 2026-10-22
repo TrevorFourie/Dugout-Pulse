@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { AppLogo } from './AppLogo';
+import { currentYear, PRESET_AGE_GROUPS, PRESET_SEASONS, PRESET_TOURNAMENTS } from './setupScreenConstants';
 import {
   User,
   Users,
@@ -24,38 +25,6 @@ interface SetupScreenProps {
 }
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
-
-const PRESET_AGE_GROUPS = [
-  'U8',
-  'U10',
-  'U12',
-  'U14',
-  'U15',
-  'U17',
-  'U19',
-  'High School',
-  'Adult',
-  'Masters',
-];
-
-const currentYear = new Date().getFullYear();
-const PRESET_SEASONS = [
-  `Spring ${currentYear}`,
-  `Summer ${currentYear}`,
-  `Fall ${currentYear}`,
-  `${currentYear} / ${currentYear + 1}`,
-  `${currentYear}`,
-];
-
-const PRESET_TOURNAMENTS = [
-  'League / Regular Season',
-  'Club Play',
-  'Triple Crown Classic',
-  'NBC World Series',
-  'LLWS (Little League)',
-  'USSSA Tournament',
-  'WBSC',
-];
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
   onComplete,
