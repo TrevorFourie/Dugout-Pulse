@@ -7,6 +7,7 @@ import { snapshotBeforeGameWrite } from './gameStorageSafety';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
+  onStorageProtectionFailure: () => void;
   games: Game[];
   oppositionTeams: OppositionTeam[];
   savedOpponents: string[];
@@ -30,6 +31,7 @@ interface GamePersistenceOptions {
  */
 export function useGamePersistence({
   isLoading,
+  onStorageProtectionFailure,
   games,
   oppositionTeams,
   savedOpponents,
@@ -46,10 +48,19 @@ export function useGamePersistence({
   settings,
 }: GamePersistenceOptions): void {
   useEffect(() => {
-    if (!isLoading && snapshotBeforeGameWrite()) {
-      localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
+    if (isLoading) return;
+    if (!snapshotBeforeGameWrite()) {
+      onStorageProtectionFailure();
+      return;
     }
-  }, [games, isLoading]);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
+    } catch (error) {
+      onStorageProtectionFailure();
+      recordDiagnosticError('storage_write_games', error);
+      console.error('Failed to persist games; automatic persistence has been paused.', error);
+    }
+  }, [games, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
     if (!isLoading) {
