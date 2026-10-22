@@ -23,7 +23,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
               <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={handleExportBackup}
+                  onClick={onExportBackup}
                   className="p-3 rounded-xl border border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38] hover:bg-slate-100 dark:hover:bg-[#2D3643] text-left flex flex-col gap-1 transition-colors"
                 >
                   <div className="flex items-center gap-1.5 font-semibold text-xs text-slate-900 dark:text-[#FAFAFA]">
@@ -47,7 +47,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                     ref={fileInputRef}
                     type="file"
                     accept=".json"
-                    onChange={handleImportFile}
+                    onChange={onImportFile}
                     className="hidden"
                   />
                 </label>
@@ -71,7 +71,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsResetConfirmOpen(true)}
+                  onClick={onOpenResetConfirm}
                   className="px-3 py-1.5 rounded-md bg-red-600 text-white font-semibold text-xs hover:bg-[#A82E38] shrink-0"
                 >
                   Reset
