@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Bug, Download, Trash2, ShieldCheck } from 'lucide-react';
-import { clearDiagnosticLogs, createDiagnosticReport, getDiagnosticEvents } from '../utils/errorDiagnostics';
+import { clearDiagnosticLogs, createDiagnosticReport, getCurrentBuildDiagnosticEvent } from '../utils/errorDiagnostics';
 import { saveTextFile } from '../utils/saveFile';
 
 export const DiagnosticsPanel: React.FC = () => {
   const [refresh, setRefresh] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const events = getDiagnosticEvents();
+  const currentError = getCurrentBuildDiagnosticEvent();
+  const events = currentError ? [currentError] : [];
   void refresh;
 
   const exportReport = async () => {
@@ -39,7 +40,23 @@ export const DiagnosticsPanel: React.FC = () => {
             Diagnostics stay on this device. Nothing is sent automatically. The report records technical error types, app build, platform, rounded times and sanitised source locations—not game contents, player/team names, account details, full device identifiers or full file paths. Resetting game data keeps this log; clearing browser/app storage or uninstalling the app deletes it. Review the report before choosing to share it.
           </p>
         </div>
-        <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">{events.length} recent diagnostic event{events.length === 1 ? '' : 's'} stored (maximum 40).</p>
+        <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">
+          {currentError ? 'Showing the latest error for the current build only.' : 'No error has been recorded for the current build.'}
+        </p>
+        {currentError && (
+          <div className="rounded-lg border border-red-200 dark:border-[#86252D] bg-white dark:bg-[#101419] p-3 space-y-1">
+            <p className="text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
+              {currentError.errorType || 'Error'} · {currentError.category} · build {currentError.build}
+            </p>
+            <p className="text-xs leading-relaxed text-red-700 dark:text-red-300 break-words">
+              {currentError.errorMessage || 'No error message was captured.'}
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.time}</p>
+            {currentError.frames?.length ? (
+              <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.frames.join(' · ')}</p>
+            ) : null}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => void exportReport()} className="inline-flex items-center gap-2 rounded-lg bg-[#00BFA5] dark:bg-[#00D7BC] px-3 py-2 text-xs font-semibold text-[#18212D]">
             <Download className="w-4 h-4" /> Export report
