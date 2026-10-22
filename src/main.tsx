@@ -46,19 +46,36 @@ installGlobalDiagnosticHandlers();
 void import('/src/App.tsx').then(({ default: App }) => {
   createRoot(root).render(<App />);
 }).catch(async (error: unknown) => {
-  // A failed Vite module import often hides the actionable transform/parser error
-  // behind "Failed to fetch dynamically imported module". Ask Vite for the module
-  // response so diagnostics can capture its current parser message instead.
+  // Dynamic-import rejections are generic; Vite's failed module response contains
+  // the actual transform/parser error. Extract readable diagnostics from either
+  // plain-text or HTML responses, and retain the source location when present.
   let diagnosticError: unknown = error;
   try {
-    const response = await fetch(`/src/App.tsx?diagnostic=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) {
-      const body = await response.text();
-      const parseMessage = body.match(/Expected corresponding JSX closing tag[^\r\n]*|Adjacent JSX elements must be wrapped in an enclosing tag\.?|The following error occurred while transforming[^\r\n]*/i);
-      if (parseMessage?.[0]) diagnosticError = new SyntaxError(parseMessage[0].trim());
+    const response = await fetch(\`/src/App.tsx?diagnostic=\${Date.now()}\`, { cache: 'no-store' });
+    const body = await response.text();
+    const readableBody = body
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ');
+    const actionableError = readableBody.match(
+      /(?:Expected corresponding JSX closing tag[^.]{0,180}\.?|Adjacent JSX elements must be wrapped in an enclosing tag\.?|Unterminated JSX contents\.?|Unexpected token[^.]{0,180}\.?|Failed to parse source for import analysis[^.]{0,180}\.?|The following error occurred while transforming[^.]{0,180}\.?)/i,
+    );
+    const sourceLocation = readableBody.match(/(?:src\/)?App\.tsx:\d+:\d+/i);
+    if (actionableError?.[0]) {
+      diagnosticError = new SyntaxError(
+        \`\${actionableError[0].trim()}\${sourceLocation?.[0] ? \` (\${sourceLocation[0]})\` : ''}\`,
+      );
+    } else if (!response.ok && readableBody.length > 0) {
+      diagnosticError = new Error(readableBody.slice(0, 220));
     }
   } catch {
-    // Keep the original startup failure when the Vite diagnostic response is unavailable.
+    // Preserve the original rejection if the server's diagnostic response is unavailable.
   }
   const reference = recordDiagnosticError('app_startup', diagnosticError);
   root.replaceChildren();
