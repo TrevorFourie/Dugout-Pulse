@@ -36,8 +36,8 @@ if (!Capacitor.isNativePlatform()) {
   root.replaceChildren(splash);
 }
 
-// Capture runtime failures before the React app is imported. This does not capture
-// Vite compile-time errors: those must be diagnosed from the developer's build output.
+// Capture runtime failures before the React app is imported. If Vite fails before
+// this module can execute, the inline HTML bootstrap displays a separate fallback.
 installGlobalDiagnosticHandlers();
 
 // App.tsx keeps the splash (native or web) visible until stored data has loaded.
