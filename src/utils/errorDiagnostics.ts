@@ -263,8 +263,8 @@ export function createDiagnosticReport(reference?: string): string {
     reportFormat: 2,
     app: 'Dugout Pulse',
     appVersion: '1.0.0',
-    build: getBuild(),
-    platform: getPlatform(),
+    build: reportEvents[0]?.build || getBuild(),
+    platform: reportEvents[0]?.platform || getPlatform(),
     privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Exact timestamps are included to help correlate errors with logs. Review before sharing.',
     events: reportEvents,
   }, null, 2);
