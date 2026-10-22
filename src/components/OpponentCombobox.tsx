@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Plus, Shield, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, X } from 'lucide-react';
 import type { OppositionTeam } from '../context/GameContext';
 import teamIcon from '../assets/TeamIcon.png';
 
