@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
+import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 export interface GameReminder {
@@ -261,6 +262,10 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
       },
     ];
   });
+
+  if (!(await createVerifiedRecoveryCheckpoint('Before synchronizing game reminders'))) {
+    throw new Error('Could not create and verify a recovery checkpoint. Game reminders were not changed.');
+  }
 
   const cancelIds = Object.values(previousIds).map((id) => ({ id }));
   if (cancelIds.length) {
