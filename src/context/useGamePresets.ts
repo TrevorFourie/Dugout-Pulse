@@ -12,7 +12,6 @@ type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 interface GamePresetsOptions {
   games: Game[];
-  liveGame: Game | null;
   activeProfile: PlayerProfile;
   setGames: StateSetter<Game[]>;
   setLiveGame: StateSetter<Game | null>;
@@ -29,7 +28,6 @@ interface GamePresetsOptions {
 /** Owns preset lists, rename propagation, and the derived setup lists. */
 export function useGamePresets({
   games,
-  liveGame,
   activeProfile,
   setGames,
   setLiveGame,
