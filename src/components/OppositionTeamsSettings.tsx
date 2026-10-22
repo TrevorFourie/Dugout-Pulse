@@ -4,6 +4,7 @@ import { Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoPicker } from './TeamLogoPicker';
 import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../utils/teamLogoLibrary';
+import { TeamLogoImage } from './TeamLogoImage';
 
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
@@ -103,7 +104,7 @@ export const OppositionTeamsSettings: React.FC = () => {
           {teams.map((team) => (
             <article key={team.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/50">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-[#354050] dark:bg-[#1A2028]">
-                {resolveTeamLogoSrc(team.logo) ? <img src={resolveTeamLogoSrc(team.logo)} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${team.name} default icon`} className="h-full w-full object-contain p-1" />}
+                {resolveTeamLogoSrc(team.logo) ? <TeamLogoImage value={team.logo} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${team.name} default icon`} className="h-full w-full object-contain p-1" />}
               </div>
               <div className="min-w-0 flex-1">
                 {editingId === team.id ? (

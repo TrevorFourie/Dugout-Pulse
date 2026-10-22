@@ -3,6 +3,7 @@ import { Check, Edit2, Plus, Shield, Star, Trash2, Trophy } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { TeamLogoPicker } from '../TeamLogoPicker';
 import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../../utils/teamLogoLibrary';
+import { TeamLogoImage } from '../TeamLogoImage';
 import { ValueCombobox } from '../ValueCombobox';
 
 interface TeamsSettingsPanelProps {
@@ -270,7 +271,7 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
                       >
                         <div className="grid min-w-0 w-full grid-cols-[3rem_minmax(0,1fr)] items-start gap-3">
                           {resolveTeamLogoSrc(team.logo) ? (
-                            <img src={resolveTeamLogoSrc(team.logo)} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => onStatusMessage({ text: `The ${team.name} logo image could not be displayed. Please try a different image.`, isError: true })} />
+                            <TeamLogoImage value={team.logo} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => onStatusMessage({ text: `The ${team.name} logo file could not be read from app storage. The saved logo reference has been preserved.`, isError: true })} />
                           ) : (
                             <img src={teamIcon} alt={`${team.name} default logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" />
                           )}

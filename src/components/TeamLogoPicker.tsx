@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, ImagePlus, X } from 'lucide-react';
 import { addTeamLogo, logoLibraryReference, readTeamLogoLibrary, type TeamLogoItem } from '../utils/teamLogoLibrary';
+import { TeamLogoImage } from './TeamLogoImage';
 
 interface TeamLogoPickerProps {
   value?: string;
@@ -76,7 +77,7 @@ export const TeamLogoPicker: React.FC<TeamLogoPickerProps> = ({ value, onChange,
               const selected = value === logoLibraryReference(item.id);
               return <button key={item.id} type="button" onClick={() => selectLogo(item)} aria-pressed={selected} aria-label={`${selected ? 'Unselect' : 'Select'} ${item.name}`} className={`relative flex min-w-0 flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-[#252D38] ${selected ? 'border-teal-600 bg-teal-50 dark:border-[#00D7BC] dark:bg-[#123632]' : 'border-slate-200 dark:border-[#354050]'}`}>
                 {selected && <span className="absolute right-2 top-2 rounded-full bg-teal-600 p-1 text-white"><Check className="h-3 w-3" /></span>}
-                <span className="flex h-20 w-full items-center justify-center rounded-lg bg-slate-50 p-2 dark:bg-[#252D38]"><img src={item.uri} alt="" className="max-h-full max-w-full object-contain" onError={() => { /* Keep the tile available so the broken stored path is visible as an issue. */ }} /></span>
+                <span className="flex h-20 w-full items-center justify-center rounded-lg bg-slate-50 p-2 dark:bg-[#252D38]"><TeamLogoImage value={logoLibraryReference(item.id)} alt="" className="max-h-full max-w-full object-contain" /></span>
                 <span className="w-full truncate text-xs font-semibold text-slate-800 dark:text-[#FAFAFA]">{item.name}</span>
                 <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{Math.round(item.sizeBytes / 1024)} KB{selected ? ' · Selected' : ''}</span>
               </button>;
