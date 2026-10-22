@@ -152,7 +152,12 @@
         window.addEventListener('vite:preloadError', showStartupFallback);
         window.addEventListener('error', function (event) {
           if (event.target && event.target.tagName === 'SCRIPT') {
-            window.setTimeout(detectViteOverlay, 0);
+            window.setTimeout(function () {
+            detectViteOverlay();
+            // A failed module script can occur without a visible Vite overlay.
+            // Never leave the user staring at a blank splash while entry is broken.
+            showStartupFallback();
+          }, 0);
           }
         }, true);
       })();
