@@ -27,7 +27,7 @@ import { getFieldingPlaysForPosition, getPlaysForMode, PLAY_DEFINITIONS } from '
 import { calculateGameStats, calculatePitchingStats, formatRate } from '../utils/stats';
 import { usePlayFlow } from '../hooks/usePlayFlow';
 import { usePlayDragReorder } from '../hooks/usePlayDragReorder';
-import { usePlayPresentation } from '../hooks/usePlayPresentation';
+import { usePlayPresentation } from './score/usePlayPresentation';
 import { ConfirmationModal } from './ConfirmationModal';
 import { EditPlayModal } from './EditPlayModal';
 import { PitcherOutModal, PitcherOutSelection } from './PitcherOutModal';
