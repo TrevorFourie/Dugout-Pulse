@@ -3,6 +3,7 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { snapshotBeforeGameWrite } from './gameStorageSafety';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -45,7 +46,7 @@ export function useGamePersistence({
   settings,
 }: GamePersistenceOptions): void {
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && snapshotBeforeGameWrite()) {
       localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
     }
   }, [games, isLoading]);
