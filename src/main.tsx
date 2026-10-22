@@ -76,7 +76,12 @@ void import('/src/App.tsx').then(({ default: App }) => {
   reportButton.addEventListener('click', () => {
     report.hidden = !report.hidden;
     reportButton.textContent = report.hidden ? 'Show diagnostic report' : 'Hide diagnostic report';
-    if (!report.hidden) report.select();
+    if (!report.hidden) {
+      // Refresh at the moment the report is opened: the HTML bootstrap may capture
+      // Vite's original parser error just after this dynamic-import rejection fires.
+      report.value = createDiagnosticReport();
+      report.select();
+    }
   });
   const reloadButton = document.createElement('button');
   reloadButton.type = 'button';
