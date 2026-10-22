@@ -206,7 +206,7 @@ export function hasOrphanedGameReferences(): boolean {
       if (Array.isArray(parsed) && parsed.length > 0) return false;
     }
 
-    const gameIdPattern = /game_\\d+_[a-z0-9]+/i;
+    const gameIdPattern = /game_\d+_[a-z0-9]+/i;
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
       if (!key || [RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY].includes(key)) continue;
