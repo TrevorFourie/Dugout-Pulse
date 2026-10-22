@@ -8,6 +8,7 @@ import { clearAppDataPreservingDiagnostics } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
+import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -112,7 +113,16 @@ export function useGameDataManagement({
   }, []);
 
   const resetAllData = useCallback(() => {
-    if (!snapshotBeforeGameWrite()) return;
+    void (async () => {
+      // Reset is destructive: require a verified private checkpoint immediately before it.
+      if (!(await createVerifiedRecoveryCheckpoint('Before user-requested reset of app data'))) {
+        setRestoreFailed(true);
+        return;
+      }
+      if (!snapshotBeforeGameWrite()) {
+        setRestoreFailed(true);
+        return;
+      }
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
@@ -124,6 +134,7 @@ export function useGameDataManagement({
     setHiddenAgeGroups([]);
     setHiddenSeasons([]);
     clearAppDataPreservingDiagnostics();
+    })();
   }, []);
 
   const completeFirstTimeSetup = useCallback(
