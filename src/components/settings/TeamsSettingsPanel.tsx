@@ -22,6 +22,32 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
 
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
 
+  // Preserve existing data URLs unless the private-file migration succeeds.
+  useEffect(() => {
+    if (!isActive) return;
+    let cancelled = false;
+    const migrateLegacyTeamLogos = async () => {
+      for (const team of activeProfile.teams || []) {
+        if (!team.logo?.startsWith('data:image/')) continue;
+        try {
+          const logo = await migrateLegacyLogoDataUrl(team.logo);
+          if (!cancelled) updatePlayerTeam(activeProfile.id, team.id, { logo });
+        } catch (cause) {
+          if (!cancelled) {
+            onStatusMessage({
+              text: cause instanceof Error
+                ? `Could not migrate the existing logo for ${team.name}: ${cause.message}. The original image has been kept.`
+                : `Could not migrate the existing logo for ${team.name}. The original image has been kept.`,
+              isError: true,
+            });
+          }
+        }
+      }
+    };
+    void migrateLegacyTeamLogos();
+    return () => { cancelled = true; };
+  }, [isActive, activeProfile.id, activeProfile.teams, updatePlayerTeam, onStatusMessage]);
+
   if (!isActive) return null;
 
   return (
