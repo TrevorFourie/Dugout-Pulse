@@ -8,6 +8,7 @@ interface ConfirmationModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   showCancelButton?: boolean;
+  closeOnBackdrop?: boolean;
   variant?: 'danger' | 'primary' | 'warning';
   onConfirm: () => void;
   onCancel: () => void;
@@ -22,6 +23,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   showCancelButton = true,
+  closeOnBackdrop = true,
   variant = 'primary',
   onConfirm,
   onCancel,
@@ -34,14 +36,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     variant === 'danger'
       ? 'bg-[#FF5252] hover:bg-[#A82E38] text-white'
       : variant === 'warning'
-      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+      ? 'bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419]'
       : 'bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419]';
 
   const iconStyle =
     variant === 'danger'
       ? 'bg-red-100 text-red-600 dark:bg-[#FF5252]/15 dark:text-[#D4626D]'
       : variant === 'warning'
-      ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400'
+      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
       : 'bg-blue-100 text-[#18212D] dark:bg-[#252D38] dark:text-blue-400';
 
   const secondaryBtn =
@@ -50,7 +52,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60"
-      onClick={onCancel}
+      onClick={closeOnBackdrop ? onCancel : undefined}
     >
       <div
         className="w-full max-w-sm max-h-[85dvh] overflow-y-auto bg-white dark:bg-[#1A2028] rounded-2xl shadow-2xl border border-slate-200 dark:border-[#354050] p-5"
