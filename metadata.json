@@ -1,6 +1,0 @@
-{
-  "name": "Baseball Hub",
-  "description": "Fast, lean, offline baseball and softball scorekeeping app for parents and players in the stands.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
