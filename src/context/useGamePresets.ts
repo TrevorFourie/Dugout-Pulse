@@ -17,6 +17,9 @@ interface GamePresetsOptions {
   setLiveGame: StateSetter<Game | null>;
   setProfiles: StateSetter<PlayerProfile[]>;
   savedTournaments: string[];
+  hiddenTournaments: string[];
+  hiddenAgeGroups: string[];
+  hiddenSeasons: string[];
   setSavedTournaments: StateSetter<string[]>;
   setSavedAgeGroups: StateSetter<string[]>;
   setSavedSeasons: StateSetter<string[]>;
@@ -34,6 +37,9 @@ export function useGamePresets({
   setLiveGame,
   setProfiles,
   savedTournaments,
+  hiddenTournaments,
+  hiddenAgeGroups,
+  hiddenSeasons,
   setSavedTournaments,
   setSavedAgeGroups,
   setSavedSeasons,
