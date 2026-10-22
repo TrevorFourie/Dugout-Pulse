@@ -184,8 +184,8 @@ function persist(event: DiagnosticEvent): void {
 export function recordDiagnosticError(category: string, error: unknown): string {
   const event: DiagnosticEvent = {
     id: createReference(),
-    // Rounded to 15 minutes to reduce precision while still helping correlate reports.
-    time: new Date(Math.round(Date.now() / 900_000) * 900_000).toISOString(),
+    // Preserve exact time to correlate diagnostics with the browser console.
+    time: new Date().toISOString(),
     category: safeCategory(category),
     errorType: safeErrorType(error),
     errorMessage: safeErrorMessage(error),
@@ -200,7 +200,7 @@ export function recordDiagnosticError(category: string, error: unknown): string 
 export function recordDiagnosticEvent(category: string): void {
   persist({
     id: createReference(),
-    time: new Date(Math.round(Date.now() / 900_000) * 900_000).toISOString(),
+    time: new Date().toISOString(),
     category: safeCategory(category),
     platform: getPlatform(),
     build: getBuild(),
@@ -244,7 +244,7 @@ export function createDiagnosticReport(reference?: string): string {
     appVersion: '1.0.0',
     build: getBuild(),
     platform: getPlatform(),
-    privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Times are rounded to 15 minutes. Review before sharing.',
+    privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Exact timestamps are included to help correlate errors with logs. Review before sharing.',
     events: reportEvents,
   }, null, 2);
 }
