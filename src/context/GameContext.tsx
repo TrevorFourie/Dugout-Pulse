@@ -17,6 +17,7 @@ import {
 import { sortGames } from '../utils/stats';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
+import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 
 export interface OppositionTeam {
   id: string;
@@ -2152,10 +2153,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSettings((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // Full backup import
+  // Full backup import. Logo images are intentionally not embedded in JSON backups:
+  // references are resolved against images that still exist in this app's local data.
   const importJsonData = useCallback((jsonStr: string) => {
     try {
-      const data = JSON.parse(jsonStr);
+      const parsedData = JSON.parse(jsonStr);
+      const localLogos = new Map<string, string>();
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key) continue;
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          collectLocalLogoDataUrls(JSON.parse(raw), localLogos);
+        } catch {
+          // Ignore unrelated non-JSON local storage values.
+        }
+      }
+      const restored = restoreLocalLogoReferences(parsedData, localLogos);
+      const data = restored.data as typeof parsedData;
+
       if (data && Array.isArray(data.games)) {
         setGames(sortGames(data.games, 'oldestFirst'));
       }
@@ -2171,6 +2188,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data && Array.isArray(data.oppositionTeams)) {
         setOppositionTeams(data.oppositionTeams);
         localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams));
+      }
+
+      if (restored.missingReferences.size > 0) {
+        const count = restored.missingReferences.size;
+        return {
+          success: true,
+          message: `Data restored, but ${count} custom logo image(s) could not be found on this device. Default logos will be used for those items. Logo images are not included in JSON backups.`,
+        };
       }
       return { success: true, message: 'Season data successfully restored!' };
     } catch (err: unknown) {
