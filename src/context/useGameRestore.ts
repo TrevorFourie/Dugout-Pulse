@@ -25,6 +25,7 @@ interface GameRestoreOptions {
   setHiddenSeasons: StateSetter<string[]>;
   setIsLoading: StateSetter<boolean>;
   setResumePromptPending: StateSetter<boolean>;
+  setRestoreFailed: StateSetter<boolean>;
 }
 
 /**
@@ -48,6 +49,7 @@ export function useGameRestore({
   setHiddenSeasons,
   setIsLoading,
   setResumePromptPending,
+  setRestoreFailed,
 }: GameRestoreOptions): void {
   useEffect(() => {
     try {
@@ -139,6 +141,7 @@ export function useGameRestore({
       loadList(STORAGE_KEYS.HIDDEN_AGE_GROUPS, setHiddenAgeGroups);
       loadList(STORAGE_KEYS.HIDDEN_SEASONS, setHiddenSeasons);
     } catch (err) {
+      setRestoreFailed(true);
       recordDiagnosticError('storage_load', err);
       console.error('Failed to load data from localStorage:', err);
     } finally {
