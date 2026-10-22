@@ -41,6 +41,9 @@ export function createLogoSafeBackup<T>(value: T): { data: T; customLogoReferenc
         const reference = logoReferenceForDataUrl(child);
         result.logo = reference;
         references.set(reference, { reference, ownerName: nextOwner || 'Unnamed item', location: childPath });
+      } else if (key === 'logo' && typeof child === 'string' && child.startsWith(LOGO_REFERENCE_PREFIX)) {
+        result.logo = child;
+        references.set(child, { reference: child, ownerName: nextOwner || 'Unnamed item', location: childPath });
       } else {
         result[key] = visit(child, childPath, nextOwner);
       }

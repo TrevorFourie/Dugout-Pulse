@@ -17,8 +17,9 @@ import { PlayerProfilesPanel } from './settings/PlayerProfilesPanel';
 import { TeamsSettingsPanel } from './settings/TeamsSettingsPanel';
 import { PresetSettingsPanel } from './settings/PresetSettingsPanel';
 import { VenuesSettingsPanel } from './settings/VenuesSettingsPanel';
+import { LogoLibraryPanel } from './settings/LogoLibraryPanel';
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data' | 'logoLibrary';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -190,6 +191,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Player management */}
             <PlayerProfilesPanel isActive={settingsSection === 'players'} onStatusMessage={setStatusMessage} />
             {settingsSection === 'oppositionTeams' && <OppositionTeamsSettings />}
+
+            <LogoLibraryPanel isActive={settingsSection === 'logoLibrary'} onStatusMessage={setStatusMessage} />
 
             {settingsSection === 'data' && (
               <DataManagementPanel

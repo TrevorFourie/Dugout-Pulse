@@ -2,7 +2,7 @@ import React from 'react';
 import {
   X, LayoutDashboard, UserRound, SlidersHorizontal, CalendarDays, ChevronDown,
   FileText, Settings2, PlayCircle, History, Users, Shield, Trophy, UsersRound,
-  MapPin, Bell, ClipboardList, Palette, Database, UserCog, CalendarRange, Scale,
+  MapPin, Bell, ClipboardList, Palette, Database, UserCog, CalendarRange, Scale, Image,
 } from 'lucide-react';
 import type { Game, PlayerProfile } from '../types/baseball';
 import type { TabId } from './Navigation';
@@ -126,6 +126,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
                 <button type="button" onClick={() => handleSelectSettingsSection('notifications')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><Bell className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Notifications</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('scoring')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><ClipboardList className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Scoring Settings</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('displayTheme')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><Palette className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Theme</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('logoLibrary')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><Image className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Team Logo Library</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('data')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><Database className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Data &amp; About</button>
               </div>
             )}

@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
+import { readTeamLogoLibrary } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
@@ -59,6 +60,7 @@ export function useGameDataManagement({
     try {
       const parsedData = JSON.parse(jsonStr);
       const localLogos = new Map<string, string>();
+      readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
       for (let index = 0; index < localStorage.length; index += 1) {
         const key = localStorage.key(index);
         if (!key) continue;

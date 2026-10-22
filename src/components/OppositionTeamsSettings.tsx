@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame, type OppositionTeam } from '../context/GameContext';
-import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
+import { Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 import teamIcon from '../assets/TeamIcon.png';
-import { processLogoImage } from '../utils/logoImage';
+import { TeamLogoPicker } from './TeamLogoPicker';
+import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../utils/teamLogoLibrary';
 
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
@@ -12,7 +13,22 @@ export const OppositionTeamsSettings: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [error, setError] = useState('');
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  useEffect(() => {
+    let cancelled = false;
+    const migrate = async () => {
+      for (const team of teams) {
+        if (!team.logo?.startsWith('data:image/')) continue;
+        try {
+          const logo = await migrateLegacyLogoDataUrl(team.logo);
+          if (!cancelled) updateOppositionTeam(team.id, { logo });
+        } catch (cause) {
+          if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not migrate an existing team logo.');
+        }
+      }
+    };
+    void migrate();
+    return () => { cancelled = true; };
+  }, [teams, updateOppositionTeam]);
 
   const addTeam = (event: React.FormEvent) => {
     event.preventDefault();
@@ -26,18 +42,12 @@ export const OppositionTeamsSettings: React.FC = () => {
     setNewName('');
   };
 
-  const uploadLogo = async (teamId: string, file?: File) => {
-    if (!file) return;
-    try {
-      const logo = await processLogoImage(file);
-      if (!updateOppositionTeam(teamId, { logo })) {
-        setError('Could not update this team logo.');
-      } else {
-        setError('');
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not process that image.');
+  const setTeamLogo = (teamId: string, logo?: string) => {
+    if (!updateOppositionTeam(teamId, { logo })) {
+      setError('Could not update this team logo.');
+      return;
     }
+    setError('');
   };
 
   const removeLogo = (teamId: string) => {
@@ -93,13 +103,14 @@ export const OppositionTeamsSettings: React.FC = () => {
           {teams.map((team) => (
             <article key={team.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/50">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-[#354050] dark:bg-[#1A2028]">
-                {team.logo ? <img src={team.logo} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${team.name} default icon`} className="h-full w-full object-contain p-1" />}
+                {resolveTeamLogoSrc(team.logo) ? <img src={resolveTeamLogoSrc(team.logo)} alt={`${team.name} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${team.name} default icon`} className="h-full w-full object-contain p-1" />}
               </div>
               <div className="min-w-0 flex-1">
                 {editingId === team.id ? (
                   <input autoFocus value={editName} onChange={(event) => setEditName(event.target.value)} className={fieldClass} aria-label="Edit opposition team name" />
                 ) : <p className="truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">{team.name}</p>}
-                <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{team.logo ? 'Logo uploaded' : 'Using default team icon'}</p>
+                <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{resolveTeamLogoSrc(team.logo) ? 'Logo selected' : 'Using default team icon'}</p>
+                <TeamLogoPicker compact value={team.logo} onChange={(logo) => setTeamLogo(team.id, logo)} onError={setError} />
               </div>
               {editingId === team.id ? (
                 <>
@@ -109,10 +120,6 @@ export const OppositionTeamsSettings: React.FC = () => {
               ) : (
                 <>
                   <button type="button" onClick={() => { setEditingId(team.id); setEditName(team.name); }} aria-label={`Rename ${team.name}`} title="Rename team" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-4 w-4" /></button>
-                  <label className="cursor-pointer rounded-lg p-2 text-[#007A6A] hover:bg-slate-100 dark:text-[#00D7BC] dark:hover:bg-[#354050]" title={team.logo ? 'Change logo' : 'Upload logo'}>
-                    <ImagePlus className="h-4 w-4" />
-                    <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
-                  </label>
                   {team.logo && <button type="button" onClick={() => removeLogo(team.id)} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
                   <button type="button" onClick={() => removeTeam(team.id)} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
                 </>

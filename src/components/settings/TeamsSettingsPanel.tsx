@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, Edit2, Plus, Shield, Star, Trash2, Trophy } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
-import { processLogoImage } from '../../utils/logoImage';
+import { TeamLogoPicker } from '../TeamLogoPicker';
+import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../../utils/teamLogoLibrary';
 import { ValueCombobox } from '../ValueCombobox';
 
 interface TeamsSettingsPanelProps {
@@ -20,35 +21,6 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
   const [newTeamInputTournament, setNewTeamInputTournament] = useState('');
 
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  // Keep a local render fallback while the profile context persists the uploaded team logo.
-  const [teamLogoPreviews, setTeamLogoPreviews] = useState<Record<string, string>>({});
-  const [editTeamInputName, setEditTeamInputName] = useState('');
-  const [editTeamInputJersey, setEditTeamInputJersey] = useState('');
-  const [editTeamInputAge, setEditTeamInputAge] = useState('');
-  const [editTeamInputSeason, setEditTeamInputSeason] = useState('');
-  const [editTeamInputTournament, setEditTeamInputTournament] = useState('');
-
-  const handleTeamLogoFile = async (e: React.ChangeEvent<HTMLInputElement>, teamId: string) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      // Keep per-team logos small so multiple teams fit comfortably in local storage.
-      const dataUrl = await processLogoImage(file, 128);
-      const teamExists = (activeProfile.teams || []).some((team) => team.id === teamId)
-        || (!(activeProfile.teams || []).length && teamId === 'primary-team' && Boolean(activeProfile.teamName));
-      if (!teamExists) {
-        onStatusMessage({ text: 'Could not find that team. Close Settings and try again.', isError: true });
-        return;
-      }
-      // Update the visible logo immediately as well as saving it to the profile context.
-      setTeamLogoPreviews((prev) => ({ ...prev, [teamId]: dataUrl }));
-      updatePlayerTeam(activeProfile.id, teamId, { logo: dataUrl });
-      onStatusMessage({ text: 'Team logo updated!', isError: false });
-    } catch (err) {
-      onStatusMessage({ text: err instanceof Error ? err.message : 'Could not use that image.', isError: true });
-    }
-  };
 
   if (!isActive) return null;
 
@@ -271,8 +243,8 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
                         className="grid min-w-0 w-full grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 dark:border-[#354050] dark:bg-[#252D38]/40"
                       >
                         <div className="grid min-w-0 w-full grid-cols-[3rem_minmax(0,1fr)] items-start gap-3">
-                          {(teamLogoPreviews[team.id] || team.logo) ? (
-                            <img src={teamLogoPreviews[team.id] || team.logo} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => onStatusMessage({ text: `The ${team.name} logo image could not be displayed. Please try a different image.`, isError: true })} />
+                          {resolveTeamLogoSrc(team.logo) ? (
+                            <img src={resolveTeamLogoSrc(team.logo)} alt={`${team.name} logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" onError={() => onStatusMessage({ text: `The ${team.name} logo image could not be displayed. Please try a different image.`, isError: true })} />
                           ) : (
                             <img src={teamIcon} alt={`${team.name} default logo`} className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1 dark:border-[#354050] dark:bg-[#1A2028]" />
                           )}
@@ -315,9 +287,7 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
 
                         <div className="flex w-full min-w-0 flex-col gap-2 border-t border-slate-100 pt-2 dark:border-[#354050] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-1">
-                            <input id={`team-logo-${team.id}`} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleTeamLogoFile(e, team.id)} />
-                            <button type="button" onClick={() => document.getElementById(`team-logo-${team.id}`)?.click()} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#354050]" title={`${team.logo ? 'Change' : 'Upload'} ${team.name} logo`}>{team.logo ? 'Change Logo' : 'Upload Logo'}</button>
-                            {(teamLogoPreviews[team.id] || team.logo) && <button type="button" onClick={() => { setTeamLogoPreviews((prev) => { const next = { ...prev }; delete next[team.id]; return next; }); updatePlayerTeam(activeProfile.id, team.id, { logo: undefined }); onStatusMessage({ text: 'Team logo removed.', isError: false }); }} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#354050]">Remove Logo</button>}
+                            <TeamLogoPicker compact value={team.logo} onChange={(logo) => { updatePlayerTeam(activeProfile.id, team.id, { logo }); onStatusMessage({ text: logo ? 'Team logo linked.' : 'Team logo removed.', isError: false }); }} onError={(message) => onStatusMessage({ text: message, isError: true })} />
                           </div>
                           {/* Team actions */}
                           <div className="flex flex-wrap items-center gap-1">
