@@ -53,8 +53,61 @@
           panel.append(card);
           document.body.append(panel);
         }
+        function captureViteCompileError(overlay) {
+          // Vite's transform errors happen before src/main.tsx runs, so the module-level
+          // error handlers cannot see the original parser message. Read the overlay here
+          // and persist a small, sanitised primary error for the normal diagnostic report.
+          try {
+            var detailRoot = overlay && overlay.shadowRoot;
+            var detailText = detailRoot ? (detailRoot.innerText || detailRoot.textContent || '') : '';
+            if (!detailText) return;
+
+            var parseMatch = detailText.match(/\\[(?:PARSE_ERROR|ERROR)\\]\\s*([^\\n]+)/i);
+            var message = parseMatch ? parseMatch[1].trim() : '';
+            var locationMatch = detailText.match(/(?:src\\/)?([^\\/\\\\\\s:\\]]+\\.(?:tsx?|jsx?)):(\\d+):(\\d+)/i);
+            var file = locationMatch ? locationMatch[1] : 'unknown source';
+            var line = locationMatch ? locationMatch[2] : '';
+            var column = locationMatch ? locationMatch[3] : '';
+            if (!message) {
+              var fallbackMatch = detailText.match(/(?:SyntaxError|TypeError|ReferenceError):?\\s*([^\\n]+)/i);
+              message = fallbackMatch ? fallbackMatch[1].trim() : 'Vite failed to transform a source module';
+            }
+            message = ('Vite compile error: ' + message + (line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
+              .replace(/[\\r\\n\\t]+/g, ' ')
+              .replace(/(?:[A-Z]:)?[\\\\/](?:[^\\s:'"<>]+[\\\\/])+([^\\s\\\\/'"<>]+\\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
+              .slice(0, 240);
+
+            var storageKey = 'dugoutPulse.diagnostics.v1';
+            var events = [];
+            try {
+              var stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+              if (Array.isArray(stored)) events = stored;
+            } catch (_) {}
+            var time = new Date(Math.round(Date.now() / 900000) * 900000).toISOString();
+            var event = {
+              id: 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase().replace(/[^A-Z0-9]/g, 'X').padEnd(6, 'X').slice(0, 6),
+              time: time,
+              category: 'app_startup',
+              errorType: 'SyntaxError',
+              errorMessage: message,
+              frames: line ? [file + ':' + line + ':' + (column || '1')] : [],
+              platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
+              build: 'unknown',
+              source: 'vite_compile'
+            };
+            events.push(event);
+            localStorage.setItem(storageKey, JSON.stringify(events.slice(-40)));
+          } catch (_) {
+            // Diagnostics must never prevent the startup fallback from being shown.
+          }
+        }
+
         function detectViteOverlay() {
-          if (document.querySelector('vite-error-overlay')) showStartupFallback();
+          var overlay = document.querySelector('vite-error-overlay');
+          if (overlay) {
+            captureViteCompileError(overlay);
+            showStartupFallback();
+          }
         }
         if (typeof MutationObserver !== 'undefined') {
           new MutationObserver(detectViteOverlay).observe(document.documentElement, { childList: true, subtree: true });
