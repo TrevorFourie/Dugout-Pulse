@@ -135,7 +135,7 @@ function readEvents(): DiagnosticEvent[] {
       .slice(-MAX_EVENTS)
       // Rebuild each event from an allowlist. Never export arbitrary extra localStorage fields.
       .map((item) => {
-        const validTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/.test(item.time);
+        const validTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item.time);
         const cleanFrames = Array.isArray(item.frames)
           ? item.frames
               .filter((frame): frame is string =>
