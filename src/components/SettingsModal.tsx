@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { ValueCombobox } from './ValueCombobox';
 import { ThemedDropdown } from './ThemedDropdown';
+import { processLogoImage } from '../utils/logoImage';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
@@ -287,50 +288,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setNewAgeGroupInput('');
   };
 
-  // Shrink the chosen image so it stays small in local storage
-  const resizeImage = (file: File, maxSize = 256): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('Could not read the file'));
-      reader.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error('That file is not a valid image'));
-        img.onload = () => {
-          const srcW = img.naturalWidth || maxSize;
-          const srcH = img.naturalHeight || maxSize;
-          const scale = Math.min(1, maxSize / Math.max(srcW, srcH));
-          const w = Math.max(1, Math.round(srcW * scale));
-          const h = Math.max(1, Math.round(srcH * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Image processing is not supported here'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-
   const handleLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (logoInputRef.current) logoInputRef.current.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setStatusMessage({ text: 'Please choose an image file (PNG, JPG, etc.).', isError: true });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setStatusMessage({ text: 'That image is too large. Please choose one under 10 MB.', isError: true });
-      return;
-    }
     try {
-      const dataUrl = await resizeImage(file);
+      const dataUrl = await processLogoImage(file);
       updateActiveProfile({ logo: dataUrl });
       setStatusMessage({ text: 'Logo updated!', isError: false });
     } catch (err) {
@@ -345,17 +308,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setStatusMessage({ text: 'Please choose an image file (PNG, JPG, etc.).', isError: true });
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      setStatusMessage({ text: 'That image is too large. Please choose one under 10 MB.', isError: true });
-      return;
-    }
     try {
-      // Keep per-team logos smaller than player photos so multiple teams fit comfortably in local storage.
-      const dataUrl = await resizeImage(file, 128);
+      // Keep per-team logos small so multiple teams fit comfortably in local storage.
+      const dataUrl = await processLogoImage(file, 128);
       const teamExists = (activeProfile.teams || []).some((team) => team.id === teamId)
         || (!(activeProfile.teams || []).length && teamId === 'primary-team' && Boolean(activeProfile.teamName));
       if (!teamExists) {
@@ -543,7 +498,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <input
                       ref={logoInputRef}
                       type="file"
-                      accept="image/*"
+                      accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
                       onChange={handleLogoFile}
                       className="hidden"
                     />
@@ -822,7 +777,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         <div className="flex w-full min-w-0 flex-col gap-2 border-t border-slate-100 pt-2 dark:border-[#354050] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-1">
-                            <input id={`team-logo-${team.id}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleTeamLogoFile(e, team.id)} />
+                            <input id={`team-logo-${team.id}`} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => handleTeamLogoFile(e, team.id)} />
                             <button type="button" onClick={() => document.getElementById(`team-logo-${team.id}`)?.click()} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-600 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#354050]" title={`${team.logo ? 'Change' : 'Upload'} ${team.name} logo`}>{team.logo ? 'Change Logo' : 'Upload Logo'}</button>
                             {(teamLogoPreviews[team.id] || team.logo) && <button type="button" onClick={() => { setTeamLogoPreviews((prev) => { const next = { ...prev }; delete next[team.id]; return next; }); updatePlayerTeam(activeProfile.id, team.id, { logo: undefined }); setStatusMessage({ text: 'Team logo removed.', isError: false }); }} className="px-2 py-1 rounded-md text-[10px] font-semibold text-slate-500 hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#354050]">Remove Logo</button>}
                           </div>
