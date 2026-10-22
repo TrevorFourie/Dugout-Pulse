@@ -119,7 +119,7 @@ function retentionKeepSet(entries: Checkpoint[], now = new Date()): Set<string> 
   for (const entry of valid) {
     const reason = (entry.protectionReason || entry.reason || '').toLowerCase();
     const until = entry.protectedUntil ? Date.parse(entry.protectedUntil) : 0;
-    if (entry.pinned || /migration|schema|upgrade|version change/i.test(reason) || until > now.getTime()) add(entry);
+    if (entry.pinned || (/migration|schema|upgrade|version change/i.test(reason) && !/pre-startup state/i.test(reason)) || until > now.getTime()) add(entry);
   }
   return keep;
 }
@@ -186,8 +186,14 @@ async function writeAndVerify(path: string, content: string): Promise<void> {
 async function createCheckpointSerially(reason: string): Promise<boolean> {
   try {
     const values = captureStorage();
-    const contentHash = checksum(JSON.stringify(values));
-    const payload = JSON.stringify({ version: 1, createdAt: new Date().toISOString(), reason, values });
+    const logoFiles = await captureLogoFiles(values);
+    const logoItems: unknown = (() => { try { return JSON.parse(values['dugoutPulse.logoLibrary.v1'] || '[]'); } catch { return []; } })();
+    if (Array.isArray(logoItems) && logoItems.some((item) => item && typeof item === 'object' &&
+      typeof (item as { fileName?: unknown }).fileName === 'string' && !logoFiles[(item as { fileName: string }).fileName])) {
+      throw new Error('A referenced custom logo is missing; refusing to create an incomplete recovery checkpoint.');
+    }
+    const contentHash = checksum(JSON.stringify({ values, logoFiles }));
+    const payload = JSON.stringify({ version: 1, createdAt: new Date().toISOString(), reason, values, logoFiles });
     const index = await readIndex();
     const newest = [...index.checkpoints].reverse().find((entry) => entry.status !== 'failed');
     if (newest?.contentHash === contentHash) {
@@ -211,9 +217,14 @@ async function createCheckpointSerially(reason: string): Promise<boolean> {
         protectedUntil: new Date(Date.now() + PRE_RECOVERY_PROTECTION_DAYS * 86400000).toISOString(),
         protectionReason: reason,
       } : {}),
-      ...(/migration|schema|upgrade|version change/i.test(reason) ? { protectionReason: reason } : {}),
+      ...(/migration|schema|upgrade|version change/i.test(reason) && !/pre-startup state/i.test(reason) ? { protectionReason: reason } : {}),
     };
-    const nextAll = [...index.checkpoints, checkpoint];
+    const verifiedExisting: Checkpoint[] = [];
+    for (const entry of index.checkpoints) {
+      try { await readVerifiedCheckpoint(entry); verifiedExisting.push({ ...entry, status: 'verified' }); }
+      catch { verifiedExisting.push({ ...entry, status: 'failed' }); }
+    }
+    const nextAll = [...verifiedExisting, checkpoint];
     const keep = retentionKeepSet(nextAll);
     const next: RecoveryIndex = { version: 1, checkpoints: nextAll.filter((entry) => keep.has(entry.id)) };
     await writeIndexSafely(next);
@@ -254,7 +265,7 @@ export async function getRecoveryJournalStatus(): Promise<{ available: boolean; 
     try {
       const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
       const raw = result.data as string;
-      if (raw.length === entry.byteLength && checksum(raw) === entry.checksum && validateRecoveryValues((JSON.parse(raw) as RecoveryPayload).values)) {
+      if (raw.length === entry.byteLength && checksum(raw) === entry.checksum && validateCheckpointPayload(JSON.parse(raw))) {
         return { available: true, count: index.checkpoints.length, latest: entry.createdAt };
       }
     } catch {
@@ -275,7 +286,46 @@ export type RecoveryCheckpointSummary = {
   protectionReason?: string;
 };
 
-type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string> };
+type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string>; logoFiles?: Record<string, string> };
+
+async function captureLogoFiles(values: Record<string, string>): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+  let items: unknown;
+  try { items = JSON.parse(values['dugoutPulse.logoLibrary.v1'] || '[]'); } catch { return files; }
+  if (!Array.isArray(items)) return files;
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || typeof (item as { fileName?: unknown }).fileName !== 'string') continue;
+    const fileName = (item as { fileName: string }).fileName;
+    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..')) continue;
+    try {
+      const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data, encoding: 'base64' });
+      if (typeof result.data === 'string' && result.data.length) files[fileName] = result.data;
+    } catch {
+      // Missing logo bytes are not silently represented as recoverable; the checkpoint
+      // is still useful for non-logo data, but validation below will report the missing file.
+    }
+  }
+  return files;
+}
+
+function validateCheckpointPayload(value: unknown): value is RecoveryPayload {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as Partial<RecoveryPayload>;
+  if (payload.version !== 1 || typeof payload.createdAt !== 'string' || typeof payload.reason !== 'string' ||
+      !validateRecoveryValues(payload.values)) return false;
+  if (payload.logoFiles !== undefined && (!payload.logoFiles || typeof payload.logoFiles !== 'object' || Array.isArray(payload.logoFiles) ||
+      !Object.entries(payload.logoFiles).every(([name, bytes]) => /^[a-zA-Z0-9_.-]+$/.test(name) && !name.includes('..') && typeof bytes === 'string'))) return false;
+  return true;
+}
+
+async function writeLogoFiles(files: Record<string, string>): Promise<void> {
+  if (Object.keys(files).length) await Filesystem.mkdir({ path: 'team-logos', directory: Directory.Data, recursive: true }).catch(() => undefined);
+  for (const [fileName, base64] of Object.entries(files)) {
+    await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, encoding: 'base64', recursive: true });
+    const verify = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data, encoding: 'base64' });
+    if (verify.data !== base64) throw new Error('Custom logo verification failed during recovery.');
+  }
+}
 
 function validateRecoveryValues(values: unknown): values is Record<string, string> {
   if (!values || typeof values !== 'object' || Array.isArray(values) ||
@@ -311,10 +361,18 @@ async function readVerifiedCheckpoint(entry: Checkpoint): Promise<RecoveryPayloa
   if (raw.length !== entry.byteLength || checksum(raw) !== entry.checksum) throw new Error('Checkpoint integrity check failed.');
   const parsed: unknown = JSON.parse(raw);
   if (!parsed || typeof parsed !== 'object') throw new Error('Checkpoint payload is invalid.');
-  const payload = parsed as Partial<RecoveryPayload>;
-  if (payload.version !== 1 || typeof payload.createdAt !== 'string' || typeof payload.reason !== 'string' ||
-      !validateRecoveryValues(payload.values)) throw new Error('Checkpoint data failed validation.');
-  return payload as RecoveryPayload;
+  if (!validateCheckpointPayload(parsed)) throw new Error('Checkpoint data failed validation.');
+  const payload = parsed as RecoveryPayload;
+  const requiredLogos = (() => {
+    try { const items: unknown = JSON.parse(payload.values['dugoutPulse.logoLibrary.v1'] || '[]'); return Array.isArray(items) ? items : []; }
+    catch { return []; }
+  })();
+  for (const item of requiredLogos) {
+    if (!item || typeof item !== 'object' || typeof (item as { fileName?: unknown }).fileName !== 'string') continue;
+    const fileName = (item as { fileName: string }).fileName;
+    if (!payload.logoFiles?.[fileName]) throw new Error('Checkpoint is missing a required custom logo file.');
+  }
+  return payload;
 }
 
 function storageCounts(values: Record<string, string>) {
@@ -369,7 +427,9 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
       if (value !== null) before[key] = value;
     }
     const preserved = new Set(EXCLUDED_KEYS);
+    const beforeLogoFiles = await captureLogoFiles(before);
     try {
+      await writeLogoFiles(payload.logoFiles || {});
       for (let i = localStorage.length - 1; i >= 0; i -= 1) {
         const key = localStorage.key(i);
         if (key && !preserved.has(key) && !(key in payload.values)) localStorage.removeItem(key);
@@ -394,6 +454,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
     } catch (restoreError) {
       // Best-effort rollback. The pre-restore checkpoint remains in the journal even if rollback fails.
       try {
+        await writeLogoFiles(beforeLogoFiles);
         for (let i = localStorage.length - 1; i >= 0; i -= 1) {
           const key = localStorage.key(i);
           if (key && !preserved.has(key) && !(key in before)) localStorage.removeItem(key);
