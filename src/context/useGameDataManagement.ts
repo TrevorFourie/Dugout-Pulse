@@ -172,7 +172,9 @@ export function useGameDataManagement({
       if (trimmedSeason) saveSeason(trimmedSeason);
 
       try {
-        localStorage.setItem(STORAGE_KEYS.SETUP_COMPLETED, 'true');
+        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
+          throw new Error('Could not protect storage before saving setup completion');
+        }
       } catch (err) {
         console.error('Failed to save setup completed flag:', err);
       }
