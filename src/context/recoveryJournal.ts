@@ -449,6 +449,11 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
     const payload = await readVerifiedCheckpoint(entry);
     if (!validateRecoveryValues(payload.values)) return { success: false, message: 'The checkpoint contains data that failed validation.' };
 
+    // Protect the user-selected source checkpoint from pruning while the pre-recovery
+    // checkpoint is being written. Keep it pinned so rollback remains possible.
+    if (!(await setRecoveryCheckpointPinned(id, true))) {
+      return { success: false, message: 'The selected checkpoint could not be protected. Nothing was restored.' };
+    }
     if (!(await createVerifiedRecoveryCheckpoint('Before restoring checkpoint ' + id))) {
       return { success: false, message: 'The current state could not be safely checkpointed. Nothing was restored.' };
     }
