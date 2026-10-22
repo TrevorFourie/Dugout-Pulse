@@ -7,7 +7,6 @@ import {
   DEFAULT_TOURNAMENTS,
   STORAGE_KEYS,
 } from './gameContextDefaults';
-import { protectedStorageSetItem } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -55,7 +54,6 @@ export function useGamePresets({
   setHiddenSeasons,
   triggerHaptic,
   storageWritesBlocked,
-  onStorageProtectionFailure,
 }: GamePresetsOptions) {
   // Helpers for removing / restoring built-in defaults
   const without = (list: string[], name: string) => {
@@ -103,13 +101,7 @@ export function useGamePresets({
       setLiveGame((prev) => {
         if (!prev) return prev;
         const next = renameInGame(prev);
-        if (next !== prev) {
-          try {
-            if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(next))) onStorageProtectionFailure();
-          } catch (storageError) {
-            console.error('Failed to persist live game locally:', storageError);
-          }
-        }
+        // useGamePersistence checkpoints and verifies before persisting live-game changes.
         return next;
       });
       setProfiles((prev) =>
@@ -138,7 +130,7 @@ export function useGamePresets({
       triggerHaptic();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [triggerHaptic, storageWritesBlocked, onStorageProtectionFailure]
+    [triggerHaptic, storageWritesBlocked]
   );
 
   // Values still used by saved games or the active player's teams (these can't be removed)
