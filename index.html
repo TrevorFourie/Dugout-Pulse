@@ -67,9 +67,9 @@
           errorKind.textContent = '';
           errorKind.style.cssText = 'font-size:12px;line-height:1.5;color:#9ca3af;margin:0 0 8px;';
           var message = document.createElement('p');
-          message.textContent = latest && latest.errorMessage
-            ? latest.errorMessage
-            : 'Dugout Pulse could not finish starting. Use the diagnostic report below to view the technical details, then restart the app.';
+          // Keep the on-screen failure message user-friendly. Raw compiler/runtime
+          // details belong in the opt-in diagnostic report, not the primary error text.
+          message.textContent = 'Dugout Pulse could not finish starting. Your saved data has not been intentionally deleted. Show the diagnostic report for technical details, then restart the app.';
           message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:#fca5a5;margin:0 0 12px;';
           var source = document.createElement('p');
           source.textContent = latest && Array.isArray(latest.frames) && latest.frames.length
@@ -147,12 +147,17 @@
             if (!detailText) detailText = detailRoot.innerText || detailRoot.textContent || '';
             if (!detailText) return null;
 
+            // OXC/Vite often puts the useful parser explanation on a later line
+            // than the generic "Transform failed" wrapper. Prefer that root cause.
+            var parserMatch = detailText.match(/\[PARSE_ERROR\]\s*([^\r\n]+)/i) ||
+              detailText.match(/(\bawait\b.{0,120}\bonly allowed within async functions\b[^\r\n]*)/i) ||
+              detailText.match(/(Expected\s+.{1,100}?\s+but\s+found\s+.{1,100}?)(?:\r?\n|$)/i) ||
+              detailText.match(/(Unexpected\s+(?:token|character|end of input).{0,140})/i);
             var messageNode = detailRoot.querySelector('.message-body, .message');
-            var message = messageNode ? (messageNode.innerText || messageNode.textContent || '').trim().split(/\r?\n/)[0] : '';
-            if (!message) {
-              var expected = detailText.match(/\b(Expected\s+.{1,100}?\s+but\s+found\s+.{1,100}?)(?:\n|$)/i);
-              var unexpected = detailText.match(/\b(Unexpected\s+(?:token|character|end of input).{0,140})/i);
-              message = (expected && expected[1]) || (unexpected && unexpected[1]) || 'Vite failed to transform a source module';
+            var message = parserMatch && parserMatch[1] ? parserMatch[1].trim() :
+              (messageNode ? (messageNode.innerText || messageNode.textContent || '').trim().split(/\r?\n/)[0] : '');
+            if (!message || /Transform failed with \d+ error/i.test(message)) {
+              message = 'Vite failed to transform a source module';
             }
             // Vite/OXC versions report locations in different formats: file:line:column
             // or "in src/file.tsx at startOffset..endOffset". Preserve either form.
