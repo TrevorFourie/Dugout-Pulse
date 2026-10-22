@@ -5,6 +5,7 @@ interface PitchingModePanelProps {
   isBenched: boolean;
   pitchLimit: number;
   pitches: number;
+  pitcherPitches: number;
   pitchProgressPct: number;
   restDaysRequired: number;
   pitchingState: string;
@@ -12,7 +13,7 @@ interface PitchingModePanelProps {
 }
 
 export const PitchingModePanel: React.FC<PitchingModePanelProps> = ({
-  isBenched, pitchLimit, pitches, pitchProgressPct, restDaysRequired, pitchingState, onNextBatter,
+  isBenched, pitchLimit, pitches, pitcherPitches, pitchProgressPct, restDaysRequired, pitchingState, onNextBatter,
 }) => {
   if (isBenched) return null;
   return (
@@ -24,8 +25,8 @@ export const PitchingModePanel: React.FC<PitchingModePanelProps> = ({
         </div>
         <span className="text-[13px] font-semibold text-slate-300 flex items-center">
           Limit: {pitchLimit} pitches · Rest: <span className="text-slate-300 font-semibold">{restDaysRequired === 0 ? '0 Days' : `${restDaysRequired} Day(s)`}</span>
-          {pitches >= pitchLimit && (
-            <span className="flex items-center p-1"> · <span className="text-[#FF5252] px-1">[LIMIT REACHED - <span className="font-display text-[16px] leading-none font-semibold tabular-nums">{pitches}</span>/ {pitchLimit}]</span></span>
+          {pitcherPitches >= pitchLimit && (
+            <span className="flex items-center p-1"> · <span className="text-[#FF5252] px-1">[LIMIT REACHED - <span className="font-display text-[16px] leading-none font-semibold tabular-nums">{pitcherPitches}</span>/ {pitchLimit}]</span></span>
           )}
         </span>
       </div>
