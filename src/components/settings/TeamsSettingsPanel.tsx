@@ -5,10 +5,11 @@ import { processLogoImage } from '../../utils/logoImage';
 import { ValueCombobox } from '../ValueCombobox';
 
 interface TeamsSettingsPanelProps {
+  isActive: boolean;
   onStatusMessage: (message: { text: string; isError: boolean }) => void;
 }
 
-export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ onStatusMessage }) => {
+export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive, onStatusMessage }) => {
   const { activeProfile, addPlayerTeam, updatePlayerTeam, deletePlayerTeam, setDefaultPlayerTeam, allAgeGroups, allSeasons, allTournaments } = useGame();
   // Teams management state
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -48,6 +49,8 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ onStatus
       onStatusMessage({ text: err instanceof Error ? err.message : 'Could not use that image.', isError: true });
     }
   };
+
+  if (!isActive) return null;
 
   return (
               <div className="space-y-6">
