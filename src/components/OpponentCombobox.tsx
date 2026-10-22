@@ -125,7 +125,8 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           onBlur={(event) => {
             // Keep focus changes inside the menu (option/add buttons) from clearing the search.
             // Leaving the whole control resets unselected text; no timer or deferred work is needed.
-            if (!containerRef.current?.contains(event.relatedTarget as Node | null)) {
+            const nextTarget = event.relatedTarget;
+            if (!(nextTarget instanceof Node) || !containerRef.current?.contains(nextTarget)) {
               setIsOpen(false);
               setQuery(value);
             }
