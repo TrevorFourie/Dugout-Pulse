@@ -1,7 +1,8 @@
 import React from 'react';
 import { AlertTriangle, Zap } from 'lucide-react';
 import { ThemedDropdown } from '../ThemedDropdown';
-import { LINEUP_SPOTS, type PlayMode } from '../../types/baseball';
+import { LINEUP_SPOTS, type PlayMode, type DefensivePosition } from '../../types/baseball';
+import { DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS } from './scoreTabConstants';
 import type { MultiOutPlayAction } from './scoreTabConstants';
 
 type PendingPositionChange = { inning: number; from: string; to: string };
@@ -9,12 +10,12 @@ type FieldingChain = { endsHalfInning: boolean; playType: 'doublePlay' | 'triple
 
 interface ScoreWorkflowModalsProps {
   lineupSpotPromptOpen: boolean;
-  currentInningLineupSpot: number;
+  currentInningLineupSpot: number | undefined;
   setLineupSpot: (spot: number) => void;
   setLineupSpotPromptOpen: (open: boolean) => void;
   pendingPositionChange: PendingPositionChange | null;
   playerName: string;
-  changeInningPosition: (inning: number, position: string, action: 'record' | 'correct') => void;
+  changeInningPosition: (inning: number, position: DefensivePosition, action: 'record' | 'correct') => void;
   setActiveMode: (mode: PlayMode) => void;
   setPendingPositionChange: (value: null) => void;
   fieldingChain: FieldingChain;

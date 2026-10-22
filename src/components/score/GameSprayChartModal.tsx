@@ -49,7 +49,7 @@ export const GameSprayChartModal: React.FC<GameSprayChartModalProps> = ({ isOpen
               <div className="p-3 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/60 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setIsGameSprayModalOpen(false)}
+                  onClick={() => onClose()}
                   className="px-5 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-xs font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] "
                 >
                   Done
