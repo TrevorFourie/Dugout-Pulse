@@ -8,7 +8,7 @@ import { PlaysHistoryModal } from './score/PlaysHistoryModal';
 import { GameSprayChartModal } from './score/GameSprayChartModal';
 import { GameDetailsModal } from './score/GameDetailsModal';
 import { PrimaryActionBoard } from './score/PrimaryActionBoard';
-import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, PRIMARY_BATTING_CODES, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
+import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
 import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
@@ -55,18 +55,14 @@ import {
   Zap,
   Home,
   Plane,
-  Footprints,
   CircleDot,
   AlertTriangle,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { ThemedDropdown } from './ThemedDropdown';
-import { OpponentCombobox } from './OpponentCombobox';
-import { ValueCombobox } from './ValueCombobox';
 import { RunnerLockdownModal } from './RunnerLockdownModal';
 import { ScoringValidationModal } from './ScoringValidationModal';
 import { playOutCount, type ScoringResolution } from '../utils/scoringEngine';
-import { PitchingBoard } from './PitchingBoard';
 import { derivePitchingFlowState, reducePitchingAction, PitchingAction } from '../utils/pitchingFlow';
 import {
   createRunnerLifecycle,
