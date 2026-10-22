@@ -68,7 +68,7 @@ export const withTeams = (p: PlayerProfile): PlayerProfile => {
   };
 };
 
-const DEFAULT_PROFILE: PlayerProfile = {
+export const DEFAULT_PROFILE: PlayerProfile = {
   id: 'default-player',
   playerName: '',
   teamName: '',
@@ -79,7 +79,7 @@ const DEFAULT_PROFILE: PlayerProfile = {
   defaultSeason: `${currentYear} / ${currentYear + 1}`,
 };
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   inningsPerGame: 7,
   homeRunAddsRunAndRbi: true,
   darkMode: 'system',
