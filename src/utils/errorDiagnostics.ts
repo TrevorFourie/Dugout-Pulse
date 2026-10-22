@@ -270,13 +270,35 @@ export function createDiagnosticReport(reference?: string): string {
   }, null, 2);
 }
 
+/** Prefer a nearby parser/compile error when a dynamic-import failure is only its symptom. */
+function preferredDiagnosticReference(reference: string): string {
+  const events = readEvents();
+  const selected = events.find((event) => event.id === reference);
+  if (!selected || !/Failed to fetch dynamically imported module/i.test(selected.errorMessage || '')) {
+    return reference;
+  }
+
+  const selectedTime = Date.parse(selected.time);
+  const rootCause = events.slice().reverse().find((event) => {
+    if (
+      event.category !== 'app_startup' ||
+      event.errorType !== 'SyntaxError' ||
+      !/^Vite compile error:/i.test(event.errorMessage || '')
+    ) return false;
+    const rootTime = Date.parse(event.time);
+    return Number.isFinite(selectedTime) && Number.isFinite(rootTime) && Math.abs(selectedTime - rootTime) <= 10000;
+  });
+  return rootCause?.id || reference;
+}
+
 /** Route every user-visible failure through the single diagnostic screen in index.html. */
 export function showDiagnosticScreen(reference: string): void {
   if (typeof window === 'undefined') return;
+  const preferredReference = preferredDiagnosticReference(reference);
   const host = window as Window & {
     __dugoutPulseShowDiagnostic?: (errorReference: string) => void;
   };
-  host.__dugoutPulseShowDiagnostic?.(reference);
+  host.__dugoutPulseShowDiagnostic?.(preferredReference);
 }
 
 /** Install once at bootstrap, before React or the rest of the app is loaded. */
