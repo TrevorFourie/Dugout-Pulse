@@ -231,7 +231,13 @@ export function clearAppDataPreservingDiagnostics(): void {
   }
 }
 
-export function createDiagnosticReport(): string {
+export function createDiagnosticReport(reference?: string): string {
+  const events = readEvents();
+  // Crash screens should show only the error that triggered this boundary.
+  // Other callers can omit the reference to retain the full offline log export.
+  const reportEvents = reference
+    ? events.filter((event) => event.id === reference && event.build === getBuild())
+    : events;
   return JSON.stringify({
     reportFormat: 2,
     app: 'Dugout Pulse',
@@ -239,7 +245,7 @@ export function createDiagnosticReport(): string {
     build: getBuild(),
     platform: getPlatform(),
     privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Times are rounded to 15 minutes. Review before sharing.',
-    events: readEvents(),
+    events: reportEvents,
   }, null, 2);
 }
 
