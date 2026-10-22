@@ -147,11 +147,17 @@
               var unexpected = detailText.match(/\b(Unexpected\s+(?:token|character|end of input).{0,140})/i);
               message = (expected && expected[1]) || (unexpected && unexpected[1]) || 'Vite failed to transform a source module';
             }
+            // Vite/OXC versions report locations in different formats: file:line:column
+            // or "in src/file.tsx at startOffset..endOffset". Preserve either form.
             var location = detailText.match(/(?:src[\\/])?((?:[^/\\\s:\]]+[\\/])*[^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
-            var file = location ? location[1].split(/[\\/]/).pop() : '';
+            var offsetLocation = !location ? detailText.match(/\bin\s+((?:src[\\/])?[\w./\\-]+\.(?:tsx?|jsx?))\s+at\s+(\d+)\.\.(\d+)/i) : null;
+            var file = location ? location[1].split(/[\\/]/).pop() : (offsetLocation ? offsetLocation[1].split(/[\\/]/).pop() : '');
             var line = location ? location[2] : '';
             var column = location ? location[3] : '';
-            message = ('Vite compile error: ' + message + (file && line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
+            var locationDetail = location && file && line
+              ? file + ':' + line + (column ? ':' + column : '')
+              : (offsetLocation && file ? file + ' at characters ' + offsetLocation[2] + '-' + offsetLocation[3] : '');
+            message = ('Vite compile error: ' + message + (locationDetail ? ' (' + locationDetail + ')' : ''))
               .replace(/[\r\n\t]+/g, ' ')
               .replace(/(["'])(?:src[\\/])?(?:[^"'\\/\s]+[\\/])+([^"'\\/\s]+\.(?:tsx?|jsx?|mjs|cjs|json))\1/gi, '$1$2$1')
               .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
