@@ -1,14 +1,13 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronDown, Check, X, Shield, History, Trash2, Plus } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, Plus, Shield, X } from 'lucide-react';
+import type { OppositionTeam } from '../context/GameContext';
 
 interface OpponentComboboxProps {
   value: string;
   onChange: (value: string) => void;
-  allOpponents: string[];
-  recentOpponents?: string[];
-  onDeleteOpponent?: (name: string) => void;
+  oppositionTeams: OppositionTeam[];
+  onAddTeam: (name: string) => boolean;
   placeholder?: string;
-  required?: boolean;
   disabled?: boolean;
   className?: string;
 }
@@ -16,31 +15,36 @@ interface OpponentComboboxProps {
 export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
   value,
   onChange,
-  allOpponents,
-  recentOpponents = [],
-  onDeleteOpponent,
-  placeholder = 'e.g. Red Sox, Hawks, or type new team',
-  required = false,
+  oppositionTeams,
+  onAddTeam,
+  placeholder = 'Search opposition teams',
   disabled = false,
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(value);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close dropdown on outside click or escape
+  // Keep the visible selection in sync when the game or its opponent changes externally.
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  // Scope document listeners to the open menu and always remove them on close/unmount.
   useEffect(() => {
     if (!isOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setQuery(value);
       }
     };
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsOpen(false);
+        setQuery(value);
       }
     };
 
@@ -50,227 +54,160 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, value]);
 
-  // Filter opponents matching current typed value
-  const filteredOpponents = useMemo(() => {
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed) {
-      return allOpponents;
-    }
-    return allOpponents.filter((opp) => opp.toLowerCase().includes(trimmed));
-  }, [allOpponents, value]);
+  const filteredTeams = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    return [...oppositionTeams]
+      .filter((team) => !term || team.name.toLocaleLowerCase().includes(term))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [oppositionTeams, query]);
 
-  const hasExactMatch = useMemo(() => {
-    const trimmed = value.trim().toLowerCase();
-    return allOpponents.some((opp) => opp.trim().toLowerCase() === trimmed);
-  }, [allOpponents, value]);
+  const exactMatch = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    return term ? oppositionTeams.some((team) => team.name.trim().toLocaleLowerCase() === term) : false;
+  }, [oppositionTeams, query]);
 
-  const handleSelect = (opponentName: string) => {
-    onChange(opponentName);
+  const handleSelect = (team: OppositionTeam) => {
+    onChange(team.name);
+    setQuery(team.name);
     setIsOpen(false);
-    inputRef.current?.blur(); // don't refocus: it reopens the list and pops the keyboard
+    inputRef.current?.blur();
   };
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange('');
+  const handleAddTeam = () => {
+    const name = query.trim();
+    if (!name || exactMatch || !onAddTeam(name)) return;
+    onChange(name);
+    setQuery(name);
     setIsOpen(false);
+    inputRef.current?.blur();
+  };
+
+  const handleClear = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onChange('');
+    setQuery('');
+    setIsOpen(true);
     inputRef.current?.focus();
   };
 
-  const handleDelete = (e: React.MouseEvent, opponentName: string) => {
-    e.stopPropagation();
-    if (onDeleteOpponent) {
-      onDeleteOpponent(opponentName);
-    }
-  };
-
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      {/* Combobox Input Group */}
-      <div className="relative flex items-center">
+    <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+      <div className="relative flex min-w-0 items-center">
         <input
           ref={inputRef}
           type="text"
-          required={required}
           disabled={disabled}
           placeholder={placeholder}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            if (!isOpen) setIsOpen(true);
+          value={query}
+          autoComplete="off"
+          aria-label="Search opposition teams"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          onFocus={() => setIsOpen(true)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setIsOpen(true);
           }}
-          // Open only on a real tap/click. Programmatic focus (e.g. after picking a team)
-          // must never reopen the list.
-          onClick={() => {
-            if (allOpponents.length > 0 && !hasExactMatch) {
-              setIsOpen(true);
-            }
+          onBlur={() => {
+            // Typing is search-only: unselected text is never stored as the game's opponent.
+            window.setTimeout(() => {
+              if (!containerRef.current?.contains(document.activeElement)) {
+                setQuery(value);
+              }
+            }, 0);
           }}
-          className="w-full pl-3.5 pr-20 py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 dark:placeholder:text-[#6B7280] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:focus:ring-[#00D7BC]/30 transition-all shadow-2xs"
+          className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2.5 pl-3.5 pr-20 text-xs font-semibold text-[#18212D] shadow-2xs transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA] dark:placeholder:text-[#6B7280] dark:hover:border-[#465160] dark:focus:ring-[#00D7BC]/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
-
-        {/* Clear & Dropdown Actions */}
         <div className="absolute right-1.5 flex items-center gap-1">
           {value && !disabled && (
             <button
               type="button"
               onClick={handleClear}
-              className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-[#D1D5DB] hover:bg-slate-200/60 dark:hover:bg-[#354050] transition-colors"
-              title="Clear opponent"
-              aria-label="Clear opponent"
+              aria-label="Clear opponent selection"
+              title="Clear selection"
+              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-[#354050] dark:hover:text-[#FAFAFA]"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
-
           <button
             type="button"
             disabled={disabled}
-            onClick={() => setIsOpen((prev) => !prev)}
-            className={`p-1.5 rounded-md text-slate-500 dark:text-[#9CA3AF] hover:text-slate-800 dark:hover:text-[#FAFAFA] hover:bg-slate-200/60 dark:hover:bg-[#354050] transition-all flex items-center gap-1 ${
-              isOpen ? 'bg-slate-200/80 dark:bg-[#354050]' : ''
-            }`}
-            title="Choose from remembered opponents"
-            aria-label="Choose from remembered opponents"
+            onClick={() => {
+              if (isOpen) {
+                setIsOpen(false);
+                setQuery(value);
+              } else {
+                setIsOpen(true);
+                setQuery('');
+                inputRef.current?.focus();
+              }
+            }}
+            aria-label="Show opposition teams"
             aria-expanded={isOpen}
+            className={`flex items-center gap-1 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-[#9CA3AF] dark:hover:bg-[#354050] dark:hover:text-[#FAFAFA] ${isOpen ? 'bg-slate-100 dark:bg-[#354050]' : ''}`}
           >
-            {allOpponents.length > 0 && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-[#354050] text-slate-600 dark:text-[#D1D5DB]">
-                {allOpponents.length}
-              </span>
-            )}
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-            />
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-[#354050] dark:text-[#D1D5DB]">{oppositionTeams.length}</span>
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#252D38] shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          aria-label="Opposition teams"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[70] w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-[#354050] dark:bg-[#252D38]"
         >
-          {/* Header indicator */}
-          <div className="px-3 py-2 bg-slate-50 dark:bg-[#252D38]/80 border-b border-slate-100 dark:border-[#354050] flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
-            <span className="flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5 text-[#007A6A] dark:text-[#00D7BC]" />
-              Previous Opponents ({allOpponents.length})
-            </span>
-            <span className="text-[10px] font-normal normal-case text-slate-400">
-              Type or select
-            </span>
-          </div>
-
-          <div className="max-h-56 overflow-y-auto overscroll-contain p-1 divide-y divide-slate-100 dark:divide-[#354050]/60">
-            {/* If user typed a new team name that doesn't match any saved opponent */}
-            {value.trim() && !hasExactMatch && (
+          <div className="max-h-60 overflow-y-auto overscroll-contain p-1">
+            {query.trim() && !exactMatch && (
               <button
                 type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  inputRef.current?.focus();
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-md flex items-center gap-2 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-teal-700 dark:text-teal-400 transition-colors group"
+                onClick={handleAddTeam}
+                className="flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2.5 text-left text-xs font-semibold text-teal-700 transition-colors hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/40"
               >
-                <Plus className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-400" />
-                <span className="text-xs font-semibold truncate">
-                  Use <strong className="font-semibold underline">&quot;{value.trim()}&quot;</strong>{' '}
-                  <span className="text-[10px] opacity-75 font-normal">
-                    (will remember for future games)
-                  </span>
-                </span>
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">Add “{query.trim()}” to Opposition Teams</span>
               </button>
             )}
 
-            {/* List of remembered opponents */}
-            {filteredOpponents.length > 0 ? (
-              filteredOpponents.map((opp) => {
-                const isSelected = value.trim().toLowerCase() === opp.toLowerCase();
-
-                return (
-                  <div
-                    key={opp}
-                    onClick={() => handleSelect(opp)}
-                    className={`group w-full flex items-center justify-between gap-2 px-3 py-3.5 min-h-[48px] rounded-md cursor-pointer text-sm font-semibold transition-all ${
-                      isSelected
-                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]'
-                        : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#2D3643]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0 truncate">
-                      <Shield
-                        className={`w-3.5 h-3.5 shrink-0 ${
-                          isSelected ? 'text-blue-400' : 'text-slate-400 group-hover:text-[#18212D] dark:group-hover:text-[#FAFAFA]'
-                        }`}
-                      />
-                      <span className="truncate">{opp}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isSelected && <Check className="w-5 h-5 text-[#007A6A] dark:text-[#00D7BC] shrink-0" />}
-
-                      {onDeleteOpponent && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(e, opp)}
-                          title={`Remove "${opp}" from remembered opponents`}
-                          className={`p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity ${
-                            isSelected
-                              ? 'text-slate-300 hover:text-white hover:bg-white/10'
-                              : 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-[#FF5252]/15'
-                          }`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="p-4 text-center text-xs text-slate-500 dark:text-[#9CA3AF]">
-                {allOpponents.length === 0 ? (
-                  <span>No saved opponents yet. Type a team name and it will be remembered!</span>
-                ) : (
-                  <span>
-                    No saved opponents match &ldquo;{value}&rdquo;. Click outside to use this name.
+            {filteredTeams.map((team) => {
+              const selected = team.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase();
+              return (
+                <button
+                  key={team.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => handleSelect(team)}
+                  className={`flex w-full min-w-0 items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
+                    selected
+                      ? 'bg-[#00BFA5] text-[#18212D] dark:bg-[#00D7BC] dark:text-[#101419]'
+                      : 'text-slate-700 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#2D3643]'
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    {team.logo ? (
+                      <img src={team.logo} alt="" className="h-6 w-6 shrink-0 rounded-sm bg-white object-contain" />
+                    ) : (
+                      <Shield className="h-4 w-4 shrink-0 text-slate-400 dark:text-[#9CA3AF]" />
+                    )}
+                    <span className="truncate">{team.name}</span>
                   </span>
-                )}
-              </div>
+                  {selected && <Check className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />}
+                </button>
+              );
+            })}
+
+            {filteredTeams.length === 0 && !query.trim() && (
+              <p className="px-3 py-4 text-center text-xs text-slate-500 dark:text-[#9CA3AF]">No opposition teams have been added yet.</p>
+            )}
+            {filteredTeams.length === 0 && query.trim() && exactMatch === false && (
+              <p className="px-3 py-3 text-center text-[11px] text-slate-500 dark:text-[#9CA3AF]">No matching team. Use the action above to add it to Opposition Teams.</p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Quick Pick Chips for Recent Opponents (1-Tap Selection) */}
-      {recentOpponents.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 animate-in fade-in duration-150">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] flex items-center gap-1 mr-0.5">
-            <History className="w-3 h-3 text-[#007A6A] dark:text-[#00D7BC]" />
-            Recent:
-          </span>
-          {recentOpponents.map((recent) => {
-            const isSelected = value.trim().toLowerCase() === recent.toLowerCase();
-
-            return (
-              <button
-                key={recent}
-                type="button"
-                onClick={() => handleSelect(recent)}
-                className={`text-xs px-2.5 py-1 rounded-md font-semibold border transition-all active:scale-95 ${
-                  isSelected
-                    ? 'bg-[#00BFA5] dark:bg-[#00D7BC] border-[#00BFA5] dark:border-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
-                    : 'bg-white dark:bg-[#252D38]/80 border-slate-200 dark:border-[#354050] text-slate-700 dark:text-[#D1D5DB] hover:border-slate-400 dark:hover:border-[#465160] hover:bg-slate-50 dark:hover:bg-[#252D38]'
-                }`}
-              >
-                {recent}
-              </button>
-            );
-          })}
         </div>
       )}
     </div>
