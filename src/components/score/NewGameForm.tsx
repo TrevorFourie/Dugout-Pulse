@@ -15,7 +15,7 @@ interface NewGameFormProps {
 
 export const NewGameForm: React.FC<NewGameFormProps> = ({ startGameDate, onStartGameDateChange }) => {
   const {
-    activeProfile, oppositionTeams, addOppositionTeam, allTournaments, saveTournament,
+    activeProfile, liveGame, oppositionTeams, addOppositionTeam, allTournaments, saveTournament,
     allAgeGroups, saveAgeGroup, deleteAgeGroup, allSeasons, saveSeason, deleteSeason,
     addPlayerTeam, startLiveGame,
   } = useGame();
