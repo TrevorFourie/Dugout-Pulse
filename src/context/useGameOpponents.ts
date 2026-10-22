@@ -25,7 +25,6 @@ export function useGameOpponents({
   savedOpponents,
   setSavedOpponents,
   storageWritesBlocked,
-  onStorageProtectionFailure,
 }: GameOpponentOptions) {
   // Opposition Teams are the canonical list used by scoring and Settings.
   const addOppositionTeam = useCallback((name: string): boolean => {
@@ -41,7 +40,7 @@ export function useGameOpponents({
     // Persistence effect checkpoints and verifies before writing this updated list.
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
+  }, [oppositionTeams, storageWritesBlocked]);
 
   const updateOppositionTeam = useCallback((teamId: string, updates: Partial<Pick<OppositionTeam, 'name' | 'logo'>>): boolean => {
     if (storageWritesBlocked) return false;
