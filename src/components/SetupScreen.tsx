@@ -8,18 +8,6 @@ import { SetupSeasonStep } from './setup/SetupSeasonStep';
 import { SetupTournamentStep } from './setup/SetupTournamentStep';
 import { SetupTeamStep } from './setup/SetupTeamStep';
 import { currentYear } from './setupScreenConstants';
-import {
-  Users,
-  Calendar,
-  Trophy,
-  Shield,
-  ArrowRight,
-  ArrowLeft,
-  Check,
-  Sparkles,
-  Link,
-  ChevronRight,
-} from 'lucide-react';
 
 interface SetupScreenProps {
   onComplete?: () => void;
