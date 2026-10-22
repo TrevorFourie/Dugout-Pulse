@@ -84,7 +84,7 @@
             } catch (_) {}
             var time = new Date(Math.round(Date.now() / 900000) * 900000).toISOString();
             var event = {
-              id: 'DP-' + Math.random().toString(36).slice(2, 8).toUpperCase().replace(/[^A-Z0-9]/g, 'X').padEnd(6, 'X').slice(0, 6),
+              id: 'DP-' + Array.from({ length: 6 }, function () { return 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]; }).join(''),
               time: time,
               category: 'app_startup',
               errorType: 'SyntaxError',
