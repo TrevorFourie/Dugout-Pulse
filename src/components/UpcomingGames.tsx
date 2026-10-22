@@ -119,11 +119,11 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   }, [restoreFailed]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || restoreFailed) return;
     void syncGameReminders(games, settings.gameRemindersEnabled === true).catch(() => {
       setMessage('Could not update game reminders. Check notification permissions in Android settings.');
     });
-  }, [games, settings.gameRemindersEnabled, isLoading]);
+  }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed]);
 
   const sortedGames = useMemo(
     () => [...games].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')),
