@@ -2,27 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useGame, type OppositionTeam } from '../context/GameContext';
 import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 import teamIcon from '../assets/TeamIcon.png';
-
-const resizeImage = (file: File, maxSize = 256): Promise<string> => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onerror = () => reject(new Error('Could not read this image.'));
-  reader.onload = () => {
-    const image = new Image();
-    image.onerror = () => reject(new Error('This is not a valid image.'));
-    image.onload = () => {
-      const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || maxSize, image.naturalHeight || maxSize));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round((image.naturalWidth || maxSize) * scale));
-      canvas.height = Math.max(1, Math.round((image.naturalHeight || maxSize) * scale));
-      const context = canvas.getContext('2d');
-      if (!context) { reject(new Error('Image processing is not supported here.')); return; }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    image.src = reader.result as string;
-  };
-  reader.readAsDataURL(file);
-});
+import { processLogoImage } from '../utils/logoImage';
 
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
@@ -48,10 +28,8 @@ export const OppositionTeamsSettings: React.FC = () => {
 
   const uploadLogo = async (teamId: string, file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { setError('Choose an image file such as PNG or JPG.'); return; }
-    if (file.size > 10 * 1024 * 1024) { setError('Please choose an image smaller than 10 MB.'); return; }
     try {
-      const logo = await resizeImage(file);
+      const logo = await processLogoImage(file);
       if (!updateOppositionTeam(teamId, { logo })) {
         setError('Could not update this team logo.');
       } else {
@@ -133,7 +111,7 @@ export const OppositionTeamsSettings: React.FC = () => {
                   <button type="button" onClick={() => { setEditingId(team.id); setEditName(team.name); }} aria-label={`Rename ${team.name}`} title="Rename team" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-4 w-4" /></button>
                   <label className="cursor-pointer rounded-lg p-2 text-[#007A6A] hover:bg-slate-100 dark:text-[#00D7BC] dark:hover:bg-[#354050]" title={team.logo ? 'Change logo' : 'Upload logo'}>
                     <ImagePlus className="h-4 w-4" />
-                    <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
+                    <input ref={(element) => { inputRefs.current[team.id] = element; }} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void uploadLogo(team.id, file); }} />
                   </label>
                   {team.logo && <button type="button" onClick={() => removeLogo(team.id)} aria-label={`Remove ${team.name} logo`} title="Remove logo" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><X className="h-4 w-4" /></button>}
                   <button type="button" onClick={() => removeTeam(team.id)} aria-label={`Delete ${team.name}`} title="Delete opposition team" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-4 w-4" /></button>
