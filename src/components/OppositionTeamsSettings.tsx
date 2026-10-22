@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { useGame, type OppositionTeam } from '../context/GameContext';
 import { ImagePlus, Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 
 const resizeImage = (file: File, maxSize = 256): Promise<string> => new Promise((resolve, reject) => {
