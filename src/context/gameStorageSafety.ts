@@ -24,7 +24,7 @@ export function snapshotBeforeGameWrite(): boolean {
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (!key || key === RECOVERY_STORAGE_KEY) continue;
+      if (!key || key === RECOVERY_STORAGE_KEY || key === 'dugoutPulse.beforeRecovery.v1') continue;
       const value = localStorage.getItem(key);
       if (value !== null) values[key] = value;
     }
@@ -84,7 +84,7 @@ export function hasOrphanedGameReferences(): boolean {
     const gameIdPattern = /game_\\d+_[a-z0-9]+/i;
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (!key || key === RECOVERY_STORAGE_KEY || key === 'dugoutPulse.diagnostics.v1') continue;
+      if (!key || key === RECOVERY_STORAGE_KEY || key === 'dugoutPulse.beforeRecovery.v1' || key === 'dugoutPulse.diagnostics.v1') continue;
       if (
         key === STORAGE_KEYS.GAMES ||
         key === STORAGE_KEYS.LIVE_GAME ||
