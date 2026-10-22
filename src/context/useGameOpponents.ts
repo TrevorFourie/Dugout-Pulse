@@ -79,13 +79,16 @@ export function useGameOpponents({
     const next = oppositionTeams.filter((team) => team.id !== teamId);
     if (next.length === oppositionTeams.length) return false;
     try {
-      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
+        onStorageProtectionFailure();
+        return false;
+      }
     } catch {
       return false;
     }
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams]);
+  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
 
   // Legacy remembered-opponent helpers remain available for old data, but scoring no longer writes to this list.
   // Opponent management helpers
