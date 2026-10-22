@@ -2841,19 +2841,16 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">
               Choose the player&apos;s spot before recording a batting play.
             </p>
-            <select
-              autoFocus
-              value={currentInningLineupSpot ?? ''}
-              onChange={(e) => setLineupSpot(e.target.value ? Number(e.target.value) : undefined)}
-              className="mt-5 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-900 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA]"
-            >
-              <option value="">Select lineup spot</option>
-              {LINEUP_SPOTS.map((s) => (
-                <option key={s.spot} value={s.spot}>
-                  #{s.spot} · {s.label}
-                </option>
-              ))}
-            </select>
+            <ThemedDropdown<number>
+              value={currentInningLineupSpot}
+              onChange={setLineupSpot}
+              options={LINEUP_SPOTS.map((s) => ({ value: s.spot, label: `#${s.spot} · ${s.label}` }))}
+              placeholder="Select lineup spot"
+              ariaLabel="Select lineup spot"
+              allowClear={false}
+              className="mt-5 w-full"
+              buttonClassName="!py-3 !text-sm"
+            />
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -2963,22 +2960,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Batting Position (Lineup Spot)</label>
-                <select
-                  value={liveGame.lineupSpot ?? ''}
-                  onChange={(e) => {
-                    const spot = e.target.value ? Number(e.target.value) : undefined;
+                <ThemedDropdown<number>
+                  value={liveGame.lineupSpot}
+                  onChange={(spot) => {
                     updateLiveGameDetails({ lineupSpot: spot });
                     setLineupSpot(spot);
                   }}
-                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] cursor-pointer"
-                >
-                  <option value="">Not assigned</option>
-                  {LINEUP_SPOTS.map((s) => (
-                    <option key={s.spot} value={s.spot}>
-                      #{s.spot} · {s.label}
-                    </option>
-                  ))}
-                </select>
+                  options={LINEUP_SPOTS.map((s) => ({ value: s.spot, label: `#${s.spot} · ${s.label}` }))}
+                  placeholder="Not assigned"
+                  ariaLabel="Batting position (lineup spot)"
+                  allowClear={false}
+                  className="w-full"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Team Role</label>
