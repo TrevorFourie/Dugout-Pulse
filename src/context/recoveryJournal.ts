@@ -324,43 +324,77 @@ type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: 
 
 async function captureLogoFiles(values: Record<string, string>): Promise<Record<string, string>> {
   const files: Record<string, string> = {};
+  if (!('dugoutPulse.logoLibrary.v1' in values)) return files;
   let items: unknown;
-  try { items = JSON.parse(values['dugoutPulse.logoLibrary.v1'] || '[]'); } catch { return files; }
-  if (!Array.isArray(items)) return files;
+  try { items = JSON.parse(values['dugoutPulse.logoLibrary.v1']); }
+  catch { throw new Error('Custom-logo metadata is invalid; refusing to create an incomplete checkpoint.'); }
+  if (!Array.isArray(items)) throw new Error('Custom-logo metadata must be a list.');
   for (const item of items) {
-    if (!item || typeof item !== 'object' || typeof (item as { fileName?: unknown }).fileName !== 'string') continue;
+    if (!item || typeof item !== 'object' ||
+      typeof (item as { id?: unknown }).id !== 'string' ||
+      typeof (item as { fileName?: unknown }).fileName !== 'string') {
+      throw new Error('A custom-logo entry is incomplete; refusing to create an incomplete checkpoint.');
+    }
     const fileName = (item as { fileName: string }).fileName;
-    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..')) continue;
+    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..')) throw new Error('A custom-logo filename is invalid.');
     try {
-      const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data, encoding: 'base64' });
-      if (typeof result.data === 'string' && result.data.length) files[fileName] = result.data;
+      const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+      if (typeof result.data !== 'string' || !result.data.length) throw new Error('Empty file');
+      files[fileName] = result.data;
     } catch {
-      // Missing logo bytes are not silently represented as recoverable; the checkpoint
-      // is still useful for non-logo data, but validation below will report the missing file.
+      throw new Error('Custom logo "' + fileName + '" is missing or unreadable; refusing to create an incomplete checkpoint.');
     }
   }
   return files;
 }
-
 function validateCheckpointPayload(value: unknown): value is RecoveryPayload {
   if (!value || typeof value !== 'object') return false;
   const payload = value as Partial<RecoveryPayload>;
   if (payload.version !== 1 || typeof payload.createdAt !== 'string' || typeof payload.reason !== 'string' ||
       !validateRecoveryValues(payload.values)) return false;
   if (payload.logoFiles !== undefined && (!payload.logoFiles || typeof payload.logoFiles !== 'object' || Array.isArray(payload.logoFiles) ||
-      !Object.entries(payload.logoFiles).every(([name, bytes]) => /^[a-zA-Z0-9_.-]+$/.test(name) && !name.includes('..') && typeof bytes === 'string'))) return false;
+      !Object.entries(payload.logoFiles).every(([name, bytes]) => /^[a-zA-Z0-9_.-]+$/.test(name) && !name.includes('..') &&
+        typeof bytes === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(bytes)))) return false;
+  let logoItems: unknown = [];
+  try { logoItems = JSON.parse(payload.values?.['dugoutPulse.logoLibrary.v1'] || '[]'); } catch { return false; }
+  if (!Array.isArray(logoItems)) return false;
+  for (const item of logoItems) {
+    if (!item || typeof item !== 'object' || typeof (item as { id?: unknown }).id !== 'string' ||
+        typeof (item as { fileName?: unknown }).fileName !== 'string') return false;
+    const fileName = (item as { fileName: string }).fileName;
+    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..') || !payload.logoFiles?.[fileName]) return false;
+  }
   return true;
 }
 
 async function writeLogoFiles(files: Record<string, string>): Promise<void> {
-  if (Object.keys(files).length) await Filesystem.mkdir({ path: 'team-logos', directory: Directory.Data, recursive: true }).catch(() => undefined);
+  if (Object.keys(files).length) await Filesystem.mkdir({ path: 'team-logos', directory: Directory.Data, recursive: true });
   for (const [fileName, base64] of Object.entries(files)) {
-    await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, encoding: 'base64', recursive: true });
-    const verify = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data, encoding: 'base64' });
-    if (verify.data !== base64) throw new Error('Custom logo verification failed during recovery.');
+    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName.includes('..') || !base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+      throw new Error('A saved custom logo has invalid file data.');
+    }
+    // Capacitor Filesystem represents binary file contents as base64 when encoding is omitted.
+    await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, recursive: true });
+    const verify = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+    if (typeof verify.data !== 'string' || verify.data !== base64) throw new Error('Custom logo file could not be read back exactly after recovery.');
   }
 }
 
+async function verifyLogoFilesForValues(values: Record<string, string>, files: Record<string, string>): Promise<void> {
+  let items: unknown;
+  try { items = JSON.parse(values['dugoutPulse.logoLibrary.v1'] || '[]'); }
+  catch { throw new Error('The restored custom-logo metadata is invalid.'); }
+  if (!Array.isArray(items)) throw new Error('The restored custom-logo metadata is invalid.');
+  for (const item of items) {
+    if (!item || typeof item !== 'object' || typeof (item as { id?: unknown }).id !== 'string' ||
+      typeof (item as { fileName?: unknown }).fileName !== 'string') throw new Error('A restored custom-logo entry is incomplete.');
+    const fileName = (item as { fileName: string }).fileName;
+    const expected = files[fileName];
+    if (!expected) throw new Error('A required custom logo is missing from the recovery checkpoint.');
+    const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+    if (typeof result.data !== 'string' || result.data !== expected) throw new Error('A restored custom logo is missing or unreadable.');
+  }
+}
 function validateRecoveryValues(values: unknown): values is Record<string, string> {
   if (!values || typeof values !== 'object' || Array.isArray(values) ||
       !Object.values(values).every((value) => typeof value === 'string')) return false;
@@ -489,7 +523,8 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         throw new Error('Restored values failed read-back verification.');
       }
       if (!validateRecoveryValues(after)) throw new Error('Restored values failed post-write validation.');
-      return { success: true, message: 'Recovery completed and verified. The app will reload to apply the restored data.' };
+      await verifyLogoFilesForValues(after, payload.logoFiles || {});
+      return { success: true, message: 'Recovery completed and verified, including the restored custom logo files. The app will reload to apply the restored data.' };
     } catch (restoreError) {
       // Best-effort rollback. The pre-restore checkpoint remains in the journal even if rollback fails.
       try {
