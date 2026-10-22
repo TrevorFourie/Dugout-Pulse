@@ -45,7 +45,7 @@ export const PlayHistoryCard: React.FC<PlayHistoryCardProps> = ({
             {isPitching && (
               meta.pitchNumber !== null ? (
                 <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] border border-[#00BFA5] dark:border-[#00D7BC] shrink-0 tabular-nums">
-                  {inningPitchLabelMap.get(play.id) ?? `#${meta.pitchNumber}`}
+                  {inningPitchLabel ?? `#${meta.pitchNumber}`}
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-[#252D38] text-slate-500 dark:text-[#9CA3AF] border border-slate-200 dark:border-[#354050] shrink-0">
@@ -66,7 +66,7 @@ export const PlayHistoryCard: React.FC<PlayHistoryCardProps> = ({
           <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => setSelectedPlayForEdit(play)}
+              onClick={() => onEdit(play)}
               className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-[#FAFAFA] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors"
               title="Edit play"
             >
@@ -74,7 +74,7 @@ export const PlayHistoryCard: React.FC<PlayHistoryCardProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleDeletePlay(play.id)}
+              onClick={() => onDelete(play.id)}
               className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-[#00D7BC]/15 transition-colors"
               title="Delete play"
             >
@@ -114,7 +114,7 @@ export const PlayHistoryCard: React.FC<PlayHistoryCardProps> = ({
             {play.hitLocation && (
               <button
                 type="button"
-                onClick={() => setSelectedPlayForEdit(play)}
+                onClick={() => onEdit(play)}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-[#252D38]/40 border border-slate-300 dark:border-[#354050] text-xs font-semibold text-[#18212D] dark:text-[#D1D5DB] hover:bg-slate-100 transition-colors"
                 title="Click to view/edit hit location on field"
               >
@@ -129,7 +129,7 @@ export const PlayHistoryCard: React.FC<PlayHistoryCardProps> = ({
               (isHitPlay(play.code) || ['out', 'sacFly', 'sacBunt', 'groundedIntoDoublePlay'].includes(play.code)) && (
               <button
                 type="button"
-                onClick={() => setPendingHitPlay({ playId: play.id, code: play.code })}
+                onClick={() => onMapHit(play)}
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-dashed text-xs font-semibold transition-colors ${isHitPlay(play.code) ? 'border-slate-300 dark:border-[#354050] text-slate-500 hover:text-[#007A6A] dark:hover:text-[#00D7BC] hover:border-[#00BFA5]' : 'border-red-300 dark:border-red-900/70 text-red-600 dark:text-red-400 hover:border-red-500 hover:text-red-700'}`}
                 title="Map hit location"
               >
