@@ -200,7 +200,42 @@ export function restoreRecoverySnapshot(): boolean {
  */
 export function hasOrphanedGameReferences(): boolean {
   try {
-    const gamesRaw = localStorage.getItem(STORAGE_KEYS.GAMES);
+    // A missing current-schema key is not proof of a new installation. Earlier app
+    // versions stored scheduled games and other user data under dugoutPulse.* keys.
+    // If that legacy data exists, pause writes rather than persisting empty defaults.
+    const currentGamesRaw = localStorage.getItem(STORAGE_KEYS.GAMES);
+    const legacyDataKeys = [
+      'dugoutPulse.games.v1',
+      'dugoutPulse.savedGames.v1',
+      'dugoutPulse.upcomingGames.v1',
+      'dugoutPulse.profiles.v1',
+      'dugoutPulse.oppositionTeams.v1',
+    ];
+    const currentProfilesRaw = localStorage.getItem(STORAGE_KEYS.PROFILES);
+    const currentGamesAreEmpty = !currentGamesRaw || (() => {
+      try { const value: unknown = JSON.parse(currentGamesRaw); return Array.isArray(value) && value.length === 0; }
+      catch { return true; }
+    })();
+    const currentProfilesAreEmpty = !currentProfilesRaw || (() => {
+      try { const value: unknown = JSON.parse(currentProfilesRaw); return Array.isArray(value) && value.length === 0; }
+      catch { return true; }
+    })();
+    if (currentGamesAreEmpty || currentProfilesAreEmpty) {
+      for (const key of legacyDataKeys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const value: unknown = JSON.parse(raw);
+          if (Array.isArray(value) && value.length > 0) return true;
+          if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0) return true;
+        } catch {
+          // Malformed legacy data is still evidence of user state; do not overwrite it.
+          return true;
+        }
+      }
+    }
+
+    const gamesRaw = currentGamesRaw;
     if (gamesRaw) {
       const parsed: unknown = JSON.parse(gamesRaw);
       if (Array.isArray(parsed) && parsed.length > 0) return false;
