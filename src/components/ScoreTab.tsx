@@ -1876,7 +1876,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </button>
       )}
 
-<PitchingModePanel
+{activeMode === 'pitching' && <PitchingModePanel
   isBenched={isBenchedCurrentInning}
   pitchLimit={pitchLimit}
   pitches={dailyPitching.pitches}
@@ -1884,9 +1884,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   restDaysRequired={dailyPitching.restDaysRequired}
   pitchingState={playFlow.pitchingState}
   onNextBatter={playFlow.nextPitcherBatter}
-/>
+/>}
 
-<BattingModePanel
+{activeMode === 'batting' && <BattingModePanel
   isBenched={isBenchedCurrentInning}
   lineupSpot={currentInningLineupSpot}
   onLineupSpotChange={setLineupSpot}
@@ -1895,7 +1895,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   onPitcherHandChange={setPitcherHand}
   hitTapperEnabled={hitTapperEnabled}
   onHitTapperEnabledChange={setHitTapperEnabled}
-/>
+/>}
 
 {activeMode === 'fielding' && (
   <FieldingModePanel
@@ -1923,7 +1923,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       }
     }}
   />
-)}      {/* Sticky action bar (thumb zone, sits just above the bottom nav): the ONLY Undo / Plays / Save */}
+)}
+
+      {/* Sticky action bar (thumb zone, sits just above the bottom nav): the ONLY Undo / Plays / Save */}
       <div
         className="fixed inset-x-0 z-20 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050]"
         style={{ bottom: 'calc(4.2rem + env(safe-area-inset-bottom, 0px))' }}
