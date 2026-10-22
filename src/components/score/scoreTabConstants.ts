@@ -1,0 +1,81 @@
+import type { DefensivePosition, PlayCode, PlayMode, PitcherHand } from '../../types/baseball';
+import type { RunnerAdvanceCause, RunnerLifecycleState } from '../../utils/runnerLifecycle';
+
+export const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] = [
+  { code: 'P', label: 'Pitcher (P)' },
+  { code: 'C', label: 'Catcher (C)' },
+  { code: '1B', label: '1st Base (1B)' },
+  { code: '2B', label: '2nd Base (2B)' },
+  { code: '3B', label: '3rd Base (3B)' },
+  { code: 'SS', label: 'Shortstop (SS)' },
+  { code: 'LF', label: 'Left Field (LF)' },
+  { code: 'CF', label: 'Center Field (CF)' },
+  { code: 'RF', label: 'Right Field (RF)' },
+  { code: 'DH', label: 'Designated Hitter (DH)' },
+  { code: 'BENCH', label: 'Bench / Rest' },
+];
+
+export const PITCHING_TERMINAL_CODES = new Set<PlayCode>([
+  'strikeout',
+  'walkAllowed',
+  'intentionalWalkAllowed',
+  'hitBatter',
+  'hitAllowed',
+  'homeRunAllowed',
+  'pitchOut',
+]);
+
+const POSITION_NAMES: Record<string, string> = {
+  P: 'Pitcher',
+  C: 'Catcher',
+  '1B': 'First base',
+  '2B': 'Second base',
+  '3B': 'Third base',
+  SS: 'Shortstop',
+  LF: 'Left field',
+  CF: 'Center field',
+  RF: 'Right field',
+  DH: 'Designated hitter',
+  BENCH: 'Bench',
+  HOME: 'Home plate',
+};
+export const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
+
+export const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
+export const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
+export type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
+export type PersistedRunnerWorkflow = {
+  runnerSessions: Record<string, RunnerLifecycleState | null>;
+  runnerHistories: Record<string, { state: RunnerLifecycleState; playIds: string[] }[]>;
+  activeRunnerChips: Record<string, { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string }>;
+};
+export const readLocalJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? ({ ...fallback as object, ...JSON.parse(raw) } as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+export const ordinal = (n: number): string => {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] || 'th'}`;
+};
+
+export type MultiOutPlayAction = 'catch' | 'tag' | 'step' | 'throw';
+
+export const DOUBLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
+  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
+];
+
+// Keep actions general rather than naming bases or runner destinations, so this covers
+// different triple-play sequences without assuming a specific starting situation.
+export const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
+  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
+  { action: 'tag', title: 'Tagged a runner', description: 'Recorded an out by tagging a runner (Putout)' },
+  { action: 'step', title: 'Stepped on a base', description: 'Recorded an out by touching a base, including a force or appeal play (Putout)' },
+  { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
+];

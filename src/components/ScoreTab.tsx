@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
+import { GameSprayChartModal } from './score/GameSprayChartModal';
+import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS } from './score/scoreTabConstants';
+import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
   DefensivePosition,
@@ -72,29 +76,6 @@ import {
   transitionRunner,
 } from '../utils/runnerLifecycle';
 
-const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] = [
-  { code: 'P', label: 'Pitcher (P)' },
-  { code: 'C', label: 'Catcher (C)' },
-  { code: '1B', label: '1st Base (1B)' },
-  { code: '2B', label: '2nd Base (2B)' },
-  { code: '3B', label: '3rd Base (3B)' },
-  { code: 'SS', label: 'Shortstop (SS)' },
-  { code: 'LF', label: 'Left Field (LF)' },
-  { code: 'CF', label: 'Center Field (CF)' },
-  { code: 'RF', label: 'Right Field (RF)' },
-  { code: 'DH', label: 'Designated Hitter (DH)' },
-  { code: 'BENCH', label: 'Bench / Rest' },
-];
-
-const PITCHING_TERMINAL_CODES = new Set<PlayCode>([
-  'strikeout',
-  'walkAllowed',
-  'intentionalWalkAllowed',
-  'hitBatter',
-  'hitAllowed',
-  'homeRunAllowed',
-  'pitchOut',
-]);
 
 interface ScoreTabProps {
   onOpenHelp?: (mode: PlayMode) => void;
@@ -111,65 +92,12 @@ interface ScoreTabProps {
 // returns early when there is no live game and declares more hooks afterwards, so without a
 // remount, React sees a changed hook count on game start and the screen goes blank.
 // Plain-English names so the Plays list never shows position or stat abbreviations.
-const POSITION_NAMES: Record<string, string> = {
-  P: 'Pitcher',
-  C: 'Catcher',
-  '1B': 'First base',
-  '2B': 'Second base',
-  '3B': 'Third base',
-  SS: 'Shortstop',
-  LF: 'Left field',
-  CF: 'Center field',
-  RF: 'Right field',
-  DH: 'Designated hitter',
-  BENCH: 'Bench',
-  HOME: 'Home plate',
-};
-const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
-
-const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
-const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
-type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
-type PersistedRunnerWorkflow = {
-  runnerSessions: Record<string, RunnerLifecycleState | null>;
-  runnerHistories: Record<string, { state: RunnerLifecycleState; playIds: string[] }[]>;
-  activeRunnerChips: Record<string, { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string }>;
-};
-const readLocalJson = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? ({ ...fallback as object, ...JSON.parse(raw) } as T) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const ordinal = (n: number): string => {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] || 'th'}`;
-};
 
 export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
   const { liveGame } = useGame();
   return <ScoreTabInner key={liveGame ? `game-${liveGame.id}` : 'no-game'} {...props} />;
 };
 
-type MultiOutPlayAction = 'catch' | 'tag' | 'step' | 'throw';
-
-const DOUBLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
-  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
-  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
-];
-
-// Keep actions general rather than naming bases or runner destinations, so this covers
-// different triple-play sequences without assuming a specific starting situation.
-const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
-  { action: 'tag', title: 'Tagged a runner', description: 'Recorded an out by tagging a runner (Putout)' },
-  { action: 'step', title: 'Stepped on a base', description: 'Recorded an out by touching a base, including a force or appeal play (Putout)' },
-  { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
-];
 
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, onCancelResume, view = 'score', onChangeView, startGameDate, onStartGameDateChange }) => {
   const {
@@ -4001,204 +3929,24 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         </div>
       )}
 
-      {lineupSpotPromptOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lineup-spot-prompt-title"
-            className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
-          >
-            <h2 id="lineup-spot-prompt-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
-              Select batting lineup spot
-            </h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">
-              Choose the batter's position in the lineup before recording this play.
-            </p>
-            <div className="mt-4">
-              <ThemedDropdown<number>
-                value={currentInningLineupSpot}
-                onChange={(value) => {
-                  if (value === undefined) return;
-                  setLineupSpot(value);
-                  setLineupSpotPromptOpen(false);
-                }}
-                placeholder="Select batting lineup spot"
-                ariaLabel="Batting lineup spot"
-                allowClear={false}
-                className="w-full"
-                buttonClassName="h-11"
-                options={LINEUP_SPOTS.map((spot) => ({
-                  value: spot.spot,
-                  label: `#${spot.spot} · ${spot.label}`,
-                }))}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setLineupSpotPromptOpen(false)}
-              className="mt-4 w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-[#9CA3AF] dark:hover:bg-[#252D38]"
-            >
-              Cancel
-            </button>
-          </section>
-        </div>
-      )}
-
-      {pendingPositionChange && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-md bg-white dark:bg-[#1A2028] rounded-md shadow-2xl border border-slate-200 dark:border-[#354050] p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="position-change-title"
-          >
-            <div className="flex items-start gap-2">
-              <div className="p-3 rounded-md shrink-0 bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 id="position-change-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                  Change position in Inning {pendingPositionChange.inning}?
-                </h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB] leading-relaxed">
-                  {activeProfile.playerName || 'The player'} is at <strong>{pendingPositionChange.from}</strong> and you picked{' '}
-                  <strong>{pendingPositionChange.to}</strong>. How should this be recorded?
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'record');
-                  if (pendingPositionChange.to === 'P') setActiveMode('pitching');
-                  setPendingPositionChange(null);
-                }}
-                className="w-full rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] px-4 py-3 text-left text-[#18212D] dark:text-[#101419] shadow-md active:scale-[0.99] transition-all cursor-pointer"
-              >
-                <span className="block text-sm font-semibold">Switched during the inning</span>
-                <span className="block text-xs font-normal opacity-80">
-                  Keeps {pendingPositionChange.from} for plays so far and uses {pendingPositionChange.to} from now on. Both positions get the inning.
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  changeInningPosition(pendingPositionChange.inning, pendingPositionChange.to, 'correct');
-                  if (pendingPositionChange.to === 'P') setActiveMode('pitching');
-                  setPendingPositionChange(null);
-                }}
-                className="w-full rounded-md border border-slate-300 dark:border-[#354050] px-4 py-3 text-left text-slate-800 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] active:scale-[0.99] transition-all cursor-pointer"
-              >
-                <span className="block text-sm font-semibold">I picked the wrong position</span>
-                <span className="block text-xs font-normal opacity-80">
-                  Replaces {pendingPositionChange.from} with {pendingPositionChange.to} for the whole inning, including plays already recorded.
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPendingPositionChange(null)}
-                className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {fieldingChain && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-md bg-white dark:bg-[#1A2028] rounded-md shadow-2xl border border-slate-200 dark:border-[#354050] p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="multi-out-play-title"
-          >
-            <div className="flex items-start gap-2">
-              <div className="p-3 rounded-md shrink-0 bg-teal-100 text-[#00BFA5] dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">
-                <Zap className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 id="multi-out-play-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                  {fieldingChain.playType === 'triplePlay' ? 'Triple Play' : 'Double Play'}: what did {activeProfile.playerName || 'the player'} do?
-                </h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-[#D1D5DB] leading-relaxed">
-                  Select everything that applies.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-2.5">
-              {(fieldingChain.playType === 'triplePlay' ? TRIPLE_PLAY_ACTIONS : DOUBLE_PLAY_ACTIONS).map((opt) => {
-                const count = dpActions.filter((action) => action === opt.action).length;
-                return (
-                  <div
-                    key={opt.action}
-                    className={`w-full rounded-md border px-3 py-3 transition-all ${
-                      count > 0
-                        ? 'border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5]/10 dark:bg-[#00D7BC]/10'
-                        : 'border-slate-300 dark:border-[#354050]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{opt.title}</span>
-                        <span className="block text-xs text-slate-600 dark:text-[#D1D5DB]">{opt.description}</span>
-                        {count > 0 && (
-                          <span className="mt-1 block text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">
-                            Selected {count} {count === 1 ? 'time' : 'times'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => removeDpAction(opt.action)}
-                          disabled={count === 0}
-                          aria-label={`Remove one: ${opt.title}`}
-                          className="h-9 w-9 rounded-md border border-slate-300 dark:border-[#465160] text-lg font-semibold text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38] disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          −
-                        </button>
-                        <span className="w-5 text-center text-sm font-bold tabular-nums text-slate-900 dark:text-[#FAFAFA]" aria-label={`${count} selected`}>
-                          {count}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => addDpAction(opt.action)}
-                          disabled={dpActions.length >= maxMultiOutActions}
-                          aria-label={`Add one: ${opt.title}`}
-                          className="h-9 w-9 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-lg font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={handleConfirmDoublePlay}
-                disabled={dpActions.length === 0}
-                className="w-full rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] px-4 py-3 text-sm font-semibold text-[#18212D] dark:text-[#101419] shadow-md active:scale-[0.99] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                onClick={handleDismissFieldingChain}
-                className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-100 dark:hover:bg-[#252D38] transition-colors cursor-pointer"
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ScoreWorkflowModals
+        lineupSpotPromptOpen={lineupSpotPromptOpen}
+        currentInningLineupSpot={currentInningLineupSpot}
+        setLineupSpot={setLineupSpot}
+        setLineupSpotPromptOpen={setLineupSpotPromptOpen}
+        pendingPositionChange={pendingPositionChange}
+        playerName={activeProfile.playerName}
+        changeInningPosition={changeInningPosition}
+        setActiveMode={setActiveMode}
+        setPendingPositionChange={setPendingPositionChange}
+        fieldingChain={fieldingChain}
+        dpActions={dpActions}
+        removeDpAction={removeDpAction}
+        maxMultiOutActions={maxMultiOutActions}
+        addDpAction={addDpAction}
+        handleConfirmDoublePlay={handleConfirmDoublePlay}
+        handleDismissFieldingChain={handleDismissFieldingChain}
+      />
 
       <ConfirmationModal
         isOpen={isAbandonResumeModalOpen}
@@ -4608,52 +4356,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         />
       )}
 
-      {/* Live Game Spray Chart Modal */}
-      {isGameSprayModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div
-            className="w-full max-w-lg max-h-[92vh] flex flex-col bg-white dark:bg-[#1A2028] rounded-3xl shadow-2xl border border-slate-200 dark:border-[#354050] overflow-hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="game-spray-title"
-          >
-            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-[#354050] flex items-center justify-between bg-slate-50 dark:bg-[#252D38]/60">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#00BFA5] dark:bg-[#00D7BC]" />
-                <h3 id="game-spray-title" className="font-semibold text-sm text-slate-900 dark:text-[#FAFAFA]">
-                  Game Spray Chart
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsGameSprayModalOpen(false)}
-                className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-[#D1D5DB]"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto flex-1 space-y-3">
-              <SprayChart
-                plays={liveGame.plays}
-                heightClass="h-64 sm:h-72"
-                showFilters={true}
-                showStats={true}
-                showLegend={true}
-                title={`Plays in Game (${liveGame.opponent ? `vs ${liveGame.opponent}` : liveGame.date})`}
-              />
-            </div>
-            <div className="p-3 border-t border-slate-200 dark:border-[#354050] bg-slate-50 dark:bg-[#252D38]/60 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsGameSprayModalOpen(false)}
-                className="px-5 py-2 rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] text-xs font-semibold hover:bg-[#00A892] dark:hover:bg-[#00C4AB] "
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GameSprayChartModal
+        isOpen={isGameSprayModalOpen}
+        plays={liveGame.plays}
+        title={`Plays in Game (${liveGame.opponent ? `vs ${liveGame.opponent}` : liveGame.date})`}
+        onClose={() => setIsGameSprayModalOpen(false)}
+      />
 
     </div>
   );
