@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game } from '../types/baseball';
 import type { OppositionTeam } from './gameContextTypes';
+import { protectedStorageSetItem } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -12,6 +13,8 @@ interface GameOpponentOptions {
   setOppositionTeams: StateSetter<OppositionTeam[]>;
   savedOpponents: string[];
   setSavedOpponents: StateSetter<string[]>;
+  storageWritesBlocked: boolean;
+  onStorageProtectionFailure: () => void;
 }
 
 /** Owns saved opponents and the canonical opponent-team list. */
@@ -22,9 +25,12 @@ export function useGameOpponents({
   setOppositionTeams,
   savedOpponents,
   setSavedOpponents,
+  storageWritesBlocked,
+  onStorageProtectionFailure,
 }: GameOpponentOptions) {
   // Opposition Teams are the canonical list used by scoring and Settings.
   const addOppositionTeam = useCallback((name: string): boolean => {
+    if (storageWritesBlocked) return false;
     const trimmed = name.trim();
     if (!trimmed || oppositionTeams.some((team) => team.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase())) {
       return false;
@@ -34,15 +40,19 @@ export function useGameOpponents({
       ...oppositionTeams,
     ];
     try {
-      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
+        onStorageProtectionFailure();
+        return false;
+      }
     } catch {
       return false;
     }
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams]);
+  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
 
   const updateOppositionTeam = useCallback((teamId: string, updates: Partial<Pick<OppositionTeam, 'name' | 'logo'>>): boolean => {
+    if (storageWritesBlocked) return false;
     const target = oppositionTeams.find((team) => team.id === teamId);
     if (!target) return false;
     const trimmedName = updates.name?.trim();
@@ -62,6 +72,7 @@ export function useGameOpponents({
   }, [oppositionTeams]);
 
   const deleteOppositionTeam = useCallback((teamId: string): boolean => {
+    if (storageWritesBlocked) return false;
     const next = oppositionTeams.filter((team) => team.id !== teamId);
     if (next.length === oppositionTeams.length) return false;
     try {
