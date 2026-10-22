@@ -36,7 +36,7 @@ export const DiagnosticsPanel: React.FC = () => {
         <div className="flex items-start gap-2">
           <ShieldCheck className="w-5 h-5 shrink-0 text-teal-600 dark:text-[#00D7BC]" />
           <p className="text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
-            Diagnostics stay on this device. Nothing is sent automatically. The report records technical error types, app build, platform, rounded times and sanitised source locations—not game contents, player/team names, account details, full device identifiers or full file paths. Review the report before choosing to share it.
+            Diagnostics stay on this device. Nothing is sent automatically. The report records technical error types, app build, platform, rounded times and sanitised source locations—not game contents, player/team names, account details, full device identifiers or full file paths. Resetting game data keeps this log; clearing browser/app storage or uninstalling the app deletes it. Review the report before choosing to share it.
           </p>
         </div>
         <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">{events.length} recent diagnostic event{events.length === 1 ? '' : 's'} stored (maximum 40).</p>
