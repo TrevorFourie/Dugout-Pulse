@@ -57,6 +57,9 @@
           var heading = document.createElement('h1');
           heading.textContent = "Dugout Pulse couldn't start";
           heading.style.cssText = 'font-size:22px;font-weight:700;margin:0 0 10px;';
+          var errorKind = document.createElement('p');
+          errorKind.textContent = latest ? ((latest.errorType || 'Error') + ' · ' + (latest.category || 'unknown')) : 'Startup error';
+          errorKind.style.cssText = 'font-size:12px;line-height:1.5;color:#9ca3af;margin:0 0 8px;';
           var message = document.createElement('p');
           message.textContent = latest && latest.errorMessage
             ? latest.errorMessage
@@ -84,8 +87,7 @@
             report.hidden = !report.hidden;
             reportButton.textContent = report.hidden ? 'Show diagnostic report' : 'Hide diagnostic report';
             if (!report.hidden) {
-              var reportEvents = readEvents();
-              var selected = capturedEvent || reportEvents.slice(-1)[0] || null;
+              var selected = capturedEvent || null;
               report.value = JSON.stringify({
                 reportFormat: 2,
                 app: 'Dugout Pulse',
@@ -106,7 +108,7 @@
           var note = document.createElement('p');
           note.textContent = 'The report stays on this device. Nothing is sent automatically.';
           note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:#9ca3af;';
-          card.append(heading, message, source, referenceText, reportButton, restartButton, report, note);
+          card.append(heading, errorKind, message, source, referenceText, reportButton, restartButton, report, note);
           panel.append(card);
           document.body.append(panel);
         }
