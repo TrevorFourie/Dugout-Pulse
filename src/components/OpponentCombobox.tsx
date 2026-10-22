@@ -23,6 +23,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
+  const [addError, setAddError] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +73,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
   }, [oppositionTeams, query]);
 
   const handleSelect = (team: OppositionTeam) => {
+    setAddError('');
     onChange(team.name);
     setQuery(team.name);
     setIsOpen(false);
@@ -79,7 +81,12 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
 
   const handleAddTeam = () => {
     const name = query.trim();
-    if (!name || exactMatch || !onAddTeam(name)) return;
+    if (!name || exactMatch) return;
+    if (!onAddTeam(name)) {
+      setAddError('Could not add this team. It may already exist or storage may be full.');
+      return;
+    }
+    setAddError('');
     onChange(name);
     setQuery(name);
     setIsOpen(false);
@@ -109,6 +116,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           onFocus={() => setIsOpen(true)}
           onChange={(event) => {
             setQuery(event.target.value);
+            setAddError('');
             setIsOpen(true);
           }}
           onBlur={(event) => {
@@ -163,6 +171,8 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[70] w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-[#354050] dark:bg-[#252D38]"
         >
           <div className="max-h-60 overflow-y-auto overscroll-contain p-1">
+            {addError && <p role="alert" className="px-3 py-2 text-[11px] text-red-600 dark:text-[#D4626D]">{addError}</p>}
+
             {isSearching && query.trim() && !exactMatch && (
               <button
                 type="button"
