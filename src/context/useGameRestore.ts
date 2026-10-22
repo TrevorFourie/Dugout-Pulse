@@ -53,116 +53,70 @@ export function useGameRestore({
   setRestoreFailed,
 }: GameRestoreOptions): void {
   useEffect(() => {
-    try {
-      const storedGames = localStorage.getItem(STORAGE_KEYS.GAMES);
-      if (storedGames) {
-        const parsed = JSON.parse(storedGames);
-        if (Array.isArray(parsed)) {
-          if (parsed.length === 0 && hasOrphanedGameReferences()) {
-            // Other persisted state still refers to game IDs. Do not treat an
-            // empty game list as authoritative or allow defaults to be saved over it.
-            setRestoreFailed(true);
-            recordDiagnosticError(
-              'storage_load',
-              new Error('Saved games are empty but persisted game references remain; writes paused for recovery'),
-            );
-          } else {
-            setGames(sortGames(parsed, 'oldestFirst'));
-          }
-        } else {
-          throw new Error('Saved games data is not an array; storage writes paused for recovery');
+    // Restore each key independently. A malformed game record must not abort
+    // profile/settings restoration simply because it appears earlier in storage.
+    const read = <T,>(key: string, apply: (parsed: T) => void, validate: (value: unknown) => value is T) => {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return;
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!validate(parsed)) {
+          throw new Error(`Stored value has an unexpected format: ${key}`);
         }
-      } else if (hasOrphanedGameReferences()) {
+        apply(parsed);
+      } catch (error) {
         setRestoreFailed(true);
-        recordDiagnosticError(
-          'storage_load',
-          new Error('Saved games data is missing but persisted game references remain; writes paused for recovery'),
-        );
+        recordDiagnosticError('storage_load', error);
+        console.error(`Failed to restore ${key}; automatic saving is paused to protect stored data.`, error);
       }
+    };
 
-      const storedLiveGame = localStorage.getItem(STORAGE_KEYS.LIVE_GAME);
-      if (storedLiveGame) {
-        const restoredGame = JSON.parse(storedLiveGame) as Game;
-        if (restoredGame && typeof restoredGame.id === 'string') {
-          setLiveGame(restoredGame);
+    try {
+      read<unknown[]>(STORAGE_KEYS.GAMES, (parsed) => {
+        if (parsed.length === 0 && hasOrphanedGameReferences()) {
+          setRestoreFailed(true);
+          recordDiagnosticError(
+            'storage_load',
+            new Error('Saved games are empty but persisted game references remain; writes paused for recovery'),
+          );
+          return;
+        }
+        setGames(sortGames(parsed as Game[], 'oldestFirst'));
+      }, Array.isArray);
+
+      read<Game>(STORAGE_KEYS.LIVE_GAME, (game) => {
+        if (game && typeof game.id === 'string') {
+          setLiveGame(game);
           setResumePromptPending(true);
+        } else {
+          throw new Error('Stored live game has no valid ID');
         }
-      }
+      }, (value): value is Game => !!value && typeof value === 'object');
 
-      const storedEditingId = localStorage.getItem(STORAGE_KEYS.EDITING_GAME_ID);
-      if (storedEditingId) {
-        setEditingGameId(JSON.parse(storedEditingId));
-      }
-      const storedReopenedId = localStorage.getItem(STORAGE_KEYS.REOPENED_GAME_ID);
-      if (storedReopenedId) {
-        setReopenedGameId(JSON.parse(storedReopenedId));
-      }
+      read<string | null>(STORAGE_KEYS.EDITING_GAME_ID, setEditingGameId, (value): value is string | null => value === null || typeof value === 'string');
+      read<string | null>(STORAGE_KEYS.REOPENED_GAME_ID, setReopenedGameId, (value): value is string | null => value === null || typeof value === 'string');
 
-      const storedProfiles = localStorage.getItem(STORAGE_KEYS.PROFILES);
-      if (storedProfiles) {
-        const parsed = JSON.parse(storedProfiles);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setProfiles(parsed.map(withTeams));
-        }
-      }
+      read<PlayerProfile[]>(STORAGE_KEYS.PROFILES, (parsed) => {
+        if (parsed.length > 0) setProfiles(parsed.map(withTeams));
+      }, (value): value is PlayerProfile[] => Array.isArray(value) && value.every((item) => !!item && typeof item === 'object' && typeof item.id === 'string'));
 
-      const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      if (storedSettings) {
-        setSettings((prev) => ({ ...prev, ...JSON.parse(storedSettings) }));
-      }
+      read<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS, (parsed) => {
+        setSettings((prev) => ({ ...prev, ...parsed }));
+      }, (value): value is Partial<AppSettings> => !!value && typeof value === 'object' && !Array.isArray(value));
 
-      const storedOppositionTeams = localStorage.getItem('dugoutPulse.oppositionTeams.v1');
-      if (storedOppositionTeams) {
-        const parsed = JSON.parse(storedOppositionTeams);
-        if (Array.isArray(parsed)) setOppositionTeams(parsed);
-      }
-
-      const storedOpponents = localStorage.getItem(STORAGE_KEYS.SAVED_OPPONENTS);
-      if (storedOpponents) {
-        const parsed = JSON.parse(storedOpponents);
-        if (Array.isArray(parsed)) {
-          setSavedOpponents(parsed);
-        }
-      }
-
-      const storedTournaments = localStorage.getItem(STORAGE_KEYS.SAVED_TOURNAMENTS);
-      if (storedTournaments) {
-        const parsed = JSON.parse(storedTournaments);
-        if (Array.isArray(parsed)) {
-          setSavedTournaments(parsed);
-        }
-      }
-
-      const storedAgeGroups = localStorage.getItem(STORAGE_KEYS.SAVED_AGE_GROUPS);
-      if (storedAgeGroups) {
-        const parsed = JSON.parse(storedAgeGroups);
-        if (Array.isArray(parsed)) {
-          setSavedAgeGroups(parsed);
-        }
-      }
-
-      const storedSeasons = localStorage.getItem(STORAGE_KEYS.SAVED_SEASONS);
-      if (storedSeasons) {
-        const parsed = JSON.parse(storedSeasons);
-        if (Array.isArray(parsed)) {
-          setSavedSeasons(parsed);
-        }
-      }
-
-      const loadList = (key: string, setter: (v: string[]) => void) => {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) setter(parsed);
-        }
-      };
-      loadList(STORAGE_KEYS.HIDDEN_TOURNAMENTS, setHiddenTournaments);
-      loadList(STORAGE_KEYS.HIDDEN_AGE_GROUPS, setHiddenAgeGroups);
-      loadList(STORAGE_KEYS.HIDDEN_SEASONS, setHiddenSeasons);
-    } catch (err) {
+      read<OppositionTeam[]>('dugoutPulse.oppositionTeams.v1', setOppositionTeams, Array.isArray);
+      read<string[]>(STORAGE_KEYS.SAVED_OPPONENTS, setSavedOpponents, Array.isArray);
+      read<string[]>(STORAGE_KEYS.SAVED_TOURNAMENTS, setSavedTournaments, Array.isArray);
+      read<string[]>(STORAGE_KEYS.SAVED_AGE_GROUPS, setSavedAgeGroups, Array.isArray);
+      read<string[]>(STORAGE_KEYS.SAVED_SEASONS, setSavedSeasons, Array.isArray);
+      read<string[]>(STORAGE_KEYS.HIDDEN_TOURNAMENTS, setHiddenTournaments, Array.isArray);
+      read<string[]>(STORAGE_KEYS.HIDDEN_AGE_GROUPS, setHiddenAgeGroups, Array.isArray);
+      read<string[]>(STORAGE_KEYS.HIDDEN_SEASONS, setHiddenSeasons, Array.isArray);
+    } catch (error) {
+      // Storage itself can fail (for example, browser quota/security errors).
       setRestoreFailed(true);
-      recordDiagnosticError('storage_load', err);
-      console.error('Failed to load data from localStorage:', err);
+      recordDiagnosticError('storage_load', error);
+      console.error('Storage could not be inspected safely; automatic saving is paused.', error);
     } finally {
       setIsLoading(false);
     }
