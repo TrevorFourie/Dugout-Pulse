@@ -7,6 +7,7 @@ import {
   DEFAULT_TOURNAMENTS,
   STORAGE_KEYS,
 } from './gameContextDefaults';
+import { protectedStorageSetItem } from './gameStorageSafety';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -29,6 +30,8 @@ interface GamePresetsOptions {
   setHiddenAgeGroups: StateSetter<string[]>;
   setHiddenSeasons: StateSetter<string[]>;
   triggerHaptic: () => void;
+  storageWritesBlocked: boolean;
+  onStorageProtectionFailure: () => void;
 }
 
 /** Owns preset lists, rename propagation, and the derived setup lists. */
@@ -51,6 +54,8 @@ export function useGamePresets({
   setHiddenAgeGroups,
   setHiddenSeasons,
   triggerHaptic,
+  storageWritesBlocked,
+  onStorageProtectionFailure,
 }: GamePresetsOptions) {
   // Helpers for removing / restoring built-in defaults
   const without = (list: string[], name: string) => {
@@ -77,6 +82,7 @@ export function useGamePresets({
   // Rename a season / tournament / age group across the whole app, including saved games.
   const renamePreset = useCallback(
     (kind: 'tournaments' | 'ageGroups' | 'seasons', oldName: string, newName: string) => {
+      if (storageWritesBlocked) return;
       const from = oldName.trim().toLowerCase();
       const to = newName.trim();
       if (!from || !to || from === to.toLowerCase() && oldName.trim() === to) return;
@@ -99,7 +105,7 @@ export function useGamePresets({
         const next = renameInGame(prev);
         if (next !== prev) {
           try {
-            localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(next));
+            if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(next))) onStorageProtectionFailure();
           } catch (storageError) {
             console.error('Failed to persist live game locally:', storageError);
           }
@@ -132,7 +138,7 @@ export function useGamePresets({
       triggerHaptic();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [triggerHaptic]
+    [triggerHaptic, storageWritesBlocked, onStorageProtectionFailure]
   );
 
   // Values still used by saved games or the active player's teams (these can't be removed)
