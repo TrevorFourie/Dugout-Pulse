@@ -84,10 +84,9 @@ export function restoreLocalLogoReferences<T>(
         } else if (isLogoDataUrl(child)) {
           // Older backups embedded image bytes. Do not trust or import embedded images from JSON.
           missingReferences.add(logoReferenceForDataUrl(child));
-        } else if (child.startsWith('data:') || child.startsWith('http:') || child.startsWith('https:') || child.startsWith('file:')) {
+        } else if (child.trim()) {
+          // Never trust arbitrary paths, URLs, or inline content supplied by a JSON backup.
           missingReferences.add(child);
-        } else {
-          result.logo = child;
         }
       } else {
         result[key] = visit(child);
