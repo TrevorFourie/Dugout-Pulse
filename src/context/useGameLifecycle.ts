@@ -59,6 +59,7 @@ export function useGameLifecycle({
       lineupSpot?: number;
       isHome?: boolean;
     }) => {
+      if (storageWritesBlocked) return;
       const trimmedOpponent = details.opponent?.trim() || '';
       const trimmedTournament = details.tournament?.trim() || '';
       if (trimmedTournament) {
@@ -209,15 +210,17 @@ export function useGameLifecycle({
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
+    if (storageWritesBlocked) return;
     setLiveGame(null);
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [triggerHaptic]);
+  }, [triggerHaptic, storageWritesBlocked]);
 
   // Start editing a saved game
   const startEditingSavedGame = useCallback(
     (gameId: string): boolean => {
+      if (storageWritesBlocked) return false;
       if (liveGame && editingGameId !== gameId) {
         // Blocked because a different live game is in progress
         return false;
@@ -232,13 +235,13 @@ export function useGameLifecycle({
       triggerHaptic();
       return true;
     },
-    [games, liveGame, editingGameId, triggerHaptic]
+    [games, liveGame, editingGameId, triggerHaptic, storageWritesBlocked]
   );
 
   // Re-open a completed game for continued live scoring (separate from Edit Game).
   const reopenSavedGame = useCallback(
     (gameId: string): boolean => {
-      if (liveGame) return false;
+      if (storageWritesBlocked || liveGame) return false;
       const targetGame = games.find((g) => g.id === gameId);
       if (!targetGame) return false;
       const resumedGame: Game = {
@@ -252,24 +255,26 @@ export function useGameLifecycle({
       triggerHaptic();
       return true;
     },
-    [games, liveGame, triggerHaptic]
+    [games, liveGame, triggerHaptic, storageWritesBlocked]
   );
 
   // Cancel editing saved game (restores unchanged)
   const cancelEditing = useCallback(() => {
+    if (storageWritesBlocked) return;
     setLiveGame(null);
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [triggerHaptic]);
+  }, [triggerHaptic, storageWritesBlocked]);
 
   // Delete a saved game
   const deleteSavedGame = useCallback((gameId: string) => {
+    if (storageWritesBlocked) return;
     setGames((prev) => prev.filter((g) => g.id !== gameId));
     setLiveGame((prev) => (prev?.id === gameId ? null : prev));
     setEditingGameId((prev) => (prev === gameId ? null : prev));
     setReopenedGameId((prev) => (prev === gameId ? null : prev));
-  }, []);
+  }, [storageWritesBlocked]);
 
 
   return {
