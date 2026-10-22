@@ -19,6 +19,14 @@ import { checkGameNotificationPermission, syncStoredGameReminders } from './util
 import { NotificationBlockedModal } from './components/NotificationBlockedModal';
 import { StartGamePicker } from './components/StartGamePicker';
 
+const getLocalDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const MainApp: React.FC = () => {
   const { isFirstTimeUser, setIsFirstTimeUser, dismissResumePrompt, resumePromptPending, liveGame, settings, isLoading } = useGame();
 
@@ -82,6 +90,7 @@ const MainApp: React.FC = () => {
   const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>('playerDetails');
   const [isManualSetupOpen, setIsManualSetupOpen] = useState(false);
   const [isStartGamePickerOpen, setIsStartGamePickerOpen] = useState(false);
+  const [startGameDate, setStartGameDate] = useState(getLocalDate);
   const [showBlocked, setShowBlocked] = useState(false);
   const blockedDismissed = useRef(false);
 
@@ -238,6 +247,8 @@ const MainApp: React.FC = () => {
           aria-hidden={activeTab !== 'score'}
         >
           <ScoreTab
+            startGameDate={startGameDate}
+            onStartGameDateChange={setStartGameDate}
             onOpenHelp={(mode) => handleOpenHelp(mode)}
             onOpenSettings={() => handleOpenSettings()}
             onGameClosed={() => { setScoreView('score'); setActiveTab('dashboard'); }}
@@ -320,6 +331,7 @@ const MainApp: React.FC = () => {
 
       {isStartGamePickerOpen && (
         <StartGamePicker
+          gameDate={startGameDate}
           onClose={() => setIsStartGamePickerOpen(false)}
           onLoadManually={handleLoadGameManually}
           onGameSelected={() => {
