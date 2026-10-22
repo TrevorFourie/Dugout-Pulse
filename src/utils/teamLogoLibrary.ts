@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { processLogoImage } from './logoImage';
+import { protectedStorageSetItem } from '../context/gameStorageSafety';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
@@ -9,7 +10,10 @@ const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-li
 export const readTeamLogoLibrary = (): TeamLogoItem[] => {
   try { const parsed = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
 };
-const writeTeamLogoLibrary = (items: TeamLogoItem[]) => { localStorage.setItem(KEY, JSON.stringify(items)); changed(); };
+const writeTeamLogoLibrary = (items: TeamLogoItem[]): void => {
+  if (!protectedStorageSetItem(KEY, JSON.stringify(items))) throw new Error('Could not safely update the saved team logo library.');
+  changed();
+};
 const extensionForMime = (mime: string) => mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
 export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   const dataUrl = await processLogoImage(file, 512);
@@ -26,8 +30,9 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   return item;
 }
 export async function deleteTeamLogo(item: TeamLogoItem): Promise<void> {
-  try { await Filesystem.deleteFile({ path: DIR + '/' + item.fileName, directory: Directory.Data }); } catch { /* remove stale library entries too */ }
+  // Update protected metadata before deleting the file, so a failed metadata write cannot destroy a referenced image.
   writeTeamLogoLibrary(readTeamLogoLibrary().filter((entry) => entry.id !== item.id));
+  try { await Filesystem.deleteFile({ path: DIR + '/' + item.fileName, directory: Directory.Data }); } catch { /* Preserve an orphaned file rather than risk deleting referenced data. */ }
 }
 export const TEAM_LOGO_LIBRARY_EVENT = 'dugout-pulse-logo-library-changed';
 export async function migrateLegacyLogoDataUrl(dataUrl: string): Promise<string> {
