@@ -151,7 +151,7 @@ export const ValueCombobox: React.FC<ValueComboboxProps> = ({
             setIsOpen(true);
             setIsBrowsingAll(true);
           }}
-          className={`w-full py-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 placeholder:font-normal focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] transition-colors ${
+          className={`w-full py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 placeholder:font-normal focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:focus:ring-[#00D7BC]/30 transition-colors ${
             Icon ? 'pl-9.5' : 'pl-3.5'
           } ${value ? 'pr-16' : 'pr-9'}`}
         />
@@ -211,7 +211,7 @@ export const ValueCombobox: React.FC<ValueComboboxProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 mt-1.5 w-full bg-white dark:bg-[#1A2028] border border-slate-200 dark:border-[#354050] rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-[#354050]">
+        <div className="absolute z-50 mt-1.5 w-full bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-[#354050]">
           {/* Header showing item count or custom prompt */}
           <div className="px-3 py-1.5 bg-slate-50 dark:bg-[#252D38]/60 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
             <span>Choose from list ({allUniqueOptions.length})</span>
@@ -249,14 +249,14 @@ export const ValueCombobox: React.FC<ValueComboboxProps> = ({
                     key={opt}
                     className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between transition-colors group cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-[#18212D] dark:text-blue-300 font-extrabold'
-                        : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38]'
+                        ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]'
+                        : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#2D3643]'
                     }`}
                     onClick={() => handleSelect(opt)}
                   >
                     <span className="truncate flex-1">{opt}</span>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
-                      {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-[#007A6A] dark:text-[#00D7BC]" />}
                       {onDeleteOption && (
                         <button
                           type="button"

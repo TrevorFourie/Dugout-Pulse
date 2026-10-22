@@ -321,15 +321,21 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
               {!(settings.venues || []).length && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add saved venues in Settings → Venues to select them here.</span>}
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Reminder (optional)
-              <span className="relative mt-1 block">
-                <Bell className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <select value={reminderMinutes} disabled={!time} onChange={(e) => setReminderMinutes(Number(e.target.value))} className={`${inputClass} pl-8 disabled:cursor-not-allowed disabled:opacity-50`}>
-                  <option value={0}>No reminder</option>
-                  <option value={1440}>1 day before</option>
-                  <option value={120}>2 hours before</option>
-                  <option value={60}>1 hour before</option>
-                </select>
-              </span>
+              <ThemedDropdown<number>
+                value={reminderMinutes}
+                disabled={!time}
+                onChange={(next) => next !== undefined && setReminderMinutes(next)}
+                options={[
+                  { value: 0, label: 'No reminder' },
+                  { value: 1440, label: '1 day before' },
+                  { value: 120, label: '2 hours before' },
+                  { value: 60, label: '1 hour before' },
+                ]}
+                placeholder="Choose reminder"
+                ariaLabel="Game reminder"
+                allowClear={false}
+                className="mt-1 w-full"
+              />
               {!time && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a start time to schedule a reminder.</span>}
               {time && settings.gameRemindersEnabled === true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">All games are reminded by default. Use the bell on a game to opt out.</span>}
               {time && settings.gameRemindersEnabled !== true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">This game can have its own reminder even when all-game reminders are off.</span>}

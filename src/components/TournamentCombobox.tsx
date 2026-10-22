@@ -92,7 +92,7 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
               setIsOpen(true);
             }
           }}
-          className="w-full pl-3.5 pr-16 py-2.5 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 dark:placeholder:text-[#6B7280] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-slate-400 transition-all shadow-2xs"
+          className="w-full pl-3.5 pr-16 py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-xs font-semibold text-slate-900 dark:text-[#FAFAFA] placeholder:text-slate-400 dark:placeholder:text-[#6B7280] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:focus:ring-[#00D7BC]/30 transition-all shadow-2xs"
         />
 
         <div className="absolute right-1.5 flex items-center gap-1">
@@ -129,7 +129,7 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-xl animate-in fade-in zoom-in-95 duration-100"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#252D38] shadow-xl animate-in fade-in zoom-in-95 duration-100"
         >
           <div className="px-3 py-2 bg-slate-50 dark:bg-[#252D38]/80 border-b border-slate-100 dark:border-[#354050] flex items-center justify-between text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
             <span className="flex items-center gap-1.5">
@@ -148,8 +148,8 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
               onClick={() => handleSelect('')}
               className={`w-full text-left px-3 py-2.5 rounded-md flex items-center justify-between gap-2 text-xs font-semibold transition-colors ${
                 !value.trim()
-                  ? 'bg-slate-100 dark:bg-[#252D38] text-[#18212D] dark:text-[#FAFAFA]'
-                  : 'text-slate-600 dark:text-[#9CA3AF] hover:bg-slate-50 dark:hover:bg-[#252D38]'
+                  ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]'
+                  : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#2D3643]'
               }`}
             >
               <span>Regular Season / League Game (No Tournament)</span>
@@ -187,7 +187,7 @@ export const TournamentCombobox: React.FC<TournamentComboboxProps> = ({
                   className={`group w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-md cursor-pointer text-xs font-semibold transition-all ${
                     isSelected
                       ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419]'
-                      : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#252D38]'
+                      : 'text-slate-700 dark:text-[#D1D5DB] hover:bg-slate-100 dark:hover:bg-[#2D3643]'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 truncate">

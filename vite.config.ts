@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { rm } from 'node:fs/promises';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
@@ -12,6 +13,23 @@ export default defineConfig(() => {
     plugins: [
       react(),
       tailwindcss(),
+      {
+        // AI-agent guidance belongs in the repository only, never in web assets copied
+        // into Capacitor's Android APK/AAB.
+        name: 'exclude-ai-agent-instructions',
+        apply: 'build',
+        async closeBundle() {
+          const outDir = path.resolve(__dirname, 'dist');
+          for (const file of [
+            'AGENTS.md',
+            'CLAUDE.md',
+            'GEMINI.md',
+            '.github/copilot-instructions.md',
+          ]) {
+            await rm(path.join(outDir, file), { force: true, recursive: true });
+          }
+        },
+      },
       {
         // The splash-source/*.png originals are only used by the browser-only web splash
         // (skipped on native). Android's native splash is generated from the files on disk by

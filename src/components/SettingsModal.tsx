@@ -30,6 +30,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { ValueCombobox } from './ValueCombobox';
+import { ThemedDropdown } from './ThemedDropdown';
 import { LINEUP_SPOTS } from '../types/baseball';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
@@ -1693,18 +1694,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={(e) => setNewJersey(e.target.value)}
                       className="px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]"
                     />
-                    <select
-                      value={newDefaultLineupSpot ?? ''}
-                      onChange={(e) => setNewDefaultLineupSpot(e.target.value ? Number(e.target.value) : undefined)}
-                      className="px-3 py-2 rounded-md bg-white dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-xs font-medium text-slate-900 dark:text-[#FAFAFA]"
-                    >
-                      <option value="">Batting Spot (optional)</option>
-                      {LINEUP_SPOTS.map((s) => (
-                        <option key={s.spot} value={s.spot}>
-                          #{s.spot} · {s.label}
-                        </option>
-                      ))}
-                    </select>
+                    <ThemedDropdown<number>
+                      value={newDefaultLineupSpot}
+                      onChange={setNewDefaultLineupSpot}
+                      options={LINEUP_SPOTS.map((s) => ({ value: s.spot, label: `#${s.spot} · ${s.label}` }))}
+                      placeholder="Batting Spot (optional)"
+                      ariaLabel="Batting spot (optional)"
+                      allowClear={false}
+                      className="w-full"
+                    />
                   </div>
                   <div className="flex justify-end">
                     <button
