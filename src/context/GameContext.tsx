@@ -17,7 +17,7 @@ import {
 import { sortGames } from '../utils/stats';
 import type { GameContextType, OppositionTeam } from './gameContextTypes';
 export type { OppositionTeam } from './gameContextTypes';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, DEFAULT_AGE_GROUPS, DEFAULT_SEASONS, DEFAULT_TOURNAMENTS, STORAGE_KEYS, getInningsPlayed, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, getInningsPlayed, withTeams } from './gameContextDefaults';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
@@ -287,7 +287,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     allTeams,
   } = useGamePresets({
     games,
-    liveGame,
     activeProfile,
     setGames,
     setLiveGame,
