@@ -1745,7 +1745,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Export Full JSON
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
-                    Saves all games, profiles and settings to a JSON file.
+                    Saves games, profiles and settings. Custom logo images stay on this device; the JSON stores references only.
                   </div>
                 </button>
 
@@ -1766,6 +1766,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 </label>
               </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-[#9CA3AF]">
+                Dugout Pulse works offline. Custom logos are kept locally and are lost if you reset app data or uninstall the app. JSON backups contain logo references, not the images themselves; a logo can be restored only if its matching image is still available on this device.
+              </p>
             </div>
 
             {/* Danger Zone */}
@@ -1777,7 +1780,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Reset All Local Data
                   </div>
                   <div className="text-[11px] text-red-700 dark:text-[#D4626D]">
-                    Permanently deletes all saved games and history.
+                    Deletes all saved data and custom logos from this device.
                   </div>
                 </div>
                 <button
@@ -1811,7 +1814,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <ConfirmationModal
         isOpen={isResetConfirmOpen}
         title="Reset All Local Data?"
-        message="This will permanently delete all recorded games and season statistics on this device. This action cannot be undone."
+        message="This permanently deletes all recorded games, season statistics, settings, and custom logo images stored on this device. JSON backups do not contain the image files, so logos cannot be recovered from a backup after the local images are deleted. This action cannot be undone."
         confirmLabel="Yes, Reset Everything"
         variant="danger"
         onConfirm={() => {
