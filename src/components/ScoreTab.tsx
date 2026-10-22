@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
 import { GameSprayChartModal } from './score/GameSprayChartModal';
-import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS } from './score/scoreTabConstants';
+import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS, PRIMARY_BATTING_CODES, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
 import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
@@ -1703,18 +1703,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  const PRIMARY_BATTING_CODES: PlayCode[] = [
-    'single',
-    'double',
-    'triple',
-    'homeRun',
-    'walk',
-    'hbp',
-    'out',
-    'catchersInterference',
-  ];
-
-  const showInningNotice = useCallback((title: string, subtitle: string) => {
+  const showInningNotice  const showInningNotice = useCallback((title: string, subtitle: string) => {
     setInningNotice({ id: Date.now(), title, subtitle });
   }, []);
 
@@ -2054,23 +2043,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           ? 1
           : 0;
 
-      const CATCHER_FIELDING_CODES: PlayCode[] = [
-        'passedBall',
-        'catcherGloveDeadBall',
-        'caughtStealing',
-        'stealAllowed',
-        'catchersInterference',
-        'pickoff',
-        'droppedThirdStrike',
-        'defensiveIndifference',
-        'catcherObstruction',
-        'catcherObstruction2',
-        'pickoffCaughtStealing',
-        'wildPitch',
-        'balk',
-      ];
-
-      if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
+      if (currentInningPosition === 'C'      if (currentInningPosition === 'C' && CATCHER_FIELDING_CODES.includes(code)) {
         playFlow.handleCatcherEvent(code as any);
         if (code === 'catcherGloveDeadBall') advanceTrackedRunnerForAward('deadBall');
       } else {
@@ -2486,12 +2459,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     currentInning >= settings.inningsPerGame &&
     (isBenchedCurrentInning || canAdvanceToNextInning(activeMode));
 
-  const RUNNER_ON_CODES = new Set<PlayCode>([
-    'single', 'double', 'triple', 'walk', 'intentionalWalk', 'hbp', 'reachedOnError', 'fieldersChoice', 'runnerAdvance',
-  ]);
-  const NON_PRIMARY_BATTING = new Set<PlayCode>(['rbi', 'run', 'stolenBase', 'cs', 'runnerAdvance', 'runnerOut', 'leftOnBase', 'runnerHold', 'runnerInjury']);
-
-  // Re-sync the UI from the plays that remain. A primary batting play owns the plate appearance;
+  // Re-sync the UI from the plays that remain  // Re-sync the UI from the plays that remain. A primary batting play owns the plate appearance;
   // runner actions that happened after it must never prevent that batter from being reopened when
   // the primary play itself is deleted/undone.
   const syncFlowAfterRemoval = (removed: Play | undefined, remaining: Play[]) => {
