@@ -85,13 +85,37 @@ function readEvents(): DiagnosticEvent[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is DiagnosticEvent =>
-      Boolean(item && typeof item === 'object' &&
-        typeof item.id === 'string' &&
-        typeof item.time === 'string' &&
-        typeof item.category === 'string' &&
-        ['Android', 'iOS', 'Web'].includes(item.platform)),
-    ).slice(-MAX_EVENTS);
+    return parsed
+      .filter((item): item is DiagnosticEvent =>
+        Boolean(item && typeof item === 'object' &&
+          typeof item.id === 'string' &&
+          typeof item.time === 'string' &&
+          typeof item.category === 'string' &&
+          ['Android', 'iOS', 'Web'].includes(item.platform)),
+      )
+      .slice(-MAX_EVENTS)
+      // Rebuild each event from an allowlist. Never export arbitrary extra localStorage fields.
+      .map((item) => {
+        const validTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/.test(item.time);
+        const cleanFrames = Array.isArray(item.frames)
+          ? item.frames
+              .filter((frame): frame is string => typeof frame === 'string')
+              .slice(0, 8)
+              .map((frame) => frame.replace(/[^a-zA-Z0-9_.$<>: -]/g, '').slice(0, 120))
+          : undefined;
+        const cleanType = typeof item.errorType === 'string'
+          ? item.errorType.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)
+          : undefined;
+        return {
+          id: /^DP-[A-Z2-9]{6}$/.test(item.id) ? item.id : createReference(),
+          time: validTime ? item.time : 'unknown',
+          category: safeCategory(item.category),
+          ...(cleanType ? { errorType: cleanType } : {}),
+          ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
+          platform: item.platform,
+          build: typeof item.build === 'string' ? item.build.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 32) : 'unknown',
+        };
+      });
   } catch {
     return [];
   }
