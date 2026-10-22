@@ -28,6 +28,7 @@ export const StatsFiltersPanel: React.FC<StatsFiltersPanelProps> = ({
   availableTeams, availableSeasons, availableAgeGroups, availableTournaments,
   handleResetFilters,
 }) => (
+  <>
       {/* Interactive Filters Bar */}
       <div className="bg-white dark:bg-[#252D38] rounded-2xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-xs space-y-3">
         <div className="flex items-center justify-between">
@@ -119,4 +120,5 @@ export const StatsFiltersPanel: React.FC<StatsFiltersPanelProps> = ({
           </div>
         </div>
       </div>
+  </>
 );
