@@ -45,8 +45,22 @@ installGlobalDiagnosticHandlers();
 // if the dev server's document/base URL is not a directory URL.
 void import('/src/App.tsx').then(({ default: App }) => {
   createRoot(root).render(<App />);
-}).catch((error: unknown) => {
-  const reference = recordDiagnosticError('app_startup', error);
+}).catch(async (error: unknown) => {
+  // A failed Vite module import often hides the actionable transform/parser error
+  // behind "Failed to fetch dynamically imported module". Ask Vite for the module
+  // response so diagnostics can capture its current parser message instead.
+  let diagnosticError: unknown = error;
+  try {
+    const response = await fetch(`/src/App.tsx?diagnostic=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) {
+      const body = await response.text();
+      const parseMessage = body.match(/Expected corresponding JSX closing tag[^\\n] *|Adjacent JSX elements must be wrapped in an enclosing tag\\.?|The following error occurred while transforming[^\\n]*/i);
+      if (parseMessage?.[0]) diagnosticError = new SyntaxError(parseMessage[0].trim());
+    }
+  } catch {
+    // Keep the original startup failure when the Vite diagnostic response is unavailable.
+  }
+  const reference = recordDiagnosticError('app_startup', diagnosticError);
   root.replaceChildren();
 
   const shell = document.createElement('main');
