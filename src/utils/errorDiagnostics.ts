@@ -89,12 +89,8 @@ function safeStackFrames(error: unknown): string[] {
       const match = location.match(/^(.+?\.(?:tsx?|jsx?|mjs|cjs)):(\d+):(\d+)$/i);
       if (!match) return '';
       const file = match[1].split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9_.-]/g, '') || 'source';
-      const functionMatch = line.match(/^\s*at\s+([^ (]+)(?:\s+\(|$)/);
-      const rawFunctionName = functionMatch?.[1] || '';
-      const functionName = /^(?:https?|file|capacitor):/i.test(rawFunctionName)
-        ? ''
-        : rawFunctionName.replace(/[^a-zA-Z0-9_.$<>-]/g, '').slice(0, 60);
-      return `${functionName ? functionName + ' ' : ''}${file}:${match[2]}:${match[3]}`;
+      // Source basenames and positions are enough to locate the code without retaining function labels.
+      return `${file}:${match[2]}:${match[3]}`;
     })
     .filter(Boolean)
     .slice(0, 8);
@@ -120,12 +116,15 @@ function readEvents(): DiagnosticEvent[] {
         const validTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/.test(item.time);
         const cleanFrames = Array.isArray(item.frames)
           ? item.frames
-              .filter((frame): frame is string => typeof frame === 'string')
+              .filter((frame): frame is string =>
+                typeof frame === 'string' &&
+                /^[a-zA-Z0-9_.-]+\.(?:tsx?|jsx?|mjs|cjs):\d{1,6}:\d{1,6}$/.test(frame),
+              )
               .slice(0, 8)
-              .map((frame) => frame.replace(/[^a-zA-Z0-9_.$<>: -]/g, '').slice(0, 120))
           : undefined;
-        const cleanType = typeof item.errorType === 'string'
-          ? item.errorType.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)
+        const cleanType = typeof item.errorType === 'string' &&
+          (ALLOWED_ERROR_TYPES.has(item.errorType) || /^(?:string|number|boolean|undefined|object|function|symbol|bigint)Rejection$/.test(item.errorType))
+          ? item.errorType
           : undefined;
         return {
           id: /^DP-[A-Z2-9]{6}$/.test(item.id) ? item.id : createReference(),
