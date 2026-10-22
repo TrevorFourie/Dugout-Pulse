@@ -4,6 +4,7 @@ import { ThemedDropdown } from './ThemedDropdown';
 import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
+import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
@@ -45,7 +46,7 @@ const readJson = <T,>(key: string, fallback: T): T => {
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> = ({ compact = false, nextOnly = false }) => {
-  const { activeProfile, allTournaments, settings, isLoading } = useGame();
+  const { activeProfile, allTournaments, settings, isLoading, restoreFailed } = useGame();
   const playerTeams = useMemo(() => {
     const savedTeams = activeProfile.teams || [];
     if (savedTeams.length) return savedTeams;
@@ -87,6 +88,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     const handleVenueRenamed = (event: Event) => {
       const detail = (event as CustomEvent<{ oldName: string; newName: string }>).detail;
       if (!detail?.oldName || !detail?.newName) return;
+      if (restoreFailed) {
+        setMessage('Storage recovery is required before scheduled games can be changed.');
+        return;
+      }
       setGames((current) => {
         const next = current.map((game) =>
           game.venue?.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
@@ -94,7 +99,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             : game
         );
         try {
-          localStorage.setItem(GAMES_KEY, JSON.stringify(next));
+          if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
+            setMessage('Could not protect saved data. Scheduled games were not changed.');
+            return current;
+          }
         } catch {
           setMessage('Venue was renamed, but scheduled games could not be saved. Please check your device storage.');
         }
@@ -108,7 +116,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     };
     window.addEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
     return () => window.removeEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
-  }, []);
+  }, [restoreFailed]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -124,9 +132,16 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const logos = useMemo(() => new Map(teams.map((team) => [team.name.trim().toLocaleLowerCase(), team.logo])), [teams]);
 
   const persist = (next: ScheduledGame[]) => {
-    setGames(next);
+    if (restoreFailed) {
+      setMessage('Storage recovery is required before scheduled games can be changed.');
+      return;
+    }
     try {
-      localStorage.setItem(GAMES_KEY, JSON.stringify(next));
+      if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
+        setMessage('Could not protect saved data. Scheduled games were not changed.');
+        return;
+      }
+      setGames(next);
       setMessage('');
     } catch {
       setMessage('Could not save this game on the device. Please free up storage and try again.');
