@@ -5,7 +5,6 @@ import {
   DEFAULT_AGE_GROUPS,
   DEFAULT_SEASONS,
   DEFAULT_TOURNAMENTS,
-  STORAGE_KEYS,
 } from './gameContextDefaults';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
