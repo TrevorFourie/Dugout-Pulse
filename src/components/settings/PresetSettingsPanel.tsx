@@ -5,11 +5,12 @@ import { useGame } from '../../context/GameContext';
 type PresetKind = 'seasons' | 'tournaments' | 'ageGroups';
 type PresetSettingsSection = 'teamLists' | PresetKind;
 interface PresetSettingsPanelProps {
+  isActive: boolean;
   settingsSection: PresetSettingsSection;
   onStatusMessage: (message: { text: string; isError: boolean }) => void;
 }
 
-export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ settingsSection, onStatusMessage }) => {
+export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ isActive, settingsSection, onStatusMessage }) => {
   const {
     savedTournaments, allTournaments, saveTournament, deleteTournament,
     savedAgeGroups, allAgeGroups, saveAgeGroup, deleteAgeGroup,
@@ -50,7 +51,9 @@ export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ settin
   };
   const renderPresetEditor = (kind: PresetKind, name: string) => {
     if (!editingPreset || editingPreset.kind !== kind || editingPreset.original !== name) return null;
-    return (
+    if (!isActive) return null;
+
+  return (
       <>
         <input
           autoFocus
