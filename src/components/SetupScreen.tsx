@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { SetupBackupRestoreDialog } from './SetupBackupRestoreDialog';
+import { ConfirmationModal } from './ConfirmationModal';
 import { SetupProgressHeader } from './SetupProgressHeader';
 import { SetupPlayerStep } from './setup/SetupPlayerStep';
 import { SetupAgeGroupStep } from './setup/SetupAgeGroupStep';
@@ -23,6 +24,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [step, setStep] = useState<SetupStep>(1);
   const [importMessage, setImportMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [pendingBackupFile, setPendingBackupFile] = useState<File | null>(null);
+  const [importWarning, setImportWarning] = useState<string | null>(null);
 
   // Form states in the exact requested order
   // 1. Player Name
@@ -130,11 +132,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         const result = importJsonData(content);
         if (result.success) {
           setImportMessage({ text: result.message, isError: false });
-          setIsFirstTimeUser(false);
           if (result.message !== 'Season data successfully restored!') {
-            // This screen closes after a successful restore, so surface recovery warnings first.
-            window.alert(result.message);
+            // Keep the setup screen open until the in-app warning has been acknowledged.
+            setImportWarning(result.message);
+            return;
           }
+          setIsFirstTimeUser(false);
           if (onComplete) onComplete();
         } else {
           setImportMessage({ text: result.message, isError: true });
@@ -242,6 +245,24 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         file={pendingBackupFile}
         onCancel={() => setPendingBackupFile(null)}
         onConfirm={handleConfirmImport}
+      />
+      <ConfirmationModal
+        isOpen={importWarning !== null}
+        title="Backup restored with a warning"
+        message={importWarning ?? ''}
+        confirmLabel="Continue"
+        cancelLabel="Continue"
+        variant="warning"
+        onConfirm={() => {
+          setImportWarning(null);
+          setIsFirstTimeUser(false);
+          if (onComplete) onComplete();
+        }}
+        onCancel={() => {
+          setImportWarning(null);
+          setIsFirstTimeUser(false);
+          if (onComplete) onComplete();
+        }}
       />
     </div>
   );
