@@ -50,6 +50,7 @@ const ALLOWED_CATEGORIES = new Set([
   'react_render',
   'storage_load',
   'storage_write_opposition_teams',
+  'storage_write_games',
   'native_text_export',
   'browser_text_export',
   'native_binary_export',
