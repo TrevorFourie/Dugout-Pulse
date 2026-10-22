@@ -72,7 +72,6 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
     onChange(team.name);
     setQuery(team.name);
     setIsOpen(false);
-    inputRef.current?.blur();
   };
 
   const handleAddTeam = () => {
@@ -81,7 +80,6 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
     onChange(name);
     setQuery(name);
     setIsOpen(false);
-    inputRef.current?.blur();
   };
 
   const handleClear = (event: React.MouseEvent) => {
@@ -110,13 +108,13 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
             setQuery(event.target.value);
             setIsOpen(true);
           }}
-          onBlur={() => {
-            // Typing is search-only: unselected text is never stored as the game's opponent.
-            window.setTimeout(() => {
-              if (!containerRef.current?.contains(document.activeElement)) {
-                setQuery(value);
-              }
-            }, 0);
+          onBlur={(event) => {
+            // Keep focus changes inside the menu (option/add buttons) from clearing the search.
+            // Leaving the whole control resets unselected text; no timer or deferred work is needed.
+            if (!containerRef.current?.contains(event.relatedTarget as Node | null)) {
+              setIsOpen(false);
+              setQuery(value);
+            }
           }}
           className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2.5 pl-3.5 pr-20 text-xs font-semibold text-[#18212D] shadow-2xs transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA] dark:placeholder:text-[#6B7280] dark:hover:border-[#465160] dark:focus:ring-[#00D7BC]/30 disabled:cursor-not-allowed disabled:opacity-50"
         />
