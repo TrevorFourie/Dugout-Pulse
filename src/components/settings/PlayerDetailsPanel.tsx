@@ -6,7 +6,7 @@ import { ImagePlus, UserPlus } from 'lucide-react';
 interface PlayerDetailsPanelProps {
   activeProfile: PlayerProfile;
   updateActiveProfile: (updates: Partial<PlayerProfile>) => void;
-  logoInputRef: React.RefObject<HTMLInputElement>;
+  logoInputRef: React.RefObject<HTMLInputElement | null>;
   onLogoFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveLogo: () => void;
 }
