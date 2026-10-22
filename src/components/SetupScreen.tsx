@@ -252,6 +252,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         message={importWarning ?? ''}
         confirmLabel="Continue"
         showCancelButton={false}
+        closeOnBackdrop={false}
         variant="warning"
         onConfirm={() => {
           setImportWarning(null);
