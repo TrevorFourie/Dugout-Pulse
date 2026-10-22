@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Trash2, UserPlus } from 'lucide-react';
+import { Trash2, UserPlus } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { LINEUP_SPOTS } from '../../types/baseball';
 import { ThemedDropdown } from '../ThemedDropdown';
