@@ -101,3 +101,98 @@ export function hasOrphanedGameReferences(): boolean {
   }
   return false;
 }
+
+export interface RecoverySnapshotInfo {
+  available: boolean;
+  createdAt?: string;
+  gameCount: number;
+  profileCount: number;
+  hasMeaningfulData: boolean;
+}
+
+function readRecoverySnapshot(): RecoverySnapshot | null {
+  try {
+    const raw = localStorage.getItem(RECOVERY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const candidate = parsed as Partial<RecoverySnapshot>;
+    if (candidate.version !== RECOVERY_VERSION || typeof candidate.createdAt !== 'string' ||
+        !candidate.values || typeof candidate.values !== 'object' || Array.isArray(candidate.values)) return null;
+    if (!Object.values(candidate.values).every((value) => typeof value === 'string')) return null;
+    return candidate as RecoverySnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** Read only summary metadata; the snapshot itself remains local to this device. */
+export function getRecoverySnapshotInfo(): RecoverySnapshotInfo {
+  const snapshot = readRecoverySnapshot();
+  if (!snapshot) return { available: false, gameCount: 0, profileCount: 0, hasMeaningfulData: false };
+  let gameCount = 0;
+  let profileCount = 0;
+  let hasMeaningfulData = false;
+  try {
+    const games = JSON.parse(snapshot.values[STORAGE_KEYS.GAMES] || '[]');
+    if (Array.isArray(games)) {
+      gameCount = games.length;
+      if (gameCount > 0) hasMeaningfulData = true;
+    }
+  } catch { /* malformed game data is not counted as recoverable */ }
+  try {
+    const profiles = JSON.parse(snapshot.values[STORAGE_KEYS.PROFILES] || '[]');
+    if (Array.isArray(profiles)) {
+      profileCount = profiles.length;
+      if (profiles.some((profile) => profile && typeof profile === 'object' &&
+          (String(profile.playerName || '').trim() || String(profile.teamName || '').trim() ||
+           (Array.isArray(profile.teams) && profile.teams.length > 0)))) hasMeaningfulData = true;
+    }
+  } catch { /* malformed profile data is not counted as recoverable */ }
+  try {
+    const upcoming = JSON.parse(snapshot.values['dugoutPulse.upcomingGames.v1'] || '[]');
+    if (Array.isArray(upcoming) && upcoming.length > 0) hasMeaningfulData = true;
+  } catch { /* optional */ }
+  return { available: true, createdAt: snapshot.createdAt, gameCount, profileCount, hasMeaningfulData };
+}
+
+/**
+ * Restore a previously captured snapshot only after explicit user action.
+ * Keep both the recovery snapshot and a pre-recovery copy until the user can
+ * verify the restored app. Returns false rather than partially claiming success.
+ */
+export function restoreRecoverySnapshot(): boolean {
+  const snapshot = readRecoverySnapshot();
+  if (!snapshot) return false;
+  const beforeRecoveryKey = 'dugoutPulse.beforeRecovery.v1';
+  try {
+    const currentValues: Record<string, string> = {};
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key || key === RECOVERY_STORAGE_KEY || key === beforeRecoveryKey) continue;
+      const value = localStorage.getItem(key);
+      if (value !== null) currentValues[key] = value;
+    }
+    localStorage.setItem(beforeRecoveryKey, JSON.stringify({
+      version: RECOVERY_VERSION,
+      createdAt: new Date().toISOString(),
+      reason: 'Before restoring recovery snapshot',
+      values: currentValues,
+    } satisfies RecoverySnapshot));
+
+    const preservedKeys = new Set([RECOVERY_STORAGE_KEY, beforeRecoveryKey, 'dugoutPulse.diagnostics.v1']);
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key && !preservedKeys.has(key) && !(key in snapshot.values)) localStorage.removeItem(key);
+    }
+    for (const [key, value] of Object.entries(snapshot.values)) {
+      if (key === RECOVERY_STORAGE_KEY || key === beforeRecoveryKey || key === 'dugoutPulse.diagnostics.v1') continue;
+      localStorage.setItem(key, value);
+    }
+    snapshotTakenForPage = true;
+    return true;
+  } catch (error) {
+    console.error('Recovery snapshot could not be fully restored. The recovery copies were retained.', error);
+    return false;
+  }
+}
