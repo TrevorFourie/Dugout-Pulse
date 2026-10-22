@@ -3,6 +3,20 @@ import { PlayCircle, Upload, X } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 
+const SCHEDULED_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
+
+interface ScheduledGame {
+  id: string;
+  opponent: string;
+  playerTeamId?: string;
+  playerTeamName?: string;
+  gameType?: string;
+  ageGroup?: string;
+  date: string;
+  time?: string;
+  isHome: boolean;
+}
+
 interface StartGamePickerProps {
   gameDate: string;
   onClose: () => void;
@@ -16,9 +30,18 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   onLoadManually,
   onGameSelected,
 }) => {
-  const { games, activeProfile, liveGame, reopenSavedGame } = useGame();
+  const { games, activeProfile, liveGame, reopenSavedGame, startLiveGame } = useGame();
   const [selectedGameId, setSelectedGameId] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
+  const [scheduledGames] = useState<ScheduledGame[]>(() => {
+    try {
+      const stored = localStorage.getItem(SCHEDULED_GAMES_KEY);
+      const parsed: unknown = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed as ScheduledGame[] : [];
+    } catch {
+      return [];
+    }
+  });
 
   const matchingGames = useMemo(
     () => games
@@ -27,17 +50,43 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
     [games, gameDate, activeProfile.id],
   );
 
-  const options = matchingGames.map((game) => ({
-    value: game.id,
-    label: [
-      game.time,
-      game.teamName || activeProfile.teamName || 'My Team',
-      game.isHome === false ? '@' : 'vs',
-      game.opponent || 'Opponent',
-      game.tournament,
-      game.finalResult ? `(${game.finalResult})` : '',
-    ].filter(Boolean).join(' · '),
-  }));
+  const matchingScheduledGames = useMemo(() => {
+    const profileTeams = activeProfile.teams || [];
+    return scheduledGames
+      .filter((game) => {
+        if (game.date !== gameDate) return false;
+        if (!game.playerTeamId && !game.playerTeamName) return true;
+        return profileTeams.some((team) =>
+          (game.playerTeamId && team.id === game.playerTeamId) ||
+          (game.playerTeamName && team.name.trim().toLocaleLowerCase() === game.playerTeamName.trim().toLocaleLowerCase())
+        ) || (!profileTeams.length && game.playerTeamName && game.playerTeamName.trim().toLocaleLowerCase() === activeProfile.teamName.trim().toLocaleLowerCase());
+      })
+      .sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.opponent.localeCompare(b.opponent));
+  }, [scheduledGames, gameDate, activeProfile.teams, activeProfile.teamName]);
+
+  const options = [
+    ...matchingGames.map((game) => ({
+      value: `saved:${game.id}`,
+      label: [
+        game.time,
+        game.teamName || activeProfile.teamName || 'My Team',
+        game.isHome === false ? '@' : 'vs',
+        game.opponent || 'Opponent',
+        game.tournament,
+        game.finalResult ? `(${game.finalResult})` : '',
+      ].filter(Boolean).join(' · '),
+    })),
+    ...matchingScheduledGames.map((game) => ({
+      value: `scheduled:${game.id}`,
+      label: [
+        game.time,
+        game.playerTeamName || activeProfile.teamName || 'My Team',
+        game.isHome === false ? '@' : 'vs',
+        game.opponent || 'Opponent',
+        game.gameType,
+      ].filter(Boolean).join(' · '),
+    })),
+  ];
 
   const handleLoadSelected = () => {
     if (!selectedGameId) {
@@ -48,7 +97,33 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       setError('A live game is already in progress. Save or discard it before loading another game.');
       return;
     }
-    if (reopenSavedGame(selectedGameId)) {
+    if (selectedGameId.startsWith('scheduled:')) {
+      const scheduledGame = matchingScheduledGames.find((game) => `scheduled:${game.id}` === selectedGameId);
+      if (!scheduledGame) {
+        setError('This scheduled game could not be found. Please refresh and try again.');
+        return;
+      }
+      const playerTeam = (activeProfile.teams || []).find((team) =>
+        (scheduledGame.playerTeamId && team.id === scheduledGame.playerTeamId) ||
+        (scheduledGame.playerTeamName && team.name.trim().toLocaleLowerCase() === scheduledGame.playerTeamName.trim().toLocaleLowerCase())
+      );
+      startLiveGame({
+        date: scheduledGame.date,
+        time: scheduledGame.time,
+        opponent: scheduledGame.opponent,
+        teamName: scheduledGame.playerTeamName || playerTeam?.name || activeProfile.teamName || 'My Team',
+        tournament: scheduledGame.gameType || playerTeam?.tournament,
+        ageGroup: scheduledGame.ageGroup || playerTeam?.ageGroup,
+        season: playerTeam?.season,
+        isHome: scheduledGame.isHome,
+      });
+      onClose();
+      onGameSelected();
+      return;
+    }
+
+    const savedGameId = selectedGameId.startsWith('saved:') ? selectedGameId.slice('saved:'.length) : selectedGameId;
+    if (reopenSavedGame(savedGameId)) {
       onClose();
       onGameSelected();
     } else {
@@ -66,22 +141,18 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider">Start Game</span>
             </div>
             <h2 id="start-game-picker-title" className="text-xl font-semibold text-slate-900 dark:text-[#FAFAFA]">Choose a game</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">Only games scheduled for your selected game date are shown.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">Games Scheduled for {new Date(`${gameDate}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-[#252D38] dark:text-[#D1D5DB]">
-          Game date: <span className="font-semibold">{new Date(`${gameDate}T12:00:00`).toLocaleDateString()}</span>
-        </div>
-
-        {matchingGames.length > 0 ? (
+        {options.length > 0 ? (
           <>
             <div className="mb-2 flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">Available games</label>
-              <span className="rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-800 dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]">{matchingGames.length} found</span>
+              <span className="rounded-full bg-teal-50 px-2 py-1 text-[10px] font-bold text-teal-800 dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]">{options.length} found</span>
             </div>
             <ThemedDropdown<string>
               ariaLabel="Select a saved game"
@@ -93,14 +164,14 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
               className="w-full"
               menuClassName="max-h-64"
             />
-            <p className="mt-2 text-xs text-slate-500 dark:text-[#9CA3AF]">Every game on this date is listed separately. Nothing is loaded until you select a game and confirm.</p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-[#9CA3AF]">Saved and scheduled games for this date are listed separately. Nothing is loaded until you select a game and confirm.</p>
             {error && <p role="alert" className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
             <button type="button" onClick={handleLoadSelected} disabled={!selectedGameId || Boolean(liveGame)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00BFA5] px-4 py-3 text-sm font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00D7BC] dark:hover:bg-[#00C4AB]">
               <PlayCircle className="h-4 w-4" /> Load Selected Game
             </button>
             {liveGame && <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">A live game is already in progress. Save or discard it before loading another game.</p>}
             <button type="button" onClick={onLoadManually} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
-              Load a different game manually
+              Load Game Manually
             </button>
           </>
         ) : (
