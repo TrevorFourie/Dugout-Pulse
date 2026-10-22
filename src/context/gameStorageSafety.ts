@@ -1,7 +1,11 @@
 import { STORAGE_KEYS } from './gameContextDefaults';
 
-const RECOVERY_KEY = 'dugoutPulse.recoverySnapshot.v1';
+export const RECOVERY_STORAGE_KEY = 'dugoutPulse.recoverySnapshot.v1';
 const RECOVERY_VERSION = 1;
+
+// One snapshot per page lifetime: startup persistence effects must not overwrite
+// the pre-write snapshot with a partially updated state later in the same effect cycle.
+let snapshotTakenForPage = false;
 
 interface RecoverySnapshot {
   version: number;
@@ -11,18 +15,16 @@ interface RecoverySnapshot {
 }
 
 /**
- * Save a local, one-generation recovery snapshot before replacing non-empty game
- * storage. If the snapshot cannot be written, callers must not overwrite games.
+ * Capture the complete current localStorage once before the first app-data mutation
+ * in this page lifetime. Fail closed: callers must not mutate storage if this fails.
  */
 export function snapshotBeforeGameWrite(): boolean {
+  if (snapshotTakenForPage) return true;
   try {
-    // Snapshot the complete current storage before any game-list write, including
-    // empty/new installs. Other profile/settings keys can be overwritten by the
-    // same startup persistence cycle, so protection must not depend on game count.
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (!key || key === RECOVERY_KEY) continue;
+      if (!key || key === RECOVERY_STORAGE_KEY) continue;
       const value = localStorage.getItem(key);
       if (value !== null) values[key] = value;
     }
@@ -30,14 +32,38 @@ export function snapshotBeforeGameWrite(): boolean {
     const snapshot: RecoverySnapshot = {
       version: RECOVERY_VERSION,
       createdAt: new Date().toISOString(),
-      reason: 'Before replacing saved game data',
+      reason: 'Before the first app-data write in this page session',
       values,
     };
-    localStorage.setItem(RECOVERY_KEY, JSON.stringify(snapshot));
+    localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(snapshot));
+    snapshotTakenForPage = true;
     return true;
   } catch (error) {
-    // Fail closed: if we cannot protect the current saved games, don't overwrite them.
-    console.error('Could not create a recovery snapshot; saved games were not overwritten.', error);
+    console.error('Could not create a recovery snapshot; saved data was not changed.', error);
+    return false;
+  }
+}
+
+/** Snapshot before a write; refuse the write if the snapshot cannot be created. */
+export function protectedStorageSetItem(key: string, value: string): boolean {
+  if (key !== RECOVERY_STORAGE_KEY && !snapshotBeforeGameWrite()) return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.error(`Could not save browser storage key "${key}".`, error);
+    return false;
+  }
+}
+
+/** Snapshot before a removal; refuse the removal if the snapshot cannot be created. */
+export function protectedStorageRemoveItem(key: string): boolean {
+  if (key !== RECOVERY_STORAGE_KEY && !snapshotBeforeGameWrite()) return false;
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error) {
+    console.error(`Could not remove browser storage key "${key}".`, error);
     return false;
   }
 }
@@ -55,10 +81,10 @@ export function hasOrphanedGameReferences(): boolean {
       if (Array.isArray(parsed) && parsed.length > 0) return false;
     }
 
-    const gameIdPattern = /game_\d+_[a-z0-9]+/i;
+    const gameIdPattern = /game_\\d+_[a-z0-9]+/i;
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (!key || key === RECOVERY_KEY || key === 'dugoutPulse.diagnostics.v1') continue;
+      if (!key || key === RECOVERY_STORAGE_KEY || key === 'dugoutPulse.diagnostics.v1') continue;
       if (
         key === STORAGE_KEYS.GAMES ||
         key === STORAGE_KEYS.LIVE_GAME ||
@@ -70,7 +96,6 @@ export function hasOrphanedGameReferences(): boolean {
       if (value && gameIdPattern.test(value)) return true;
     }
   } catch (error) {
-    // If storage cannot be inspected, conservatively block automatic persistence.
     console.error('Could not verify saved-game storage integrity.', error);
     return true;
   }
