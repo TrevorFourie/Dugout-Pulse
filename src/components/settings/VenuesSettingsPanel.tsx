@@ -3,14 +3,17 @@ import { Check, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 
 interface VenuesSettingsPanelProps {
+  isActive: boolean;
   onStatusMessage: (message: { text: string; isError: boolean }) => void;
 }
 
-export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ onStatusMessage }) => {
+export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActive, onStatusMessage }) => {
   const { settings, updateSettings } = useGame();
   const [newVenueInput, setNewVenueInput] = useState('');
   const [editingVenue, setEditingVenue] = useState<string | null>(null);
   const [editingVenueValue, setEditingVenueValue] = useState('');
+  if (!isActive) return null;
+
   return (
               <div className="space-y-5">
                 <div>
