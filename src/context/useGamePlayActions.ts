@@ -1,12 +1,13 @@
 import { useCallback } from 'react';
-import type { AppSettings, DefensivePosition, HitLocation, PitcherHand, Play, PlayCode, PlayMode, PlayScoringContext, RunnerOutReason } from '../types/baseball';
+import type { Dispatch, SetStateAction } from 'react';
+import type { AppSettings, Game, DefensivePosition, HitLocation, PitcherHand, Play, PlayCode, PlayMode, PlayScoringContext, RunnerOutReason } from '../types/baseball';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import { STORAGE_KEYS } from './gameContextDefaults';
 
 interface GamePlayActionsOptions {
-  liveGame: import('../types/baseball').Game | null;
-  setLiveGame: React.Dispatch<React.SetStateAction<import('../types/baseball').Game | null>>;
+  liveGame: Game | null;
+  setLiveGame: Dispatch<SetStateAction<Game | null>>;
   settings: AppSettings;
   triggerHaptic: () => void;
 }
