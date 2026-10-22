@@ -20,8 +20,6 @@ export const NewGameForm: React.FC<NewGameFormProps> = ({ startGameDate, onStart
     addPlayerTeam, startLiveGame,
   } = useGame();
 
-  const newGameDate = startGameDate;
-  const setNewGameDate = onStartGameDateChange;
   // Normalize list of teams for the active player profile
   const playerTeams = React.useMemo(() => {
     if (activeProfile.teams && activeProfile.teams.length > 0) {
@@ -502,6 +500,5 @@ export const NewGameForm: React.FC<NewGameFormProps> = ({ startGameDate, onStart
     );
   }
 
-  // Active Live Game View
   return null;
 };
