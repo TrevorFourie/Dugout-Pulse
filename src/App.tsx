@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import mobileSplashSrc from '../splash-source/splash-mobile.jpg';
 import tabletSplashSrc from '../splash-source/splash-tablet.jpg';
 import largeSplashSrc from '../splash-source/splash-large.jpg';
@@ -98,6 +99,116 @@ const MainApp: React.FC = () => {
   const [startGameDate, setStartGameDate] = useState(getLocalDate);
   const [showBlocked, setShowBlocked] = useState(false);
   const blockedDismissed = useRef(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const lastBackPressRef = useRef(0);
+  type ScreenSnapshot = { tab: TabId; gamesView: 'schedule' | 'past'; settingsSection: SettingsSectionId };
+  const screenHistoryRef = useRef<ScreenSnapshot[]>([]);
+  const currentScreenRef = useRef<ScreenSnapshot>({
+    tab: 'dashboard',
+    gamesView: 'past',
+    settingsSection: 'playerDetails',
+  });
+  const backStateRef = useRef({
+    isSettingsMenuOpen,
+    isStartGamePickerOpen,
+    isHelpOpen,
+    isManualSetupOpen,
+    isSettingsOpen,
+    showBlocked,
+    activeTab,
+  });
+  backStateRef.current = {
+    isSettingsMenuOpen,
+    isStartGamePickerOpen,
+    isHelpOpen,
+    isManualSetupOpen,
+    isSettingsOpen,
+    showBlocked,
+    activeTab,
+  };
+
+  const navigateBackToPreviousScreen = () => {
+    const previous = screenHistoryRef.current.pop();
+    if (!previous) return false;
+    currentScreenRef.current = previous;
+    setActiveTab(previous.tab);
+    setGamesView(previous.gamesView);
+    setSettingsInitialSection(previous.settingsSection);
+    setIsSettingsOpen(previous.tab === 'settings');
+    setShowExitPrompt(false);
+    lastBackPressRef.current = 0;
+    return true;
+  };
+
+  const handleAndroidBack = () => {
+    const current = backStateRef.current;
+    if (current.isSettingsMenuOpen) {
+      setIsSettingsMenuOpen(false);
+      return;
+    }
+    if (current.isStartGamePickerOpen) {
+      setIsStartGamePickerOpen(false);
+      return;
+    }
+    if (current.isHelpOpen) {
+      setIsHelpOpen(false);
+      return;
+    }
+    if (current.isManualSetupOpen) {
+      setIsManualSetupOpen(false);
+      return;
+    }
+    if (current.showBlocked) {
+      blockedDismissed.current = true;
+      setShowBlocked(false);
+      return;
+    }
+    if (current.isSettingsOpen && current.activeTab === 'settings') {
+      if (!navigateBackToPreviousScreen()) {
+        setIsSettingsOpen(false);
+        setActiveTab('dashboard');
+      }
+      return;
+    }
+    if (navigateBackToPreviousScreen()) return;
+
+    const now = Date.now();
+    if (now - lastBackPressRef.current < 2000) {
+      setShowExitPrompt(false);
+      void CapacitorApp.exitApp();
+      return;
+    }
+    lastBackPressRef.current = now;
+    setShowExitPrompt(true);
+    window.setTimeout(() => setShowExitPrompt(false), 2000);
+  };
+
+  useEffect(() => {
+    const current: ScreenSnapshot = { tab: activeTab, gamesView, settingsSection: settingsInitialSection };
+    const previous = currentScreenRef.current;
+    if (current.tab !== previous.tab || current.gamesView !== previous.gamesView || current.settingsSection !== previous.settingsSection) {
+      screenHistoryRef.current.push(previous);
+      currentScreenRef.current = current;
+    }
+  }, [activeTab, gamesView, settingsInitialSection]);
+
+  const handleAndroidBackRef = useRef(handleAndroidBack);
+  handleAndroidBackRef.current = handleAndroidBack;
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android') return;
+    let cancelled = false;
+    let listener: { remove: () => Promise<void> } | undefined;
+    void CapacitorApp.addListener('backButton', () => handleAndroidBackRef.current()).then((handle) => {
+      if (cancelled) void handle.remove();
+      else listener = handle;
+    }).catch(() => {
+      // Keep the web app usable if the native back-button plugin is unavailable.
+    });
+    return () => {
+      cancelled = true;
+      if (listener) void listener.remove();
+    };
+  }, []);
 
   // If reminders are on but Android blocks notifications, ask once per app start.
   // When the user returns from system settings, re-check and close the prompt if fixed.
@@ -247,8 +358,10 @@ const MainApp: React.FC = () => {
             isOpen={isSettingsOpen}
             initialSection={settingsInitialSection}
             onClose={() => {
-              setIsSettingsOpen(false);
-              setActiveTab('dashboard');
+              if (!navigateBackToPreviousScreen()) {
+                setIsSettingsOpen(false);
+                setActiveTab('dashboard');
+              }
             }}
             onOpenSetupWizard={() => setIsManualSetupOpen(true)}
           />
@@ -402,6 +515,12 @@ const MainApp: React.FC = () => {
             setActiveTab('score');
           }}
         />
+      )}
+
+      {showExitPrompt && (
+        <div role="status" className="fixed bottom-20 left-1/2 z-[70] -translate-x-1/2 rounded-xl bg-[#18212D] px-4 py-2.5 text-sm font-medium text-white shadow-lg dark:bg-[#252D38]">
+          Press back again to exit
+        </div>
       )}
 
       <HelpModal
