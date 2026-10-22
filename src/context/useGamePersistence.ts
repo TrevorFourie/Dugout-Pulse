@@ -135,10 +135,21 @@ export function useGamePersistence({
   }, [reopenedGameId, isLoading]);
 
   useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
+    if (isLoading) return;
+    // Profiles are just as important as games: snapshot the complete storage
+    // before a profile write so a startup/default-profile overwrite is recoverable.
+    if (!snapshotBeforeGameWrite()) {
+      onStorageProtectionFailure();
+      return;
     }
-  }, [profiles, isLoading]);
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles));
+    } catch (error) {
+      onStorageProtectionFailure();
+      recordDiagnosticError('storage_write_profiles', error);
+      console.error('Failed to persist profiles; automatic persistence has been paused.', error);
+    }
+  }, [profiles, isLoading, onStorageProtectionFailure]);
 
   useEffect(() => {
     if (!isLoading) {
