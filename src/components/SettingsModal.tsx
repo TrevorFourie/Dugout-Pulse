@@ -13,11 +13,8 @@ import {
   Sliders,
   Moon,
   Sun,
-  Download,
   Upload,
-  UserPlus,
   Trash2,
-  AlertOctagon,
   CheckCircle2,
   Plus,
   Edit2,
@@ -36,7 +33,6 @@ import { ValueCombobox } from './ValueCombobox';
 import { processLogoImage } from '../utils/logoImage';
 import { OppositionTeamsSettings } from './OppositionTeamsSettings';
 import { NotificationsSettingsPanel } from './NotificationsSettingsPanel';
-import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { PlayerDetailsPanel } from './settings/PlayerDetailsPanel';
 import { DataManagementPanel } from './settings/DataManagementPanel';
 import { PlayerProfilesPanel } from './settings/PlayerProfilesPanel';
@@ -62,12 +58,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const {
     settings,
     updateSettings,
-    profiles,
     activeProfile,
     updateActiveProfile,
-    addProfile,
-    setActiveProfileId,
-    deleteProfile,
     addPlayerTeam,
     updatePlayerTeam,
     deletePlayerTeam,
