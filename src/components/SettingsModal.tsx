@@ -898,8 +898,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               <div className="bg-slate-50 dark:bg-[#252D38]/40 p-4 rounded-xl border border-slate-200 dark:border-[#354050] space-y-4">
-                {settingsSection === 'teamLists' && (
                 {/* 3 Tab Switchers */}
+                {settingsSection === 'teamLists' && (
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-white dark:bg-[#1A2028] rounded-xl border border-slate-200 dark:border-[#354050]/80">
                   <button
                     type="button"
