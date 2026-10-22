@@ -46,7 +46,7 @@
           fallbackShown = true;
 
           var events = readEvents();
-          var latest = capturedEvent || events.slice(-1)[0] || null;
+          var latest = capturedEvent || null;
           var reference = latest && latest.id ? latest.id : 'unavailable';
 
           var panel = document.createElement('main');
@@ -92,7 +92,7 @@
                 appVersion: '1.0.0',
                 build: selected && selected.build ? selected.build : 'unknown',
                 platform: selected && selected.platform ? selected.platform : (/Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web')),
-                privacy: 'Offline report. Review before sharing. Error messages are sanitised and truncated; no game data is intentionally collected.',
+                privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Exact timestamps are included to help correlate errors with logs. Review before sharing.',
                 events: selected ? [selected] : []
               }, null, 2);
               report.select();
@@ -110,6 +110,15 @@
           panel.append(card);
           document.body.append(panel);
         }
+
+        // This is the single error-screen entry point used by Vite startup
+        // failures, the module bootstrap, global runtime handlers, and React.
+        window.__dugoutPulseShowDiagnostic = function (reference) {
+          var events = readEvents();
+          var selected = events.find(function (item) { return item && item.id === reference; }) || null;
+          if (selected) capturedEvent = selected;
+          showStartupFallback(selected);
+        };
 
         function captureViteCompileError(overlay) {
           try {
@@ -134,7 +143,7 @@
               message = (expected && expected[1]) || (unexpected && unexpected[1]) || 'Vite failed to transform a source module';
             }
             var location = detailText.match(/(?:src[\\/])?((?:[^/\\\s:\]]+[\\/])*[^/\\\s:\]]+\.(?:tsx?|jsx?)):(\d+):(\d+)/i);
-            var file = location ? location[1].replace(/^src[\\/]/, '') : '';
+            var file = location ? location[1].split(/[\\/]/).pop() : '';
             var line = location ? location[2] : '';
             var column = location ? location[3] : '';
             message = ('Vite compile error: ' + message + (file && line ? ' (' + file + ':' + line + (column ? ':' + column : '') + ')' : ''))
