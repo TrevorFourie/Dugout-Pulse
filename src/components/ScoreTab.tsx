@@ -1703,7 +1703,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
   };
 
-  const showInningNotice  const showInningNotice = useCallback((title: string, subtitle: string) => {
+  const showInningNotice = useCallback((title: string, subtitle: string) => {
     setInningNotice({ id: Date.now(), title, subtitle });
   }, []);
 
