@@ -18,6 +18,7 @@ import { sortGames } from '../utils/stats';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 export interface OppositionTeam {
   id: string;
@@ -459,6 +460,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loadList(STORAGE_KEYS.HIDDEN_AGE_GROUPS, setHiddenAgeGroups);
       loadList(STORAGE_KEYS.HIDDEN_SEASONS, setHiddenSeasons);
     } catch (err) {
+      recordDiagnosticError('storage_load', err);
       console.error('Failed to load data from localStorage:', err);
     } finally {
       setIsLoading(false);
@@ -478,6 +480,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams));
       } catch (error) {
+        recordDiagnosticError('storage_write_opposition_teams', error);
         console.error('Failed to persist opposition teams:', error);
       }
     }
