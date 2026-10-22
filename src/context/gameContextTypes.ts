@@ -21,7 +21,7 @@ export interface OppositionTeam {
   logo?: string;
 }
 
-interface GameContextType {
+export interface GameContextType {
   games: Game[];
   liveGame: Game | null;
   editingGameId: string | null;
