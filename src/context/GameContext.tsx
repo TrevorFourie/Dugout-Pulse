@@ -1138,7 +1138,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setReopenedGameId(null);
       triggerHaptic();
     },
-    [activeProfile, triggerHaptic, saveOpponent, saveTournament, saveAgeGroup, saveSeason]
+    [activeProfile, triggerHaptic, saveTournament, saveAgeGroup, saveSeason]
   );
 
   // Add a play to the live game
@@ -1922,9 +1922,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         >
       >
     ) => {
-      if (details.opponent && details.opponent.trim()) {
-        saveOpponent(details.opponent.trim());
-      }
       if (details.tournament && details.tournament.trim()) {
         saveTournament(details.tournament.trim());
       }
