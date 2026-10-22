@@ -339,7 +339,7 @@ const MainApp: React.FC = () => {
           role="alert"
           className="shrink-0 border-b border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
         >
-          <strong>Saved data needs recovery.</strong> Automatic saving has been paused to protect your data. Do not reset app data or clear browser storage. A recovery snapshot may be available; resolve this before continuing to record games.
+          <strong>Saved data needs recovery.</strong> Automatic saving has been paused to protect existing browser data. Do not reset app data or clear browser storage.
         </div>
       )}
       <NotificationBlockedModal
