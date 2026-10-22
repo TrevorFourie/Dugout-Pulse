@@ -43,6 +43,7 @@ export const PrimaryActionBoard: React.FC<PrimaryActionBoardProps> = ({
   if (!liveGame) return null;
   const isBenchedCurrentInning = liveGame.benchInnings.includes(currentInning);
   return (
+    <>
       {activeMode === 'batting' ? (
         isBenchedCurrentInning ? (
           <div className="rounded-md border border-slate-300 dark:border-[#354050] bg-slate-100/70 dark:bg-[#252D38]/20 p-5 text-center space-y-2.5 shadow-2xs">
@@ -236,5 +237,6 @@ export const PrimaryActionBoard: React.FC<PrimaryActionBoardProps> = ({
           </div>
         )
       )}
+    </>
   );
 };
