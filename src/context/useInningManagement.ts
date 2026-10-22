@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game, DefensivePosition, PositionChange } from '../types/baseball';
-import { STORAGE_KEYS } from './gameContextDefaults';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -37,11 +36,7 @@ export function useInningManagement({
         maxInning: Math.max(prev.maxInning ?? prev.innings, nextInningNumber),
         ...(fieldingPositions ? { fieldingPositions } : {}),
       };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist inning change locally:', storageError);
-      }
+      // useGamePersistence writes this state only after a verified private checkpoint.
       return nextGame;
     });
   }, [liveGame, triggerHaptic]);
