@@ -57,9 +57,12 @@ export function useGameDataManagement({
 
   // Full backup import. Logo images are intentionally not embedded in JSON backups:
   // references are resolved against images that still exist in this app's local data.
-  const importJsonData = useCallback((jsonStr: string) => {
+  const importJsonData = useCallback(async (jsonStr: string) => {
     try {
       const parsedData = JSON.parse(jsonStr);
+      if (!(await createVerifiedRecoveryCheckpoint('Before importing a JSON backup'))) {
+        return { success: false, message: 'Import stopped because a verified recovery checkpoint could not be created. No imported data was applied.' };
+      }
       const localLogos = new Map<string, string>();
       readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
       for (let index = 0; index < localStorage.length; index += 1) {
