@@ -127,7 +127,7 @@ function retentionKeepSet(entries: Checkpoint[], now = new Date()): Set<string> 
 async function pruneCheckpoints(previous: RecoveryIndex, next: RecoveryIndex): Promise<void> {
   const keep = new Set(next.checkpoints.map((entry) => entry.id));
   for (const entry of previous.checkpoints) {
-    if (keep.has(entry.id) || !entry.file.startsWith(RECOVERY_DIR + '/checkpoint-')) continue;
+    if (keep.has(entry.id) || entry.status === 'failed' || !entry.file.startsWith(RECOVERY_DIR + '/checkpoint-')) continue;
     try { await Filesystem.deleteFile({ path: entry.file, directory: Directory.Data }); }
     catch { /* Cleanup failure leaves an unindexed orphan; never removes an indexed recovery point. */ }
   }
@@ -179,7 +179,7 @@ async function reconcileRecoveryJournal(): Promise<void> {
   if (!retained.some((entry) => entry.status === 'verified')) return;
   const next: RecoveryIndex = { version: 1, checkpoints: retained };
   await writeIndexSafely(next);
-  await pruneCheckpoints({ version: 1, checkpoints: [...index.checkpoints, ...discovered.filter((entry) => !known.has(entry.file))] }, next);
+  await pruneCheckpoints({ version: 1, checkpoints: checked }, next);
 }
 
 export async function getRecoveryJournalStorageInfo(): Promise<{ checkpointCount: number; verifiedCount: number; estimatedBytes: number; warning: boolean }> {
@@ -262,7 +262,7 @@ async function createCheckpointSerially(reason: string): Promise<boolean> {
     const keep = retentionKeepSet(nextAll);
     const next: RecoveryIndex = { version: 1, checkpoints: nextAll.filter((entry) => keep.has(entry.id)) };
     await writeIndexSafely(next);
-    await pruneCheckpoints(index, next);
+    await pruneCheckpoints({ version: 1, checkpoints: verifiedExisting }, next);
     return true;
   } catch (error) {
     console.error('Could not create and verify the private recovery checkpoint.', error);
