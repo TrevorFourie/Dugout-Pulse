@@ -6,7 +6,7 @@ import { STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { hasOrphanedGameReferences } from './gameStorageSafety';
-import { ensureRecoveryBaseline } from './recoveryJournal';
+import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -68,7 +68,7 @@ export function useGameRestore({
       currentKey: string,
       legacyKeys: string[],
       isValidRecord: (item: unknown) => item is { id: string },
-    ): boolean => {
+    ): Promise<boolean> => {
       try {
         const currentRaw = localStorage.getItem(currentKey);
         const currentParsed: unknown = currentRaw ? JSON.parse(currentRaw) : [];
@@ -94,6 +94,9 @@ export function useGameRestore({
           }
         }
         if (merged.length === current.length) return true;
+        if (!(await createVerifiedRecoveryCheckpoint('Before legacy data migration to ' + currentKey))) {
+          throw new Error('A verified recovery checkpoint could not be created; migration was stopped before writing.');
+        }
         const serialized = JSON.stringify(merged);
         localStorage.setItem(currentKey, serialized);
         if (localStorage.getItem(currentKey) !== serialized) throw new Error('Migration read-back verification failed');
@@ -118,8 +121,8 @@ export function useGameRestore({
     const isLegacyOppositionTeam = (item: unknown): item is { id: string } =>
       isIdentifiedRecord(item) && typeof (item as { name?: unknown }).name === 'string';
 
-    if (!migrateLegacyArrays(STORAGE_KEYS.GAMES, ['dugoutPulse.games.v1', 'dugoutPulse.savedGames.v1'], isIdentifiedRecord) ||
-        !migrateLegacyArrays(STORAGE_KEYS.PROFILES, ['dugoutPulse.profiles.v1'], isLegacyProfile)) {
+    if (!(await migrateLegacyArrays(STORAGE_KEYS.GAMES, ['dugoutPulse.games.v1', 'dugoutPulse.savedGames.v1'], isIdentifiedRecord)) ||
+        !(await migrateLegacyArrays(STORAGE_KEYS.PROFILES, ['dugoutPulse.profiles.v1'], isLegacyProfile))) {
       setIsLoading(false);
       return;
     }
