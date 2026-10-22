@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Bug, Download, Trash2, ShieldCheck } from 'lucide-react';
 import { clearDiagnosticLogs, createDiagnosticReport, getCurrentBuildDiagnosticEvent } from '../utils/errorDiagnostics';
 import { saveTextFile } from '../utils/saveFile';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const DiagnosticsPanel: React.FC = () => {
   const [refresh, setRefresh] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const currentError = getCurrentBuildDiagnosticEvent();
   const events = currentError ? [currentError] : [];
   void refresh;
@@ -20,8 +22,8 @@ export const DiagnosticsPanel: React.FC = () => {
   };
 
   const clearLogs = () => {
-    if (!window.confirm('Clear the diagnostic log on this device? This does not delete games, profiles, or settings.')) return;
     clearDiagnosticLogs();
+    setIsClearConfirmOpen(false);
     setRefresh((value) => value + 1);
     setMessage('Diagnostic log cleared. Your game data was not changed.');
     setShowPreview(false);
@@ -64,7 +66,7 @@ export const DiagnosticsPanel: React.FC = () => {
           <button type="button" onClick={() => setShowPreview((value) => !value)} className="rounded-lg border border-slate-300 dark:border-[#354050] px-3 py-2 text-xs font-semibold">
             {showPreview ? 'Hide preview' : 'Review report'}
           </button>
-          <button type="button" onClick={clearLogs} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-[#86252D] px-3 py-2 text-xs font-semibold text-red-700 dark:text-[#D4626D]">
+          <button type="button" onClick={() => setIsClearConfirmOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-[#86252D] px-3 py-2 text-xs font-semibold text-red-700 dark:text-[#D4626D]">
             <Trash2 className="w-3.5 h-3.5" /> Clear log
           </button>
         </div>
@@ -76,6 +78,15 @@ export const DiagnosticsPanel: React.FC = () => {
           </div>
         )}
       </div>
+      <ConfirmationModal
+        isOpen={isClearConfirmOpen}
+        title="Clear diagnostic log?"
+        message="This clears the diagnostic log on this device only. Games, profiles, and settings will not be deleted."
+        confirmLabel="Clear log"
+        variant="danger"
+        onConfirm={clearLogs}
+        onCancel={() => setIsClearConfirmOpen(false)}
+      />
     </section>
   );
 };
