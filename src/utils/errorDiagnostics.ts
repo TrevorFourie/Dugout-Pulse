@@ -9,6 +9,7 @@ export interface DiagnosticEvent {
   time: string;
   category: string;
   errorType?: string;
+  errorMessage?: string;
   frames?: string[];
   platform: 'Android' | 'iOS' | 'Web';
   build: string;
@@ -76,26 +77,47 @@ function safeErrorType(error: unknown): string {
   return error === null ? 'NullError' : `${typeof error}Rejection`.slice(0, 40);
 }
 
+function safeErrorMessage(error: unknown): string | undefined {
+  let message = '';
+  if (error instanceof Error) message = error.message;
+  else if (typeof error === 'string') message = error;
+  else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') message = error.message;
+  if (!message) return undefined;
+
+  // Preserve actionable details while stripping query strings, full paths, and likely personal data.
+  message = message
+    .replace(/https?:\/\/[^\s)]+/gi, (url) => {
+      try {
+        const parsed = new URL(url);
+        return parsed.origin + '/' + parsed.pathname.split('/').slice(-2).join('/');
+      } catch {
+        return '[url]';
+      }
+    })
+    .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+    .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240);
+  return message || undefined;
+}
+
 function safeStackFrames(error: unknown): string[] {
   if (!error || typeof error !== 'object' || !('stack' in error) || typeof error.stack !== 'string') return [];
   return error.stack
     .split('\n')
-    .slice(1, 13)
+    .slice(1, 16)
     .map((line) => {
-      // Keep only source basename/line/column. Never retain full
-      // local paths, URLs, query strings, or the exception message (which may contain data).
-      const location = line.match(/([^/\\()?#]+\.(?:tsx?|jsx?|mjs|cjs):\d+:\d+)\)?\s*$/i)?.[1];
-      if (!location) return '';
-      const match = location.match(/^(.+?\.(?:tsx?|jsx?|mjs|cjs)):(\d+):(\d+)$/i);
+      // Vite stack locations may contain URL paths and ?t= query strings before line:column.
+      const match = line.match(/([^/\\()\s?#]+\.(?:tsx?|jsx?|mjs|cjs))(?:\?[^:\s)]*)?:(\d+):(\d+)/i);
       if (!match) return '';
       const file = match[1].split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9_.-]/g, '') || 'source';
-      // Source basenames and positions are enough to locate the code without retaining function labels.
-      return `${file}:${match[2]}:${match[3]}`;
+      return \`\${file}:\${match[2]}:\${match[3]}\`;
     })
     .filter(Boolean)
     .slice(0, 8);
 }
-
 function readEvents(): DiagnosticEvent[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -131,6 +153,9 @@ function readEvents(): DiagnosticEvent[] {
           time: validTime ? item.time : 'unknown',
           category: safeCategory(item.category),
           ...(cleanType ? { errorType: cleanType } : {}),
+          ...(typeof item.errorMessage === 'string' && item.errorMessage.length
+            ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, 240) }
+            : {}),
           ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
           platform: item.platform,
           build: typeof item.build === 'string' ? item.build.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 32) : 'unknown',
@@ -163,6 +188,7 @@ export function recordDiagnosticError(category: string, error: unknown): string 
     time: new Date(Math.round(Date.now() / 900_000) * 900_000).toISOString(),
     category: safeCategory(category),
     errorType: safeErrorType(error),
+    errorMessage: safeErrorMessage(error),
     frames: safeStackFrames(error),
     platform: getPlatform(),
     build: getBuild(),
@@ -207,12 +233,12 @@ export function clearAppDataPreservingDiagnostics(): void {
 
 export function createDiagnosticReport(): string {
   return JSON.stringify({
-    reportFormat: 1,
+    reportFormat: 2,
     app: 'Dugout Pulse',
     appVersion: '1.0.0',
     build: getBuild(),
     platform: getPlatform(),
-    privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Times are rounded to 15 minutes. Review before sharing.',
+    privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Times are rounded to 15 minutes. Review before sharing.',
     events: readEvents(),
   }, null, 2);
 }
