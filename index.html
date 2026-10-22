@@ -174,7 +174,11 @@
               build: 'unknown'
             };
             events.push(event);
-            localStorage.setItem(storageKey, JSON.stringify(events.slice(-40)));
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(events.slice(-40)));
+            } catch (_) {
+              // The visible diagnostic must still work if browser storage is unavailable.
+            }
             return event;
           } catch (_) {
             return null;
