@@ -18,7 +18,7 @@ import { sortGames } from '../utils/stats';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
-import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { clearAppDataPreservingDiagnostics, recordDiagnosticError } from '../utils/errorDiagnostics';
 
 export interface OppositionTeam {
   id: string;
@@ -2218,7 +2218,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenTournaments([]);
     setHiddenAgeGroups([]);
     setHiddenSeasons([]);
-    localStorage.clear();
+    clearAppDataPreservingDiagnostics();
   }, []);
 
   const completeFirstTimeSetup = useCallback(
