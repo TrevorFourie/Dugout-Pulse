@@ -1,28 +1,28 @@
 import React from 'react';
-import { recordDiagnosticError, showDiagnosticScreen } from '../utils/errorDiagnostics';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { StartupRecoveryPanel } from './StartupRecoveryPanel';
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  errorReference: string;
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = { hasError: false, errorReference: '' };
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error): void {
     const reference = recordDiagnosticError('react_render', error);
-    // The HTML bootstrap owns the only error-screen implementation, including
-    // its source details, report format, reference, and restart action.
-    showDiagnosticScreen(reference);
+    this.setState({ errorReference: reference });
   }
 
   render(): React.ReactNode {
-    // Avoid rendering a second, competing error UI. The shared screen is mounted
-    // directly by the HTML bootstrap and remains available even if React failed.
-    if (this.state.hasError) return null;
+    if (this.state.hasError) {
+      return <StartupRecoveryPanel errorReference={this.state.errorReference} />;
+    }
     return this.props.children;
   }
 }
