@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
 import { GameSprayChartModal } from './score/GameSprayChartModal';
 import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS, PRIMARY_BATTING_CODES, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
@@ -148,6 +149,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     settings,
     resumePromptPending,
     dismissResumePrompt,
+    restoreFailed,
   } = useGame();
 
   // Normalize list of teams for the active player profile
@@ -247,17 +249,17 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     return savedHand === 'L' || savedHand === 'R' ? savedHand : 'R';
   });
   useEffect(() => {
-    if (!liveGame) return;
+    if (!liveGame || restoreFailed) return;
     try {
       const stored = readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {});
-      localStorage.setItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
+      if (!protectedStorageSetItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
         ...stored,
         [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
-      }));
+      }))) throw new Error('Could not protect storage before saving scoring screen state');
     } catch (error) {
       console.error('Failed to persist scoring screen state:', error);
     }
-  }, [liveGame?.id, viewedInning, activeMode, pitcherHand]);
+  }, [liveGame?.id, viewedInning, activeMode, pitcherHand, restoreFailed]);
 
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -307,12 +309,15 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).runnerHistories);
   const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).activeRunnerChips);
   useEffect(() => {
+    if (restoreFailed) return;
     try {
-      localStorage.setItem(RUNNER_WORKFLOW_STORAGE_KEY, JSON.stringify({ runnerSessions, runnerHistories, activeRunnerChips }));
+      if (!protectedStorageSetItem(RUNNER_WORKFLOW_STORAGE_KEY, JSON.stringify({ runnerSessions, runnerHistories, activeRunnerChips }))) {
+        throw new Error('Could not protect storage before saving runner workflow state');
+      }
     } catch (error) {
       console.error('Failed to persist runner workflow state:', error);
     }
-  }, [runnerSessions, runnerHistories, activeRunnerChips]);
+  }, [runnerSessions, runnerHistories, activeRunnerChips, restoreFailed]);
 
   // All transient runner workflow state is scoped to the inning being viewed. Ending or
   // correcting one inning must not clear the runner workflow for another inning.
