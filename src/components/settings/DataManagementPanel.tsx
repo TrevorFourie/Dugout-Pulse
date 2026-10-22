@@ -1,6 +1,7 @@
-import React from 'react';
-import { Download, Upload, AlertOctagon } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Download, Upload, AlertOctagon, ShieldCheck } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
+import { listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
 
 interface DataManagementPanelProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -8,6 +9,74 @@ interface DataManagementPanelProps {
   onImportFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenResetConfirm: () => void;
 }
+
+const RecoveryJournalPanel: React.FC = () => {
+  const [checkpoints, setCheckpoints] = useState<RecoveryCheckpointSummary[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await listVerifiedRecoveryCheckpoints();
+      setCheckpoints(items);
+      setSelectedId((current) => items.some((item) => item.id === current) ? current : items[0]?.id || '');
+      setMessage(items.length ? '' : 'No verified private recovery checkpoints are available.');
+    } catch {
+      setMessage('Could not read the private recovery journal. Your saved data has not been changed.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const restore = async () => {
+    if (!selectedId || busy) return;
+    setBusy(true);
+    setMessage('Creating a safety checkpoint and validating the selected recovery point…');
+    const result = await restoreVerifiedRecoveryCheckpoint(selectedId);
+    setMessage(result.message);
+    setBusy(false);
+    if (result.success) window.location.reload();
+    else void refresh();
+  };
+  const selected = checkpoints.find((item) => item.id === selectedId);
+  return (
+    <section className="space-y-3 border-t border-slate-200 pt-5 dark:border-[#354050]">
+      <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+        <ShieldCheck className="h-4 w-4 text-teal-600" /> Private Recovery Journal
+      </h3>
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]/50">
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
+          Checkpoints are stored in this app’s private data directory. Only checkpoints that pass integrity and data-structure checks are selectable. Restoring first creates a checkpoint of the current state. Do not close the app while recovery is running.
+        </p>
+        <button type="button" onClick={() => void refresh()} disabled={loading || busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-[#354050]">
+          {loading ? 'Checking checkpoints…' : 'Refresh checkpoints'}
+        </button>
+        {checkpoints.length > 0 && (
+          <>
+            <label className="block space-y-1 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
+              Verified recovery point
+              <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-normal text-slate-900 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]">
+                {checkpoints.map((item) => <option key={item.id} value={item.id}>{new Date(item.createdAt).toLocaleString()} · {item.reason}</option>)}
+              </select>
+            </label>
+            {selected && (
+              <div className="rounded-lg border border-slate-200 bg-white p-3 text-[11px] text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
+                <p>Completed games: {selected.gameCount} · Profiles: {selected.profileCount} · Scheduled games: {selected.upcomingGameCount}</p>
+                <p className="mt-1 break-words">Checkpoint: {selected.id}</p>
+              </div>
+            )}
+            <button type="button" onClick={() => void restore()} disabled={!selectedId || busy || loading} className="rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] disabled:opacity-50 dark:bg-[#00D7BC]">
+              {busy ? 'Recovering…' : 'Restore selected checkpoint'}
+            </button>
+          </>
+        )}
+        {message && <p role="status" aria-live="polite" className="text-xs leading-relaxed text-slate-700 dark:text-[#D1D5DB]">{message}</p>}
+      </div>
+    </section>
+  );
+};
 
 export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
   fileInputRef, onExportBackup, onImportFile, onOpenResetConfirm,
@@ -78,6 +147,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                 </button>
               </div>
             </div>
+            <RecoveryJournalPanel />
             <DiagnosticsPanel />
             </div>
 );

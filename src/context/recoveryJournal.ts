@@ -133,3 +133,147 @@ export async function getRecoveryJournalStatus(): Promise<{ available: boolean; 
   }
   return { available: false, count: 0 };
 }
+
+export type RecoveryCheckpointSummary = {
+  id: string;
+  createdAt: string;
+  reason: string;
+  gameCount: number;
+  profileCount: number;
+  upcomingGameCount: number;
+};
+
+type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string> };
+
+function validateRecoveryValues(values: unknown): values is Record<string, string> {
+  if (!values || typeof values !== 'object' || Array.isArray(values) ||
+      !Object.values(values).every((value) => typeof value === 'string')) return false;
+  const record = values as Record<string, string>;
+  const validateArray = (key: string, validator: (item: unknown) => boolean) => {
+    if (!(key in record)) return true;
+    try {
+      const parsed: unknown = JSON.parse(record[key]);
+      return Array.isArray(parsed) && parsed.every(validator);
+    } catch { return false; }
+  };
+  const hasId = (item: unknown) => !!item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string';
+  if (!validateArray('baseball_hub_games_v1', hasId) ||
+      !validateArray('dugoutPulse.games.v1', hasId) ||
+      !validateArray('dugoutPulse.savedGames.v1', hasId) ||
+      !validateArray('baseball_hub_profiles_v1', (item) => hasId(item) && typeof (item as { playerName?: unknown }).playerName === 'string') ||
+      !validateArray('dugoutPulse.profiles.v1', (item) => hasId(item) && typeof (item as { playerName?: unknown }).playerName === 'string') ||
+      !validateArray('dugoutPulse.upcomingGames.v1', (item) => hasId(item) && typeof (item as { date?: unknown }).date === 'string' && typeof (item as { opponent?: unknown }).opponent === 'string') ||
+      !validateArray('dugoutPulse.oppositionTeams.v1', (item) => hasId(item) && typeof (item as { name?: unknown }).name === 'string')) return false;
+  for (const key of ['baseball_hub_settings_v1']) {
+    if (key in record) {
+      try { const parsed: unknown = JSON.parse(record[key]); if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false; }
+      catch { return false; }
+    }
+  }
+  return true;
+}
+
+async function readVerifiedCheckpoint(entry: Checkpoint): Promise<RecoveryPayload> {
+  const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
+  const raw = result.data as string;
+  if (raw.length !== entry.byteLength || checksum(raw) !== entry.checksum) throw new Error('Checkpoint integrity check failed.');
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== 'object') throw new Error('Checkpoint payload is invalid.');
+  const payload = parsed as Partial<RecoveryPayload>;
+  if (payload.version !== 1 || typeof payload.createdAt !== 'string' || typeof payload.reason !== 'string' ||
+      !validateRecoveryValues(payload.values)) throw new Error('Checkpoint data failed validation.');
+  return payload as RecoveryPayload;
+}
+
+function storageCounts(values: Record<string, string>) {
+  const count = (key: string) => {
+    try { const parsed: unknown = JSON.parse(values[key] || '[]'); return Array.isArray(parsed) ? parsed.length : 0; }
+    catch { return 0; }
+  };
+  return {
+    gameCount: count('baseball_hub_games_v1') || count('dugoutPulse.games.v1') || count('dugoutPulse.savedGames.v1'),
+    profileCount: count('baseball_hub_profiles_v1') || count('dugoutPulse.profiles.v1'),
+    upcomingGameCount: count('dugoutPulse.upcomingGames.v1'),
+  };
+}
+
+/** List only checkpoints whose file integrity and saved-data structure both validate. */
+export async function listVerifiedRecoveryCheckpoints(): Promise<RecoveryCheckpointSummary[]> {
+  const index = await readIndex();
+  const summaries: RecoveryCheckpointSummary[] = [];
+  for (const entry of [...index.checkpoints].reverse()) {
+    try {
+      const payload = await readVerifiedCheckpoint(entry);
+      summaries.push({ id: entry.id, createdAt: payload.createdAt, reason: payload.reason, ...storageCounts(payload.values) });
+    } catch {
+      // Invalid checkpoints are excluded from the selectable list, never deleted.
+    }
+  }
+  return summaries;
+}
+
+/**
+ * Restore one verified journal checkpoint. The current state is checkpointed first;
+ * candidate values are validated before any live key is changed. A failed application
+ * rolls back from the in-memory pre-restore state and leaves both journal files intact.
+ */
+export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const index = await readIndex();
+    const entry = index.checkpoints.find((candidate) => candidate.id === id);
+    if (!entry) return { success: false, message: 'That recovery checkpoint is no longer available.' };
+    const payload = await readVerifiedCheckpoint(entry);
+    if (!validateRecoveryValues(payload.values)) return { success: false, message: 'The checkpoint contains data that failed validation.' };
+
+    if (!(await createVerifiedRecoveryCheckpoint('Before restoring checkpoint ' + id))) {
+      return { success: false, message: 'The current state could not be safely checkpointed. Nothing was restored.' };
+    }
+
+    const before: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || EXCLUDED_KEYS.has(key)) continue;
+      const value = localStorage.getItem(key);
+      if (value !== null) before[key] = value;
+    }
+    const preserved = new Set(EXCLUDED_KEYS);
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+        const key = localStorage.key(i);
+        if (key && !preserved.has(key) && !(key in payload.values)) localStorage.removeItem(key);
+      }
+      for (const [key, value] of Object.entries(payload.values)) {
+        if (!preserved.has(key)) localStorage.setItem(key, value);
+      }
+      const after: Record<string, string> = {};
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (!key || preserved.has(key)) continue;
+        const value = localStorage.getItem(key);
+        if (value !== null) after[key] = value;
+      }
+      const expectedKeys = Object.keys(payload.values);
+      const actualKeys = Object.keys(after);
+      if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key) => after[key] !== payload.values[key])) {
+        throw new Error('Restored values failed read-back verification.');
+      }
+      if (!validateRecoveryValues(after)) throw new Error('Restored values failed post-write validation.');
+      return { success: true, message: 'Recovery completed and verified. The app will reload to apply the restored data.' };
+    } catch (restoreError) {
+      // Best-effort rollback. The pre-restore checkpoint remains in the journal even if rollback fails.
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+          const key = localStorage.key(i);
+          if (key && !preserved.has(key) && !(key in before)) localStorage.removeItem(key);
+        }
+        for (const [key, value] of Object.entries(before)) if (!preserved.has(key)) localStorage.setItem(key, value);
+      } catch (rollbackError) {
+        console.error('Recovery rollback failed; pre-restore journal checkpoint is retained.', rollbackError);
+      }
+      throw restoreError;
+    }
+  } catch (error) {
+    console.error('Private journal recovery failed; recovery checkpoints were retained.', error);
+    return { success: false, message: 'Recovery could not be completed. The original recovery checkpoint and the pre-recovery checkpoint were retained. No further changes should be made until the data is reviewed.' };
+  }
+}
