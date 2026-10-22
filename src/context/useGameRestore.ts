@@ -64,7 +64,7 @@ export function useGameRestore({
       }
     // Merge legacy records by ID instead of letting one legacy key overwrite another.
     // Current-schema records win on ID conflicts; legacy keys are never deleted.
-    const migrateLegacyArrays = (
+    const migrateLegacyArrays = async (
       currentKey: string,
       legacyKeys: string[],
       isValidRecord: (item: unknown) => item is { id: string },
