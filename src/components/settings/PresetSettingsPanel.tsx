@@ -51,9 +51,7 @@ export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ isActi
   };
   const renderPresetEditor = (kind: PresetKind, name: string) => {
     if (!editingPreset || editingPreset.kind !== kind || editingPreset.original !== name) return null;
-    if (!isActive) return null;
-
-  return (
+    return (
       <>
         <input
           autoFocus
@@ -110,6 +108,8 @@ export const PresetSettingsPanel: React.FC<PresetSettingsPanelProps> = ({ isActi
     setNewAgeGroupInput('');
   };
 
+
+  if (!isActive) return null;
 
   return (
             {(settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups') && (
