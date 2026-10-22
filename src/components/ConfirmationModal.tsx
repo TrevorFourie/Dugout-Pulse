@@ -7,6 +7,7 @@ interface ConfirmationModalProps {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  showCancelButton?: boolean;
   variant?: 'danger' | 'primary' | 'warning';
   onConfirm: () => void;
   onCancel: () => void;
@@ -20,6 +21,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   message,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
+  showCancelButton = true,
   variant = 'primary',
   onConfirm,
   onCancel,
@@ -71,9 +73,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
         {/* Stacked on phones, a row from sm up. Primary action first on mobile. */}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className={secondaryBtn}>
-            {cancelLabel}
-          </button>
+          {showCancelButton && (
+            <button type="button" onClick={onCancel} className={secondaryBtn}>
+              {cancelLabel}
+            </button>
+          )}
           {secondaryLabel && onSecondary && (
             <button type="button" onClick={onSecondary} className={secondaryBtn}>
               {secondaryLabel}
