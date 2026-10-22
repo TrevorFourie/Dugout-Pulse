@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
+import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { CustomNumberInput } from './settings/CustomNumberInput';
 import { ScoringSettingsPanel } from './settings/ScoringSettingsPanel';
 import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
@@ -95,6 +96,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     inUseSeasons,
     restoreHiddenPresets,
     renamePreset,
+    restoreFailed,
   } = useGame();
 
   const [newPlayerName, setNewPlayerName] = useState('');
