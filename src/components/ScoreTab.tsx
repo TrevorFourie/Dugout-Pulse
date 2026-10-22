@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, positionName, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, ordinal, DOUBLE_PLAY_ACTIONS, TRIPLE_PLAY_ACTIONS } from './score/scoreTabConstants';
+import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
   DefensivePosition,
@@ -72,29 +74,6 @@ import {
   transitionRunner,
 } from '../utils/runnerLifecycle';
 
-const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] = [
-  { code: 'P', label: 'Pitcher (P)' },
-  { code: 'C', label: 'Catcher (C)' },
-  { code: '1B', label: '1st Base (1B)' },
-  { code: '2B', label: '2nd Base (2B)' },
-  { code: '3B', label: '3rd Base (3B)' },
-  { code: 'SS', label: 'Shortstop (SS)' },
-  { code: 'LF', label: 'Left Field (LF)' },
-  { code: 'CF', label: 'Center Field (CF)' },
-  { code: 'RF', label: 'Right Field (RF)' },
-  { code: 'DH', label: 'Designated Hitter (DH)' },
-  { code: 'BENCH', label: 'Bench / Rest' },
-];
-
-const PITCHING_TERMINAL_CODES = new Set<PlayCode>([
-  'strikeout',
-  'walkAllowed',
-  'intentionalWalkAllowed',
-  'hitBatter',
-  'hitAllowed',
-  'homeRunAllowed',
-  'pitchOut',
-]);
 
 interface ScoreTabProps {
   onOpenHelp?: (mode: PlayMode) => void;
@@ -111,65 +90,12 @@ interface ScoreTabProps {
 // returns early when there is no live game and declares more hooks afterwards, so without a
 // remount, React sees a changed hook count on game start and the screen goes blank.
 // Plain-English names so the Plays list never shows position or stat abbreviations.
-const POSITION_NAMES: Record<string, string> = {
-  P: 'Pitcher',
-  C: 'Catcher',
-  '1B': 'First base',
-  '2B': 'Second base',
-  '3B': 'Third base',
-  SS: 'Shortstop',
-  LF: 'Left field',
-  CF: 'Center field',
-  RF: 'Right field',
-  DH: 'Designated hitter',
-  BENCH: 'Bench',
-  HOME: 'Home plate',
-};
-const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
-
-const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
-const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
-type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
-type PersistedRunnerWorkflow = {
-  runnerSessions: Record<string, RunnerLifecycleState | null>;
-  runnerHistories: Record<string, { state: RunnerLifecycleState; playIds: string[] }[]>;
-  activeRunnerChips: Record<string, { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string }>;
-};
-const readLocalJson = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? ({ ...fallback as object, ...JSON.parse(raw) } as T) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const ordinal = (n: number): string => {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] || 'th'}`;
-};
 
 export const ScoreTab: React.FC<ScoreTabProps> = (props) => {
   const { liveGame } = useGame();
   return <ScoreTabInner key={liveGame ? `game-${liveGame.id}` : 'no-game'} {...props} />;
 };
 
-type MultiOutPlayAction = 'catch' | 'tag' | 'step' | 'throw';
-
-const DOUBLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
-  { action: 'step', title: 'Stepped on a base / tagged a runner', description: 'Recorded an out by force, tag, or doubling off a runner (Putout)' },
-  { action: 'throw', title: 'Threw to a base', description: 'Made a throw that helped complete the play (Assist)' },
-];
-
-// Keep actions general rather than naming bases or runner destinations, so this covers
-// different triple-play sequences without assuming a specific starting situation.
-const TRIPLE_PLAY_ACTIONS: { action: MultiOutPlayAction; title: string; description: string }[] = [
-  { action: 'catch', title: 'Caught the ball', description: 'Caught a fly ball or line drive for an out (Putout)' },
-  { action: 'tag', title: 'Tagged a runner', description: 'Recorded an out by tagging a runner (Putout)' },
-  { action: 'step', title: 'Stepped on a base', description: 'Recorded an out by touching a base, including a force or appeal play (Putout)' },
-  { action: 'throw', title: 'Threw the ball', description: 'Made a throw that helped complete the play (Assist)' },
-];
 
 const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, onGameClosed, onCancelResume, view = 'score', onChangeView, startGameDate, onStartGameDateChange }) => {
   const {
