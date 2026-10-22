@@ -179,7 +179,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       if (content) {
         const result = importJsonData(content);
         if (result.success) {
-          setImportMessage({ text: 'Backup restored successfully!', isError: false });
+          setImportMessage({ text: result.message, isError: false });
           setIsFirstTimeUser(false);
           if (onComplete) onComplete();
         } else {
