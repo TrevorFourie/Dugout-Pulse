@@ -21,6 +21,7 @@ import { AppLogo } from './components/AppLogo';
 import { checkGameNotificationPermission, syncStoredGameReminders } from './utils/gameNotifications';
 import { NotificationBlockedModal } from './components/NotificationBlockedModal';
 import { StartGamePicker } from './components/StartGamePicker';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const getLocalDate = () => {
   const now = new Date();
@@ -544,8 +545,10 @@ const MainApp: React.FC = () => {
 
 export default function App() {
   return (
-    <GameProvider>
-      <MainApp />
-    </GameProvider>
+    <ErrorBoundary>
+      <GameProvider>
+        <MainApp />
+      </GameProvider>
+    </ErrorBoundary>
   );
 }
