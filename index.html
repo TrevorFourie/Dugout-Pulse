@@ -45,7 +45,6 @@
           if (fallbackShown || !document.body) return;
           fallbackShown = true;
 
-          var events = readEvents();
           var latest = capturedEvent || null;
           var reference = latest && latest.id ? latest.id : 'unavailable';
 
@@ -165,7 +164,7 @@
             }).join('');
             var event = {
               id: id,
-              time: new Date(Math.round(Date.now() / 900000) * 900000).toISOString(),
+              time: new Date().toISOString(),
               category: 'app_startup',
               errorType: 'SyntaxError',
               errorMessage: message,
