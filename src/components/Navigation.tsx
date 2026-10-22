@@ -1,18 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useGame } from '../context/GameContext';
 import {
   LayoutDashboard,
   CircleDot,
   History,
   BookOpen,
-  FileText,
-  Loader2,
   Menu,
   BarChart3,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
-import { exportStatsPdf } from '../utils/pdfReport';
-import defaultLogoSrc from '../assets/dugout-pulse-logo.png?inline';
 
 export type TabId = 'dashboard' | 'score' | 'games' | 'crazyPlays' | 'stats' | 'settings';
 
@@ -29,23 +25,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenHelp,
   onOpenSettings,
 }) => {
-  const { liveGame, games, activeProfile, settings } = useGame();
-  const [isPdfBusy, setIsPdfBusy] = useState(false);
-  const playerGames = games.filter((game) => !game.playerId || game.playerId === activeProfile.id);
-
-  const handleExportPdf = async () => {
-    if (isPdfBusy || playerGames.length === 0) return;
-
-    setIsPdfBusy(true);
-    await exportStatsPdf({
-      games: playerGames,
-      profile: activeProfile,
-      inningsPerGame: settings.inningsPerGame,
-      filterLabel: 'All games',
-      logoDataUrl: activeProfile.logo || defaultLogoSrc,
-    });
-    setIsPdfBusy(false);
-  };
+  const { liveGame } = useGame();
 
   return (
     <>
@@ -101,7 +81,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Bottom Sticky Tab Bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050] pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-5 p-1.5 gap-1">
+        <div className="max-w-md mx-auto grid grid-cols-4 p-1.5 gap-1">
           {/* Dashboard Tab */}
           <button
             type="button"
@@ -167,18 +147,6 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span className="text-[11px] font-semibold">Games</span>
           </button>
 
-          {/* PDF report */}
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            disabled={isPdfBusy || playerGames.length === 0}
-            aria-label="Create PDF stats report"
-            className="py-2 px-1 rounded-xl flex flex-col items-center justify-center text-slate-500 transition-all hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#9CA3AF] dark:hover:text-[#FAFAFA]"
-            title={playerGames.length === 0 ? 'Save a game before creating a report' : 'Create PDF stats report'}
-          >
-            {isPdfBusy ? <Loader2 className="w-5 h-5 mb-0.5 animate-spin" /> : <FileText className="w-5 h-5 mb-0.5" />}
-            <span className="text-[11px] font-semibold">Report</span>
-          </button>
         </div>
       </nav>
     </>
