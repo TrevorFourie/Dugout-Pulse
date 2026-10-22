@@ -176,7 +176,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           <div className="max-h-60 overflow-y-auto overscroll-contain p-1">
             {addError && <p role="alert" className="px-3 py-2 text-[11px] text-red-600 dark:text-[#D4626D]">{addError}</p>}
 
-            {isSearching && query.trim() && !exactMatch && (
+            {query.trim() && !exactMatch && (
               <button
                 type="button"
                 onClick={handleAddTeam}
