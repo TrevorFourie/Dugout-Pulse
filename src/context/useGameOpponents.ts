@@ -63,13 +63,16 @@ export function useGameOpponents({
       ? { ...team, ...updates, ...(trimmedName ? { name: trimmedName } : {}) }
       : team);
     try {
-      localStorage.setItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next));
+      if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(next))) {
+        onStorageProtectionFailure();
+        return false;
+      }
     } catch {
       return false;
     }
     setOppositionTeams(next);
     return true;
-  }, [oppositionTeams]);
+  }, [oppositionTeams, storageWritesBlocked, onStorageProtectionFailure]);
 
   const deleteOppositionTeam = useCallback((teamId: string): boolean => {
     if (storageWritesBlocked) return false;
