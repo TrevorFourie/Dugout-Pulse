@@ -171,7 +171,10 @@ const MainApp: React.FC = () => {
   }
 
   // The app hamburger opens only the sliding drawer. A settings page is opened only after selection.
-  const handleOpenSettings = () => setIsSettingsMenuOpen(true);
+  const handleOpenSettings = () => {
+    setExpandedMenuGroup(null);
+    setIsSettingsMenuOpen(true);
+  };
 
   const handleSelectSettingsSection = (section: SettingsSectionId) => {
     setSettingsInitialSection(section);
@@ -327,7 +330,7 @@ const MainApp: React.FC = () => {
               <div className="ml-2 flex flex-col gap-1.5 rounded-xl border border-[#00BFA5]/20 bg-[#E8F8F5] p-2 shadow-inner dark:border-[#00D7BC]/20 dark:bg-[#172A2B]">
                 <button type="button" onClick={() => handleSelectSettingsSection('playerDetails')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Player Name &amp; Primary Team</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('players')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]">Other Profiles</button>
-                <button type="button" disabled={isPdfBusy || !games.some((game) => !game.playerId || game.playerId === activeProfile.id)} onClick={() => void handleExportReport()} title={games.some((game) => !game.playerId || game.playerId === activeProfile.id) ? 'Export player statistics as a PDF' : 'Save a game before creating a report'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"><FileText className="h-3.5 w-3.5" />{isPdfBusy ? 'Creating Report…' : 'Export Report'}</button>
+                <button type="button" disabled={isPdfBusy || !games.some((game) => !game.playerId || game.playerId === activeProfile.id)} onClick={() => void handleExportReport()} title={games.some((game) => !game.playerId || game.playerId === activeProfile.id) ? 'Export player statistics as a PDF' : 'Save a game before creating a report'} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow disabled:cursor-not-allowed disabled:opacity-40 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><FileText className="h-3.5 w-3.5" />{isPdfBusy ? 'Creating Report…' : 'Export Report'}</button>
               </div>
             )}
 
