@@ -80,6 +80,10 @@ export const OppositionTeamsSettings: React.FC = () => {
   const saveRename = (team: OppositionTeam) => {
     const name = editName.trim();
     if (!name) return;
+    if (teams.some((item) => item.id !== team.id && item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setError('An opposition team with that name already exists.');
+      return;
+    }
     if (!updateOppositionTeam(team.id, { name })) {
       setError('Could not save this team. Check the name and available storage.');
       return;
