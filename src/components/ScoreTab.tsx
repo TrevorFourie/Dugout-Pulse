@@ -9,7 +9,10 @@ import { GameSprayChartModal } from './score/GameSprayChartModal';
 import { GameDetailsModal } from './score/GameDetailsModal';
 import { PrimaryActionBoard } from './score/PrimaryActionBoard';
 import { ScoreModeTabs } from './score/ScoreModeTabs';
-import { DEFENSIVE_POSITIONS, PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
+import { BattingModePanel } from './score/BattingModePanel';
+import { PitchingModePanel } from './score/PitchingModePanel';
+import { FieldingModePanel } from './score/FieldingModePanel';
+import { PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
 import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
@@ -46,7 +49,6 @@ import {
   Edit2,
   Play as PlayIcon,
   XCircle,
-  Activity,
   ListOrdered,
   CheckCircle2,
   Crosshair,
@@ -1874,208 +1876,54 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </button>
       )}
 
-      {/* Pitch Count Tracker & Rest-Day Indicator (Pitching Mode) */}
-      {activeMode === 'pitching' && !isBenchedCurrentInning && (
-        <div className="bg-slate-900 text-white rounded-md p-3 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-slate-300" />
-              <span className="font-semibold text-slate-300">Pitch count</span>
-            </div>
-            <span className="text-[13px] font-semibold text-slate-300 flex items-center">
-              Limit: {pitchLimit} pitches · Rest: <span className="text-slate-300 font-semibold">{dailyPitching.restDaysRequired === 0 ? '0 Days' : `${dailyPitching.restDaysRequired} Day(s)`}</span>
-              {pitching.pitches >= pitchLimit && (
-               <span className="flex items-center p-1"> · 
-                <span className="text-[#FF5252] px-1 ">[LIMIT REACHED - <span className="font-display text-[16px] leading-none font-semibold tabular-nums">{pitching.pitches}</span>/ {pitchLimit}]</span>
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${
-                pitchProgressPct > 85 ? 'bg-[#FF5252]' : pitchProgressPct > 65 ? 'bg-[#FF6F00]' : 'bg-[#00BFA5]'
-              }`}
-              style={{ width: `${pitchProgressPct}%` }}
-            />
-          </div>
-          {playFlow.pitchingState === 'BATTER_RESOLVED' && (
-            <button
-              type="button"
-              onClick={playFlow.nextPitcherBatter}
-              className="w-full py-2.5 rounded-md bg-slate-200 hover:bg-slate-200 text-slate-950 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-            >
-              Next Batter
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      )}
+<PitchingModePanel
+  isBenched={isBenchedCurrentInning}
+  pitchLimit={pitchLimit}
+  pitches={dailyPitching.pitches}
+  pitchProgressPct={pitchProgressPct}
+  restDaysRequired={dailyPitching.restDaysRequired}
+  pitchingState={playFlow.pitchingState}
+  onNextBatter={playFlow.nextPitcherBatter}
+/>
 
-{/* Scoring category cards — only items applicable to the active mode, side by side on wider screens, stacked on mobile */}
-{activeMode === 'batting' && !isBenchedCurrentInning && (
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-    {/* Batting Lineup Spot Card */}
-    <div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
-      {currentInningLineupSpot ? (
-        <>
-          <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]"> Batting Lineup Spot</span>
-          <div className="flex items-center justify-between gap-2 min-h-8">
-            <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
-              #{currentInningLineupSpot} · {LINEUP_SPOTS.find((spot) => spot.spot === currentInningLineupSpot)?.label || 'Selected'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLineupSpotPromptOpen(true)}
-              className="shrink-0 rounded-md border border-slate-300 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#2D3643]"
-            >
-              Change
-            </button>
-          </div>
-          </>
-      ) : (
-        <>
-          <label htmlFor="batting-lineup-spot" className="block text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
-            Batting Lineup Spot
-          </label>
-          <ThemedDropdown<number>
-            value={undefined}
-            onChange={(value) => { if (value !== undefined) setLineupSpot(value); }}
-            placeholder="Select batting lineup spot"
-            ariaLabel="Batting lineup spot"
-            allowClear={false}
-            className="w-full"
-            buttonClassName="h-10"
-            options={LINEUP_SPOTS.map((spot) => ({
-              value: spot.spot,
-              label: `#${spot.spot} · ${spot.label}`,
-            }))}
-          />
-        </>
-      )}
-    </div>
-
-
-{/* Pitcher Hand Selector */}
-<div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
-  <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
-    Pitcher
-  </span>
-
-  <div className="flex p-0.5 bg-slate-100 dark:bg-[#1A2028] rounded-md border border-slate-200 dark:border-[#354050]">
-    {(
-      [
-        ['R', 'Right'],
-        ['L', 'Left'],
-      ] as const
-    ).map(([hand, label]) => (
-      <button
-        key={hand}
-        type="button"
-        onClick={() => setPitcherHand(hand)}
-        aria-pressed={pitcherHand === hand}
-        className={`h-8 flex-1 rounded-md text-xs font-semibold transition-all ${
-          pitcherHand === hand
-            ? 'bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] shadow-xs'
-            : 'text-slate-600 dark:text-[#D1D5DB]'
-        }`}
-      >
-        {label}
-      </button>
-    ))}
-  </div>
-</div>
-
-{/* Enable Hit Location Switch */}
-<div className="bg-white dark:bg-[#252D38] rounded-md px-3.5 py-3 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-center gap-2 min-h-[48px]">
-  <span className="text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
-    Hit Location
-  </span>
-
-  <div className="flex items-center justify-between gap-2 min-h-8">
-    <span className="text-xs font-medium text-slate-600 dark:text-[#D1D5DB]">
-      Enable / Disable
-    </span>
-
-    <button
-      type="button"
-      role="switch"
-      aria-label="Enable / Disable Hit Location"
-      aria-checked={hitTapperEnabled}
-      onClick={() => setHitTapperEnabled(!hitTapperEnabled)}
-      className="cursor-pointer select-none shrink-0"
-    >
-      <span
-        aria-hidden="true"
-        className={`relative block w-10 h-6 rounded-full transition-colors ${
-          hitTapperEnabled
-            ? 'bg-[#00BFA5] dark:bg-[#00D7BC]'
-            : 'bg-slate-300 dark:bg-[#465160]'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-            hitTapperEnabled ? 'translate-x-4' : ''
-          }`}
-        />
-      </span>
-    </button>
-  </div>
-</div>
-  </div>
-)}
+<BattingModePanel
+  isBenched={isBenchedCurrentInning}
+  lineupSpot={currentInningLineupSpot}
+  onLineupSpotChange={setLineupSpot}
+  onOpenLineupSpotPrompt={() => setLineupSpotPromptOpen(true)}
+  pitcherHand={pitcherHand}
+  onPitcherHandChange={setPitcherHand}
+  hitTapperEnabled={hitTapperEnabled}
+  onHitTapperEnabledChange={setHitTapperEnabled}
+/>
 
 {activeMode === 'fielding' && (
-  <div className="grid grid-cols-1 text-xs">
-    {/* Fielding Position Card */}
-    <div className="bg-white dark:bg-[#252D38] rounded-lg px-3.5 py-3 border border-slate-200 dark:border-[#354050] shadow-sm space-y-2">
-      <label htmlFor="fielding-position" className="block text-[13px] font-semibold text-slate-800 dark:text-[#FAFAFA]">
-        Fielding Position
-      </label>
-      <ThemedDropdown<DefensivePosition>
-        value={selectedInningPosition || undefined}
-        ariaLabel="Fielding Position"
-        placeholder="Select fielding position"
-        className="w-full"
-        buttonClassName="h-10"
-        allowClear={false}
-        options={DEFENSIVE_POSITIONS.map((position) => ({
-          value: position.code,
-          label: position.code === 'BENCH' ? 'Bench' : `${position.code} - ${position.label.split('(')[0].trim()}`,
-        }))}
-        onChange={(value) => {
-          if (!value) return;
-          const val = value;
-          if (val === 'BENCH') {
-            const existingPlaysInInning = liveGame.plays.filter((p) => p.inning === currentInning);
-            if (existingPlaysInInning.length > 0) {
-              setBenchConfirmInning(currentInning);
-              return;
-            }
-            applyBenchForInning(currentInning);
-          } else {
-            const heldPosition = liveGame.fieldingPositions?.[currentInning];
-            if (liveGame.benchInnings.includes(currentInning)) {
-              setInningBench(currentInning, false);
-              setInningPosition(currentInning, val);
-              // Only exception to staying on Fielding: becoming the Pitcher opens the Pitching tab.
-              if (val === 'P') setActiveMode('pitching');
-            } else if (heldPosition && heldPosition !== 'BENCH' && heldPosition !== val) {
-              setPendingPositionChange({ inning: currentInning, from: heldPosition, to: val });
-            } else if (!heldPosition) {
-              setInningPosition(currentInning, val);
-              if (val === 'P') setActiveMode('pitching');
-            }
-          }
-        }}
-      />
-    </div>
-  </div>
-)}
-
-      
-
-      {/* Sticky action bar (thumb zone, sits just above the bottom nav): the ONLY Undo / Plays / Save */}
+  <FieldingModePanel
+    selectedPosition={selectedInningPosition || undefined}
+    onPositionSelect={(val) => {
+      if (val === 'BENCH') {
+        const existingPlaysInInning = liveGame.plays.filter((p) => p.inning === currentInning);
+        if (existingPlaysInInning.length > 0) {
+          setBenchConfirmInning(currentInning);
+          return;
+        }
+        applyBenchForInning(currentInning);
+        return;
+      }
+      const heldPosition = liveGame.fieldingPositions?.[currentInning];
+      if (liveGame.benchInnings.includes(currentInning)) {
+        setInningBench(currentInning, false);
+        setInningPosition(currentInning, val);
+        if (val === 'P') setActiveMode('pitching');
+      } else if (heldPosition && heldPosition !== 'BENCH' && heldPosition !== val) {
+        setPendingPositionChange({ inning: currentInning, from: heldPosition, to: val });
+      } else if (!heldPosition) {
+        setInningPosition(currentInning, val);
+        if (val === 'P') setActiveMode('pitching');
+      }
+    }}
+  />
+)}      {/* Sticky action bar (thumb zone, sits just above the bottom nav): the ONLY Undo / Plays / Save */}
       <div
         className="fixed inset-x-0 z-20 bg-[#F4F6F8]/95 dark:bg-[#101419]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#354050]"
         style={{ bottom: 'calc(4.2rem + env(safe-area-inset-bottom, 0px))' }}
