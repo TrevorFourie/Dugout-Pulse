@@ -188,11 +188,7 @@ export function useInningManagement({
         benchInnings: newBench,
         fieldingPositions: newPositions,
       };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist bench state locally:', storageError);
-      }
+      // useGamePersistence checkpoints and verifies before persisting this state change.
       return nextGame;
     });
   }, [liveGame, triggerHaptic]);
@@ -227,11 +223,7 @@ export function useInningManagement({
           fieldingPositions: { ...(prev.fieldingPositions || {}), [inning]: to },
           benchInnings: prev.benchInnings.filter((i) => i !== inning),
         };
-        try {
-          localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-        } catch (storageError) {
-          console.error('Failed to persist position change locally:', storageError);
-        }
+        // useGamePersistence checkpoints and verifies before persisting this state change.
         return nextGame;
       });
     },
@@ -274,11 +266,7 @@ export function useInningManagement({
           positionChanges,
           fieldingPositions: { ...(prev.fieldingPositions || {}), [removed.inning]: current },
         };
-        try {
-          localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-        } catch (storageError) {
-          console.error('Failed to persist position change removal locally:', storageError);
-        }
+        // useGamePersistence checkpoints and verifies before persisting this state change.
         return nextGame;
       });
     },
@@ -316,11 +304,7 @@ export function useInningManagement({
         fieldingPositions: dropKey(prev.fieldingPositions),
         inningLineupSpots: dropKey(prev.inningLineupSpots),
       };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist inning removal locally:', storageError);
-      }
+      // useGamePersistence checkpoints and verifies before persisting this state change.
       return nextGame;
     });
     return true;
@@ -348,11 +332,7 @@ export function useInningManagement({
             : prev.benchInnings.filter((i) => i !== inning),
           fieldingPositions: newPositions,
         };
-        try {
-          localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-        } catch (storageError) {
-          console.error('Failed to persist bench state locally:', storageError);
-        }
+        // useGamePersistence checkpoints and verifies before persisting this state change.
         return nextGame;
       });
     },
