@@ -15,6 +15,23 @@ export const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] =
   { code: 'BENCH', label: 'Bench / Rest' },
 ];
 
+export const PRIMARY_BATTING_CODES: PlayCode[] = [
+  'single', 'double', 'triple', 'homeRun', 'walk', 'hbp', 'out', 'catchersInterference',
+];
+
+export const CATCHER_FIELDING_CODES: PlayCode[] = [
+  'passedBall', 'catcherGloveDeadBall', 'caughtStealing', 'stealAllowed',
+  'catchersInterference', 'pickoff', 'droppedThirdStrike', 'defensiveIndifference',
+  'catcherObstruction', 'catcherObstruction2', 'pickoffCaughtStealing', 'wildPitch', 'balk',
+];
+
+export const RUNNER_ON_CODES = new Set<PlayCode>([
+  'single', 'double', 'triple', 'walk', 'intentionalWalk', 'hbp', 'reachedOnError', 'fieldersChoice', 'runnerAdvance',
+]);
+export const NON_PRIMARY_BATTING = new Set<PlayCode>([
+  'rbi', 'run', 'stolenBase', 'cs', 'runnerAdvance', 'runnerOut', 'leftOnBase', 'runnerHold', 'runnerInjury',
+]);
+
 export const PITCHING_TERMINAL_CODES = new Set<PlayCode>([
   'strikeout',
   'walkAllowed',
