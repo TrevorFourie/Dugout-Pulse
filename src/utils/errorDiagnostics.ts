@@ -113,7 +113,7 @@ function safeStackFrames(error: unknown): string[] {
       const match = line.match(/([^/\\()\s?#]+\.(?:tsx?|jsx?|mjs|cjs))(?:\?[^:\s)]*)?:(\d+):(\d+)/i);
       if (!match) return '';
       const file = match[1].split(/[\\/]/).pop()?.replace(/[^a-zA-Z0-9_.-]/g, '') || 'source';
-      return \`\${file}:\${match[2]}:\${match[3]}\`;
+      return `${file}:${match[2]}:${match[3]}`;
     })
     .filter(Boolean)
     .slice(0, 8);
