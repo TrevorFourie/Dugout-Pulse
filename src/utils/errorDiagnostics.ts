@@ -226,8 +226,12 @@ export function clearAppDataPreservingDiagnostics(): void {
   try {
     for (let index = localStorage.length - 1; index >= 0; index--) {
       const key = localStorage.key(index);
-      // Keep the pre-mutation recovery snapshot even when the user resets app data.
-      if (key && key !== STORAGE_KEY && key !== 'dugoutPulse.recoverySnapshot.v1') localStorage.removeItem(key);
+      // Preserve all recovery copies through a reset so a failed/partial recovery
+      // cannot destroy the only remaining backup.
+      if (key && key !== STORAGE_KEY && key !== 'dugoutPulse.recoverySnapshot.v1' &&
+          key !== 'dugoutPulse.recoverySnapshot.previous.v1' && key !== 'dugoutPulse.beforeRecovery.v1') {
+        localStorage.removeItem(key);
+      }
     }
   } catch {
     // Reset is best-effort if the browser blocks local storage operations.
