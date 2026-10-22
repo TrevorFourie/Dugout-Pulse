@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, X } from 'lucide-react';
 import type { OppositionTeam } from '../context/GameContext';
 import teamIcon from '../assets/TeamIcon.png';
+import { THEMED_DROPDOWN_CONTROL_CLASS } from './ThemedDropdown';
 
 interface OpponentComboboxProps {
   value: string;
@@ -198,7 +199,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
                 }
               }
             }}
-            className="w-full min-w-0 rounded-xl border border-slate-200 bg-white py-2.5 pl-3.5 pr-20 text-xs font-semibold text-[#18212D] shadow-2xs transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]/30 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#FAFAFA] dark:placeholder:text-[#6B7280] dark:hover:border-[#465160] dark:focus:ring-[#00D7BC]/30 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`${THEMED_DROPDOWN_CONTROL_CLASS} py-2.5 pl-3.5 pr-20 placeholder:text-slate-400 dark:placeholder:text-[#6B7280]`}
           />
           <div className="absolute right-1.5 flex items-center gap-1">
             {value && !disabled && (
