@@ -97,20 +97,9 @@ export async function createVerifiedRecoveryCheckpoint(reason: string): Promise<
 /** Called before initial restore; establishes a durable baseline before app code mutates stored state. */
 export async function ensureRecoveryBaseline(): Promise<boolean> {
   try {
-    const index = await readIndex();
-    for (const entry of [...index.checkpoints].reverse()) {
-      try {
-        const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
-        const raw = result.data as string;
-        if (raw.length === entry.byteLength && checksum(raw) === entry.checksum) {
-          const parsed = JSON.parse(raw) as { values?: unknown };
-          if (parsed && parsed.values && typeof parsed.values === 'object' && !Array.isArray(parsed.values)) return true;
-        }
-      } catch {
-        // Continue to the next prior verified checkpoint.
-      }
-    }
-    return createVerifiedRecoveryCheckpoint('Pre-startup baseline');
+    // Preserve the current pre-restore state on every launch/update, not only on
+    // first install. The journal keeps older immutable checkpoint files as history.
+    return await createVerifiedRecoveryCheckpoint('Pre-startup state before restore or migration');
   } catch (error) {
     console.error('Could not establish a private recovery baseline.', error);
     return false;
