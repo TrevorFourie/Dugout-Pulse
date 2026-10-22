@@ -16,10 +16,10 @@ const readAsDataUrl = (file: File): Promise<string> => new Promise((resolve, rej
   reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not read that image file.'));
   reader.readAsDataURL(file);
 });
-const canvasToBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> => new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not resize this image.')), 'image/jpeg', quality));
+const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> => new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not resize this image.')), type, quality));
 const blobToDataUrl = (blob: Blob): Promise<string> => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not encode this image.')); reader.onerror = () => reject(new Error('Could not encode this image.')); reader.readAsDataURL(blob); });
 
-/** Validates an image and resizes/re-encodes it to fit a 250 KB ceiling and square dimensions. */
+/** Resizes a logo while preserving alpha transparency and enforcing the 250 KB output ceiling. */
 export async function processLogoImage(file: File, maxSize = 256): Promise<string> {
   const extension = getExtension(file.name);
   if (!ALLOWED_EXTENSIONS.has(extension)) throw new Error('Unsupported image format. Choose PNG, JPG, JPEG, or WebP.');
@@ -33,13 +33,24 @@ export async function processLogoImage(file: File, maxSize = 256): Promise<strin
   const sw = image.naturalWidth, sh = image.naturalHeight;
   if (!sw || !sh || sw > MAX_LOGO_DIMENSION || sh > MAX_LOGO_DIMENSION || sw * sh > MAX_LOGO_PIXELS) throw new Error('This image has dimensions that are too large to process safely.');
   let dimension = Math.min(1024, Math.max(64, Math.floor(maxSize)));
+  const preserveAlpha = extension === 'png' || extension === 'webp';
   while (dimension >= 64) {
     const scale = Math.min(1, dimension / Math.max(sw, sh)); const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(sw * scale)); canvas.height = Math.max(1, Math.round(sh * scale));
     const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Image processing is not supported on this device.');
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    for (const quality of [0.88, 0.78, 0.68, 0.58, 0.48]) { const blob = await canvasToBlob(canvas, quality); if (blob.size <= MAX_LOGO_OUTPUT_BYTES) return blobToDataUrl(blob); }
+    // Do not paint a background: transparent pixels must remain transparent.
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const candidates = preserveAlpha
+      ? [{ type: 'image/webp', quality: 0.9 }, { type: 'image/webp', quality: 0.78 }, { type: 'image/webp', quality: 0.65 }, { type: 'image/png' }]
+      : [{ type: 'image/jpeg', quality: 0.88 }, { type: 'image/jpeg', quality: 0.76 }, { type: 'image/jpeg', quality: 0.62 }, { type: 'image/jpeg', quality: 0.48 }];
+    for (const candidate of candidates) {
+      const blob = await canvasToBlob(canvas, candidate.type, candidate.quality);
+      // Browsers may silently fall back to PNG for unsupported requested encoders.
+      if (preserveAlpha && blob.type !== 'image/webp' && blob.type !== 'image/png') continue;
+      if (blob.size <= MAX_LOGO_OUTPUT_BYTES) return blobToDataUrl(blob);
+    }
     dimension = Math.floor(dimension * 0.75);
   }
-  throw new Error('Could not reduce this logo below 250 KB. Please choose a simpler image.');
+  throw new Error('Could not reduce this logo below 250 KB while preserving its transparency. Please choose a simpler or smaller image.');
 }

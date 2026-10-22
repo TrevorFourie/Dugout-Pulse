@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { processLogoImage } from './logoImage';
 
-export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number };
+export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
 const DIR = 'team-logos';
 const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-library-changed'));
@@ -10,16 +10,18 @@ export const readTeamLogoLibrary = (): TeamLogoItem[] => {
   try { const parsed = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
 };
 const writeTeamLogoLibrary = (items: TeamLogoItem[]) => { localStorage.setItem(KEY, JSON.stringify(items)); changed(); };
+const extensionForMime = (mime: string) => mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
 export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   const dataUrl = await processLogoImage(file, 512);
+  const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'));
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
   const id = 'logo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-  const fileName = id + '.jpg';
+  const fileName = id + '.' + extensionForMime(mimeType);
   await Filesystem.mkdir({ path: DIR, directory: Directory.Data, recursive: true }).catch(() => undefined);
   await Filesystem.writeFile({ path: DIR + '/' + fileName, data: base64, directory: Directory.Data, recursive: true });
   const fileUri = await Filesystem.getUri({ path: DIR + '/' + fileName, directory: Directory.Data });
   const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
-  const item: TeamLogoItem = { id, name: file.name.replace(/\.[^.]+$/, '') || 'Team logo', fileName, uri, sizeBytes: Math.floor(base64.length * 3 / 4) };
+  const item: TeamLogoItem = { id, name: file.name.replace(/\.[^.]+$/, '') || 'Team logo', fileName, uri, mimeType, sizeBytes: Math.floor(base64.length * 3 / 4) };
   writeTeamLogoLibrary([item, ...readTeamLogoLibrary()]);
   return item;
 }
@@ -31,8 +33,7 @@ export const TEAM_LOGO_LIBRARY_EVENT = 'dugout-pulse-logo-library-changed';
 export async function migrateLegacyLogoDataUrl(dataUrl: string): Promise<string> {
   const match = /^data:image\/(png|jpeg|webp);base64,(.+)$/i.exec(dataUrl);
   if (!match) throw new Error('Legacy logo format is unsupported.');
-  const binary = atob(match[2]);
-  const bytes = new Uint8Array(binary.length);
+  const binary = atob(match[2]); const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
   const ext = match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
   const file = new File([bytes], 'legacy-logo.' + ext, { type: ext === 'jpg' ? 'image/jpeg' : 'image/' + ext });

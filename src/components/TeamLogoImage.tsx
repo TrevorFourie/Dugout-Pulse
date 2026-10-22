@@ -2,18 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { readTeamLogoLibrary } from '../utils/teamLogoLibrary';
 
-interface TeamLogoImageProps {
-  value?: string;
-  alt: string;
-  className?: string;
-  onError?: () => void;
-}
+interface TeamLogoImageProps { value?: string; alt: string; className?: string; onError?: () => void }
 
-/** Read saved image bytes at render time: Capacitor filesystem URIs are not
- * necessarily browser-loadable URLs for <img>. */
+/** All screens resolve the same logo ID to the one private file. */
 export const TeamLogoImage: React.FC<TeamLogoImageProps> = ({ value, alt, className, onError }) => {
   const [src, setSrc] = useState<string>();
-
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | undefined;
@@ -28,21 +21,14 @@ export const TeamLogoImage: React.FC<TeamLogoImageProps> = ({ value, alt, classN
       try {
         const result = await Filesystem.readFile({ path: `team-logos/${item.fileName}`, directory: Directory.Data });
         if (cancelled) return;
-        if (typeof result.data === 'string') {
-          setSrc(result.data.startsWith('data:') ? result.data : `data:image/jpeg;base64,${result.data}`);
-        } else {
-          objectUrl = URL.createObjectURL(result.data);
-          setSrc(objectUrl);
-        }
-      } catch {
-        if (!cancelled) onError?.();
-      }
+        const mime = item.mimeType || (item.fileName.toLowerCase().endsWith('.png') ? 'image/png' : item.fileName.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+        if (typeof result.data === 'string') setSrc(result.data.startsWith('data:') ? result.data : `data:${mime};base64,${result.data}`);
+        else { objectUrl = URL.createObjectURL(result.data); setSrc(objectUrl); }
+      } catch { if (!cancelled) onError?.(); }
     };
     void load();
     return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-    // Inline onError callbacks should not trigger repeated filesystem reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-
   return <img src={src} alt={alt} className={className} onError={() => { setSrc(undefined); onError?.(); }} />;
 };
