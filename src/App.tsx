@@ -403,7 +403,7 @@ const MainApp: React.FC = () => {
             <p className="mt-2 text-xs">
               {recoverySnapshot.available
                 ? 'A local snapshot exists, but it does not contain a non-empty saved game, player/team profile, or upcoming-fixture list.'
-                : 'No usable local recovery snapshot is available.'}
+                : 'No usable local recovery snapshot is available. Check Settings → Data & About → Recovery Journal for verified private checkpoints before deciding what to do next.'}
             </p>
           )}
           <button type="button" className="mt-2 text-xs font-semibold text-[#007A6A] underline dark:text-[#00D7BC]" onClick={() => setIsRecoveryAlertDismissed(false)}>
@@ -416,8 +416,8 @@ const MainApp: React.FC = () => {
         title="Saved data needs recovery"
         message={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData
           ? 'Automatic saving is paused to protect your existing data. A verified local recovery snapshot is available. Review the snapshot details before choosing whether to restore it. Do not clear app data or browser storage.'
-          : 'Automatic saving is paused to protect your existing data. No usable local recovery snapshot is available. Do not reset app data or clear browser storage. Review the diagnostic report before taking further action.'}
-        confirmLabel={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? 'Review restore options' : 'OK'}
+          : 'Automatic saving is paused to protect your existing data. No usable local recovery snapshot is available for the saved games/profile/fixtures check. The private recovery journal may still contain verified checkpoints. Open recovery tools to check; do not reset app data or clear browser storage.'}
+        confirmLabel={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? 'Review restore options' : 'Open recovery tools'}
         showCancelButton={false}
         closeOnBackdrop={false}
         variant="danger"
@@ -427,6 +427,10 @@ const MainApp: React.FC = () => {
           if (recoverySnapshot.available && recoverySnapshot.hasMeaningfulData) {
             setRecoveryError(null);
             setIsRecoveryConfirmOpen(true);
+          } else {
+            setSettingsInitialSection('data');
+            setIsSettingsMenuOpen(false);
+            setIsSettingsOpen(true);
           }
         }}
       />
