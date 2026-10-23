@@ -1005,7 +1005,9 @@ export async function saveSQLiteUpcomingGames(
       'SELECT value FROM app_meta WHERE key = ?',
       [CUTOVER_MARKER],
     );
-    if (cutover.values?.[0]?.value !== 'complete') return;
+    if (cutover.values?.[0]?.value !== 'complete') {
+      throw new Error('Scheduled games were not saved because the SQLite cutover marker is missing.');
+    }
     await database.run('DELETE FROM upcoming_games', [], false);
     const expected = new Map<string, string>();
     for (const game of games) {
@@ -1028,7 +1030,9 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
       'SELECT value FROM app_meta WHERE key = ?',
       [CUTOVER_MARKER],
     );
-    if (cutover.values?.[0]?.value !== 'complete') return;
+    if (cutover.values?.[0]?.value !== 'complete') {
+      throw new Error('Logo metadata was not saved because the SQLite cutover marker is missing.');
+    }
     await database.run('DELETE FROM logo_library', [], false);
     const expected = new Map<string, string>();
     for (const logo of library) {
