@@ -767,7 +767,12 @@ export async function saveLiveSQLiteState(
   });
 }
 
-function parseLiveRows<T>(rows: Record<string, unknown>[], table: string, validate: (value: unknown) => value is T): T[] {
+function parseLiveRows<T>(
+  rows: Record<string, unknown>[],
+  table: string,
+  validate: (value: unknown) => value is T,
+  keyColumn?: string,
+): T[] {
   return rows.map((row) => {
     if (typeof row.value_json !== 'string') {
       throw new Error(`SQLite live state in ${table} contains a malformed row.`);
@@ -780,6 +785,15 @@ function parseLiveRows<T>(rows: Record<string, unknown>[], table: string, valida
     }
     if (!validate(parsed)) {
       throw new Error(`SQLite live state in ${table} failed validation.`);
+    }
+    if (keyColumn) {
+      const rowKey = row[keyColumn];
+      const recordKey = parsed && typeof parsed === 'object' && 'id' in parsed
+        ? (parsed as { id?: unknown }).id
+        : undefined;
+      if (typeof rowKey !== 'string' || rowKey !== recordKey) {
+        throw new Error(`SQLite live state in ${table} has a mismatched record ID.`);
+      }
     }
     return parsed;
   });
@@ -806,11 +820,11 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
     readRows(database, 'SELECT key, value_json FROM app_state'),
   ]);
 
-  const games = parseLiveRows(gameRows, 'games', isGame);
-  const profiles = parseLiveRows(profileRows, 'profiles', isProfile);
-  const oppositionTeams = parseLiveRows(oppositionRows, 'opposition_teams', isOppositionTeam);
-  const upcomingGames = parseLiveRows(upcomingRows, 'upcoming_games', isUpcomingGame);
-  const logoLibrary = parseLiveRows(logoRows, 'logo_library', isLogoItem);
+  const games = parseLiveRows(gameRows, 'games', isGame, 'id');
+  const profiles = parseLiveRows(profileRows, 'profiles', isProfile, 'id');
+  const oppositionTeams = parseLiveRows(oppositionRows, 'opposition_teams', isOppositionTeam, 'id');
+  const upcomingGames = parseLiveRows(upcomingRows, 'upcoming_games', isUpcomingGame, 'id');
+  const logoLibrary = parseLiveRows(logoRows, 'logo_library', isLogoItem, 'id');
 
   const namedLists = new Map<string, string[]>();
   for (const row of listRows) {
