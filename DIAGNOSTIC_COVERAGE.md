@@ -38,7 +38,9 @@ This document describes the diagnostic/error-handling paths present in the sourc
 
 ## Source-audit scope
 
-The source review scanned all 78 TypeScript React component files under `src/components` for common alert, toast, status, error and catch patterns. Deeper path inspection covered the startup bootstrap, diagnostic recorder, app and settings boundaries, storage persistence/restore, private recovery journal, JSON backup import/export, scheduled games, opposition-team management, notification failures and recap export.
+A broad source-pattern scan of the 78 TypeScript React component files is useful for finding likely alert, toast, status, error and catch paths, but it is not proof that every path has been reviewed against the requirements. A follow-up review found two concrete omissions despite that scan: backup export could silently substitute defaults for unreadable setup metadata or filter malformed preset-list entries, and diagnostic report export did not guard its own report-generation path with a catch. Both are corrected in the current source. This is evidence that pattern scanning alone is insufficient; this document does not claim every user-facing message or every asynchronous operation has been exhaustively verified end-to-end.
+
+Deeper path inspection covered the startup bootstrap, diagnostic recorder, app and settings boundaries, storage persistence/restore, private recovery journal, JSON backup import/export, scheduled games, opposition-team management, notification failures and recap export. The current review is source-level only and does not include a local build or runtime execution.
 
 ## Unavoidable coverage gaps
 
@@ -52,7 +54,10 @@ The source review scanned all 78 TypeScript React component files under `src/com
 ## Verification status
 
 - The current `main` sources were fetched again after the changes and checked for the expected hook order, modal routing, scheduled-game validation, import failure handling and outer error-boundary placement.
+- Backup export now stops if the setup-completed flag cannot be read/validated, and stops rather than silently filtering non-string entries from saved preset lists.
+- Diagnostic report export now catches exceptions thrown while building or handing off the report, attempts to record the failure, and falls back to a modal plus the manual report preview.
+- The settings backup success/cancel/failure paths were rechecked: actionable outcomes use the settings confirmation modal rather than the green inline status banner.
 - The reported `SettingsModal` Hook-order defect was fixed by moving all hooks before the closed-modal early return. The earlier `App.tsx` hook-order correction remains in place.
-- Source-level checks are not compile or runtime tests. No build was triggered, in accordance with the required workflow; the existing `userMessages.test.ts` test file was not executed in this remote-source review.
+- Source-level checks are not compile or runtime tests. No build was triggered, in accordance with the required workflow; the existing `userMessages.test.ts` test file was not executed in this remote-source review. The message-style audit is not yet a complete path-by-path proof that no other actionable failures are shown inline or as toasts; the earlier broad pattern scan did not prevent the missed backup-success path, so that requirement remains only partially verified.
 - Local regression testing is still required for React Hook order, startup/module failures, restricted/full storage, recovery restore and rollback, backup imports, and native WebView behaviour.
 - A failed backup import after a verified pre-import checkpoint pauses automatic persistence and does not publish the imported game/profile/settings state before direct scheduled-game/opposition-team/setup-flag writes succeed. Logo files or the logo-library key may already have been written before a later operation fails; the pre-import checkpoint is retained for explicit recovery, but those earlier logo writes are not automatically rolled back by the import handler.
