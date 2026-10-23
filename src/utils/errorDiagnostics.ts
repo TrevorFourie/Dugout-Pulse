@@ -15,10 +15,46 @@ export interface DiagnosticEvent {
   category: string;
   errorType?: string;
   errorMessage?: string;
+  userMessage?: string;
   frames?: string[];
   details?: string;
   platform: 'Android' | 'iOS' | 'Web';
   build: string;
+}
+
+/** Plain-language user guidance; technical details stay in the opt-in report. */
+export function friendlyErrorMessage(category: string): string {
+  switch (safeCategory(category)) {
+    case 'app_startup':
+      return "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.";
+    case 'react_render':
+      return "Dugout Pulse encountered a screen error and had to stop this view. Your saved data may still be on this device. Avoid clearing app data and share the diagnostic report.";
+    case 'storage_load':
+    case 'storage_read':
+    case 'data_corruption':
+      return "Dugout Pulse couldn't safely read some saved data. Don't reset or reinstall the app. Open recovery tools and check your recovery points.";
+    case 'storage_write':
+    case 'storage_write_opposition_teams':
+    case 'storage_write_games':
+    case 'storage_write_profiles':
+      return "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.";
+    case 'backup_import':
+      return "Dugout Pulse couldn't safely import that backup. Don't reset the app. Review the diagnostic report before trying another import.";
+    case 'recovery_checkpoint':
+      return "Dugout Pulse couldn't verify a recovery point. Avoid resetting or reinstalling the app; check for another verified recovery point.";
+    case 'recovery_restore':
+      return "Dugout Pulse couldn't complete the restore. Do not clear app data or reinstall. Review the diagnostic report before another attempt.";
+    case 'data_reset':
+      return "Dugout Pulse couldn't complete the data reset safely. Do not repeat the reset yet. Review the diagnostic report and check your recovery points.";
+    case 'window_error':
+    case 'unhandled_rejection':
+    case 'runtime_error':
+    case 'native_failure':
+    case 'app_lifecycle':
+      return "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling while the cause is unknown.";
+    default:
+      return "Dugout Pulse couldn't complete an operation because of an unexpected problem. Keep the app installed, avoid clearing app data, and review the diagnostic report or recovery tools.";
+  }
 }
 
 function createReference(): string {
@@ -52,6 +88,11 @@ function getBuild(): string {
 const ALLOWED_CATEGORIES = new Set([
   'window_error',
   'unhandled_rejection',
+  'runtime_error',
+  'data_corruption',
+  'storage_read',
+  'app_lifecycle',
+  'native_failure',
   'app_startup',
   'react_render',
   'storage_load',
@@ -202,6 +243,7 @@ function readEvents(): DiagnosticEvent[] {
           ...(typeof item.errorMessage === 'string' && item.errorMessage.length
             ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, MAX_MESSAGE_CHARS) }
             : {}),
+          userMessage: friendlyErrorMessage(safeCategory(item.category)),
           ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
           ...(typeof item.details === 'string' && item.details.length
             ? { details: safeDiagnosticDetail(item.details) }
@@ -249,7 +291,11 @@ export function recordDiagnosticError(category: string, error: unknown, addition
     category: normalisedCategory,
     errorType: safeErrorType(error),
     errorMessage: safeErrorMessage(error),
+    userMessage: friendlyErrorMessage(normalisedCategory),
     frames: safeStackFrames(error),
+    ...((error && typeof error === 'object' && 'stack' in error && typeof error.stack === 'string')
+      ? { details: safeDiagnosticDetail(error.stack) }
+      : {}),
     ...(normalisedCategory === 'react_render' && diagnosticDetails ? { details: diagnosticDetails } : {}),
     platform: getPlatform(),
     build: getBuild(),
