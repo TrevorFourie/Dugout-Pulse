@@ -478,10 +478,79 @@ export function useGameDataManagement({
         }
       }
 
-      // Do not publish an empty in-memory state until the legacy keys have been
-      // removed and, after cutover, the matching empty SQLite snapshot has committed.
-      // The verified private checkpoint remains available if any step fails.
+      const resetPreservedKeys = new Set([
+        'dugoutPulse.diagnostics.v1',
+        'dugoutPulse.recoverySnapshot.v1',
+        'dugoutPulse.recoverySnapshot.previous.v1',
+        'dugoutPulse.beforeRecovery.v1',
+        'dugoutPulse.sqliteCutover.v1',
+      ]);
+      const beforeResetStorage: Record<string, string> = {};
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || resetPreservedKeys.has(key)) continue;
+        const value = localStorage.getItem(key);
+        if (value !== null) beforeResetStorage[key] = value;
+      }
+      const restoreResetStorage = () => {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+          const key = localStorage.key(index);
+          if (key && !resetPreservedKeys.has(key) && !(key in beforeResetStorage)) localStorage.removeItem(key);
+        }
+        for (const [key, value] of Object.entries(beforeResetStorage)) {
+          if (!resetPreservedKeys.has(key)) localStorage.setItem(key, value);
+        }
+        const restored: Record<string, string> = {};
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (!key || resetPreservedKeys.has(key)) continue;
+          const value = localStorage.getItem(key);
+          if (value !== null) restored[key] = value;
+        }
+        const expectedKeys = Object.keys(beforeResetStorage);
+        const actualKeys = Object.keys(restored);
+        if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key) => restored[key] !== beforeResetStorage[key])) {
+          throw new Error('Pre-reset localStorage values failed rollback verification.');
+        }
+      };
+
+      let beforeResetSQLiteState: SQLiteLiveState | null = null;
+      if (sqliteCutoverComplete) {
+        try {
+          beforeResetSQLiteState = {
+            games,
+            profiles,
+            settings,
+            liveGame,
+            editingGameId,
+            reopenedGameId,
+            setupCompleted: localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+            savedOpponents,
+            savedTournaments,
+            savedAgeGroups,
+            savedSeasons,
+            hiddenTournaments,
+            hiddenAgeGroups,
+            hiddenSeasons,
+            oppositionTeams,
+            upcomingGames: readUpcomingGamesForSQLite(),
+            logoLibrary: readTeamLogoLibraryStrict(),
+          };
+          await saveLiveSQLiteState(beforeResetSQLiteState, { includeAuxiliary: true });
+        } catch (error) {
+          setRestoreFailed(true);
+          recordDiagnosticError('storage_write', error, 'Reset was stopped because the current SQLite state could not be checkpointed safely.');
+          return false;
+        }
+      }
+
+      // The private checkpoint and in-memory rollback snapshot both predate removal.
       if (!clearAppDataPreservingDiagnostics()) {
+        try {
+          restoreResetStorage();
+        } catch (rollbackError) {
+          recordDiagnosticError('storage_write', rollbackError, 'Reset stopped after a partial local-storage clear and automatic rollback could not be verified. The recovery checkpoint was retained.');
+        }
         setRestoreFailed(true);
         return false;
       }
@@ -507,8 +576,24 @@ export function useGameDataManagement({
             logoLibrary: [],
           }, { includeAuxiliary: true });
         } catch (error) {
+          let rollbackError: unknown = null;
+          if (beforeResetSQLiteState) {
+            try {
+              await saveLiveSQLiteState(beforeResetSQLiteState, { includeAuxiliary: true });
+            } catch (databaseRollbackError) {
+              rollbackError = databaseRollbackError;
+            }
+          }
+          try {
+            restoreResetStorage();
+          } catch (storageRollbackError) {
+            rollbackError = rollbackError || storageRollbackError;
+          }
+          if (rollbackError) {
+            recordDiagnosticError('storage_write', rollbackError, 'Reset failed and one or more previous-state rollbacks could not be verified. The recovery checkpoint was retained.');
+          }
           setRestoreFailed(true);
-          recordDiagnosticError('storage_write', error, 'Local app data was cleared, but the reset could not be committed to SQLite. The verified recovery checkpoint was retained; automatic saving is paused.');
+          recordDiagnosticError('storage_write', error, 'Reset could not be committed to SQLite. The app attempted to restore the previous state and paused automatic saving.');
           return false;
         }
       }
