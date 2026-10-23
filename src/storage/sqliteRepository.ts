@@ -7,6 +7,7 @@ import { initializeSQLiteDatabase, withSQLiteTransaction } from './sqliteDatabas
 
 const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
 const CUTOVER_MARKER = 'legacy_storage_import_v1';
+const LIVE_STATE_MARKER = 'live_state_snapshot_v1';
 
 const ARRAY_LIST_KEYS = [
   STORAGE_KEYS.SAVED_OPPONENTS,
@@ -626,15 +627,6 @@ export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void>
   ];
 
   await withSQLiteTransaction(async (database) => {
-    const cutover = await database.query(
-      'SELECT value FROM app_meta WHERE key = ?',
-      [CUTOVER_MARKER],
-    );
-    if (cutover.values?.[0]?.value === 'complete') {
-      // Live writes are expected after cutover, but they still go through the same
-      // validated transaction and never rewrite the immutable legacy source copy.
-    }
-
     const tables = [
       'games', 'profiles', 'named_lists', 'opposition_teams',
       'upcoming_games', 'logo_library', 'app_state',
@@ -703,5 +695,115 @@ export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void>
     await verifyRows(database, 'upcoming_games', 'id', 'value_json', expectedUpcoming);
     await verifyRows(database, 'logo_library', 'id', 'value_json', expectedLogos);
     await verifyRows(database, 'app_state', 'key', 'value_json', expectedAppState);
+
+    await database.run(
+      'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      [LIVE_STATE_MARKER, '1'],
+      false,
+    );
   });
+}
+
+function parseLiveRows<T>(rows: Record<string, unknown>[], table: string, validate: (value: unknown) => value is T): T[] {
+  return rows.map((row) => {
+    if (typeof row.value_json !== 'string') {
+      throw new Error(`SQLite live state in ${table} contains a malformed row.`);
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.value_json) as unknown;
+    } catch {
+      throw new Error(`SQLite live state in ${table} contains invalid JSON.`);
+    }
+    if (!validate(parsed)) {
+      throw new Error(`SQLite live state in ${table} failed validation.`);
+    }
+    return parsed;
+  });
+}
+
+/** Reads the last complete live-state transaction; never falls back to empty defaults. */
+export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
+  const database = await initializeSQLiteDatabase();
+  const marker = await database.query(
+    'SELECT value FROM app_meta WHERE key = ?',
+    [LIVE_STATE_MARKER],
+  );
+  if (marker.values?.[0]?.value !== '1') {
+    throw new Error('No complete live SQLite state snapshot is available yet.');
+  }
+
+  const [gameRows, profileRows, listRows, oppositionRows, upcomingRows, logoRows, appStateRows] = await Promise.all([
+    readRows(database, 'SELECT id, value_json FROM games'),
+    readRows(database, 'SELECT id, value_json FROM profiles'),
+    readRows(database, 'SELECT key, value_json FROM named_lists'),
+    readRows(database, 'SELECT id, value_json FROM opposition_teams'),
+    readRows(database, 'SELECT id, value_json FROM upcoming_games'),
+    readRows(database, 'SELECT id, value_json FROM logo_library'),
+    readRows(database, 'SELECT key, value_json FROM app_state'),
+  ]);
+
+  const games = parseLiveRows(gameRows, 'games', isGame);
+  const profiles = parseLiveRows(profileRows, 'profiles', isProfile);
+  const oppositionTeams = parseLiveRows(oppositionRows, 'opposition_teams', isOppositionTeam);
+  const upcomingGames = parseLiveRows(upcomingRows, 'upcoming_games', isUpcomingGame);
+  const logoLibrary = parseLiveRows(logoRows, 'logo_library', isLogoItem);
+
+  const namedLists = new Map<string, string[]>();
+  for (const row of listRows) {
+    if (typeof row.key !== 'string' || typeof row.value_json !== 'string') {
+      throw new Error('SQLite live state in named_lists contains a malformed row.');
+    }
+    const value: unknown = JSON.parse(row.value_json);
+    if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
+      throw new Error('SQLite live state in named_lists failed validation.');
+    }
+    namedLists.set(row.key, value);
+  }
+
+  const appState = new Map<string, unknown>();
+  for (const row of appStateRows) {
+    if (typeof row.key !== 'string' || typeof row.value_json !== 'string') {
+      throw new Error('SQLite live state in app_state contains a malformed row.');
+    }
+    appState.set(row.key, JSON.parse(row.value_json) as unknown);
+  }
+
+  const settings = appState.get(STORAGE_KEYS.SETTINGS);
+  const liveGame = appState.get(STORAGE_KEYS.LIVE_GAME);
+  const editingGameId = appState.get(STORAGE_KEYS.EDITING_GAME_ID);
+  const reopenedGameId = appState.get(STORAGE_KEYS.REOPENED_GAME_ID);
+  const setupCompleted = appState.get(STORAGE_KEYS.SETUP_COMPLETED);
+  if (!isRecord(settings) || (liveGame !== null && !isGame(liveGame)) ||
+      (editingGameId !== null && typeof editingGameId !== 'string') ||
+      (reopenedGameId !== null && typeof reopenedGameId !== 'string') ||
+      typeof setupCompleted !== 'boolean') {
+    throw new Error('SQLite live app state is incomplete or failed validation.');
+  }
+
+  const getList = (key: string): string[] => {
+    const value = namedLists.get(key);
+    if (!value) throw new Error(`SQLite live state is missing the saved list ${key}.`);
+    return value;
+  };
+
+  return {
+    games,
+    profiles,
+    settings: settings as AppSettings,
+    liveGame: liveGame as Game | null,
+    editingGameId: editingGameId as string | null,
+    reopenedGameId: reopenedGameId as string | null,
+    setupCompleted,
+    savedOpponents: getList(STORAGE_KEYS.SAVED_OPPONENTS),
+    savedTournaments: getList(STORAGE_KEYS.SAVED_TOURNAMENTS),
+    savedAgeGroups: getList(STORAGE_KEYS.SAVED_AGE_GROUPS),
+    savedSeasons: getList(STORAGE_KEYS.SAVED_SEASONS),
+    hiddenTournaments: getList(STORAGE_KEYS.HIDDEN_TOURNAMENTS),
+    hiddenAgeGroups: getList(STORAGE_KEYS.HIDDEN_AGE_GROUPS),
+    hiddenSeasons: getList(STORAGE_KEYS.HIDDEN_SEASONS),
+    oppositionTeams,
+    upcomingGames,
+    logoLibrary,
+  };
 }
