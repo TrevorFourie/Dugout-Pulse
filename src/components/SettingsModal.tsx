@@ -55,6 +55,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const dismissToast = useCallback(() => setToastMessage(null), []);
   const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' | 'success' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
@@ -319,7 +320,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      <ToastMessage message={toastMessage} onDismiss={useCallback(() => setToastMessage(null), [])} />
+      <ToastMessage message={toastMessage} onDismiss={dismissToast} />
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}
