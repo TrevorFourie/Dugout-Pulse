@@ -675,11 +675,27 @@ export async function saveLiveSQLiteState(
     [STORAGE_KEYS.SETUP_COMPLETED, state.setupCompleted],
   ];
 
-  await withSQLiteTransaction(async (database) => {
-    const imported = await database.query(
-      'SELECT value FROM app_meta WHERE key = ?',
-      [SNAPSHOT_MARKER],
-    );
+  // Write a durable local "pending" signal before the database transaction. If the
+  // database commit succeeds but the web-store flush or final marker mirror fails,
+  // the next startup must fail closed and reconcile rather than treating localStorage
+  // as authoritative and overwriting newer SQLite state.
+  if (options.completeCutover === true) {
+    try {
+      localStorage.setItem(LOCAL_CUTOVER_MARKER, 'pending');
+      if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'pending') {
+        throw new Error('The pending SQLite cutover marker failed read-back verification.');
+      }
+    } catch (error) {
+      throw new Error('SQLite cutover was not started because its safety marker could not be verified. ' + (error instanceof Error ? error.message : String(error)));
+    }
+  }
+
+  try {
+    await withSQLiteTransaction(async (database) => {
+      const imported = await database.query(
+        'SELECT value FROM app_meta WHERE key = ?',
+        [SNAPSHOT_MARKER],
+      );
     if (typeof imported.values?.[0]?.value !== 'string') {
       throw new Error('SQLite live-state write was blocked because no verified legacy snapshot exists yet.');
     }
@@ -758,14 +774,31 @@ export async function saveLiveSQLiteState(
       [LIVE_STATE_MARKER, '1'],
       false,
     );
+      if (options.completeCutover === true) {
+        await database.run(
+          'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          [CUTOVER_MARKER, 'complete'],
+          false,
+        );
+      }
+    });
+  } catch (error) {
     if (options.completeCutover === true) {
-      await database.run(
-        'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        [CUTOVER_MARKER, 'complete'],
-        false,
-      );
+      // Clear "pending" only when SQLite definitively did not commit cutover.
+      // If the database cannot be inspected, keep it so startup stops safely.
+      try {
+        if (!(await isLegacyStorageImportComplete())) {
+          localStorage.removeItem(LOCAL_CUTOVER_MARKER);
+          if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== null) {
+            throw new Error('The pending SQLite cutover marker could not be cleared after a failed transaction.');
+          }
+        }
+      } catch {
+        // Retaining "pending" is the safe outcome when transaction status is uncertain.
+      }
     }
-  });
+    throw error;
+  }
 
   if (options.completeCutover === true) {
     try {
