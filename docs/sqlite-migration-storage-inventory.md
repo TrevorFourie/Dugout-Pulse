@@ -9,7 +9,7 @@ This document records the actual persistence surfaces inspected on `main`. It is
 - App stack: React 19, TypeScript 7, Vite 8, Capacitor 7.
 - Approved SQLite stack: `@capacitor-community/sqlite` 7.x, `jeep-sqlite` browser adapter, and `sql.js`.
 - The plugin's current latest major is 8.x; do not install it into this Capacitor 7 app without a deliberate platform upgrade.
-- Web setup requires the `jeep-sqlite` custom element, `initWebStore()`, persistence via `saveToStore()`, and the `sql-wasm.wasm` asset under `public/assets`. This needs verification in the actual Vite/Chrome runtime.
+- Web setup requires the `jeep-sqlite` custom element, `initWebStore()`, persistence via `saveToStore()`, and the `sql-wasm.wasm` asset under `public/assets`. The actual Vite/Chrome runtime has passed schema initialization, write/read-back, reload persistence, and temporary-marker cleanup checks.
 - Dependencies were installed locally and committed together in `package.json` and `package-lock.json` by commit `12bdff1` (`@capacitor-community/sqlite@7.0.3`, `jeep-sqlite@2.8.0`). The resolved `jeep-sqlite` version satisfies the plugin's `^2.7.2` dependency range.
 
 ## Existing storage surfaces
