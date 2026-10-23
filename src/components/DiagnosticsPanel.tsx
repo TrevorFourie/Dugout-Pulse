@@ -100,7 +100,7 @@ export const DiagnosticsPanel: React.FC = () => {
         confirmLabel="OK"
         showCancelButton={false}
         closeOnBackdrop={false}
-        variant="warning"
+        variant="danger"
         onCancel={() => setExportFailureAlert(null)}
         onConfirm={() => setExportFailureAlert(null)}
       />
