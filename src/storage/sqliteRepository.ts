@@ -355,18 +355,34 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
       }
     }
 
-    // Never clear rows from an unmarked database: they may be data from a partial
-    // earlier attempt or another supported code path that needs explicit reconciliation.
-    for (const table of [
-      'games', 'profiles', 'named_lists', 'opposition_teams',
-      'upcoming_games', 'logo_library', 'app_state', 'legacy_values',
-    ]) {
-      const countResult = await database.query(`SELECT COUNT(*) AS count FROM ${table}`);
-      const count = countResult.values?.[0]?.count;
-      if (typeof count === 'number' ? count > 0 : Number(count) > 0) {
-        throw new Error(
-          `SQLite table ${table} already contains data but has no verified legacy snapshot marker. Import stopped without changing existing rows.`,
-        );
+    const verifiedRefresh = typeof existingFingerprint === 'string' &&
+      existingFingerprint === verifiedPriorFingerprint &&
+      existingFingerprint !== fingerprint;
+
+    if (verifiedRefresh) {
+      // The prior snapshot and every typed projection were verified before entering
+      // this transaction, and live-state persistence has not begun. Replace only
+      // these migration-owned tables atomically; preserve app_meta and diagnostics.
+      for (const table of [
+        'games', 'profiles', 'named_lists', 'opposition_teams',
+        'upcoming_games', 'logo_library', 'app_state', 'legacy_values',
+      ]) {
+        await database.run(`DELETE FROM ${table}`, [], false);
+      }
+    } else {
+      // Never clear rows from an unmarked database: they may be data from a partial
+      // earlier attempt or another supported code path that needs explicit reconciliation.
+      for (const table of [
+        'games', 'profiles', 'named_lists', 'opposition_teams',
+        'upcoming_games', 'logo_library', 'app_state', 'legacy_values',
+      ]) {
+        const countResult = await database.query(`SELECT COUNT(*) AS count FROM ${table}`);
+        const count = countResult.values?.[0]?.count;
+        if (typeof count === 'number' ? count > 0 : Number(count) > 0) {
+          throw new Error(
+            `SQLite table ${table} already contains data but has no verified legacy snapshot marker. Import stopped without changing existing rows.`,
+          );
+        }
       }
     }
 
