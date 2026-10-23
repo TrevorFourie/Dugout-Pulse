@@ -6,7 +6,6 @@ import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
 import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
-import { readTeamLogoLibraryStrict } from '../utils/teamLogoLibrary';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -28,24 +27,6 @@ interface GamePersistenceOptions {
 }
 
 const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
-const UPCOMING_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
-
-function readUpcomingGamesForSQLite(): (Record<string, unknown> & { id: string })[] {
-  const raw = localStorage.getItem(UPCOMING_GAMES_KEY);
-  if (raw === null) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed) || !parsed.every((value) =>
-    !!value && typeof value === 'object' && !Array.isArray(value) &&
-    typeof (value as { id?: unknown }).id === 'string' &&
-    typeof (value as { opponent?: unknown }).opponent === 'string' &&
-    typeof (value as { date?: unknown }).date === 'string' &&
-    ((value as { isHome?: unknown }).isHome === undefined || typeof (value as { isHome?: unknown }).isHome === 'boolean')
-  )) {
-    throw new Error('Scheduled games could not be validated before saving SQLite state.');
-  }
-  return parsed as (Record<string, unknown> & { id: string })[];
-}
-
 /** Persists one coherent GameContext snapshot after a verified recovery checkpoint. */
 export function useGamePersistence({
   isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
@@ -94,8 +75,10 @@ export function useGamePersistence({
             hiddenAgeGroups,
             hiddenSeasons,
             oppositionTeams,
-            upcomingGames: readUpcomingGamesForSQLite(),
-            logoLibrary: readTeamLogoLibraryStrict(),
+            // Scheduled games and logo metadata have their own serialized write paths.
+            // Do not rewrite them from a potentially stale compatibility mirror here.
+            upcomingGames: [],
+            logoLibrary: [],
           });
         }
 
