@@ -55,6 +55,12 @@ IDs must be derived from validated existing records. Records without a valid sta
 - Failure injection/manual simulation: failed database open, failed transaction, failed web-store flush, and invalid legacy JSON never set migration-complete or clear source keys.
 - Native integration is not certified by Chrome testing and requires a later device pass.
 
-## Current blocker
+## Current implementation status and blocker
 
-The repository is accessible through the GitHub connector, but this working environment has no usable local checkout or package-manager execution path, and the attempted clone failed due unavailable network DNS. Therefore a genuine npm-generated lockfile, TypeScript/static checks, and Chrome runtime test cannot currently be produced from here. Do not commit a dependency change with a stale lockfile or claim the app is testable until the dependency install/lock generation and checks can be run in a local repository environment.
+- Dependency commit: `12bdff1` added `@capacitor-community/sqlite@7.0.3` and `jeep-sqlite@2.8.0` with the locally generated lockfile.
+- Source foundation: `src/storage/sqliteDatabase.ts` is committed. It creates the initial tables transactionally, checks the schema version, holds one shared connection, and flushes web transactions through `saveToStore`.
+- The SQLite module is intentionally not connected to GameContext yet. Existing localStorage remains authoritative; no user data is imported, changed, or removed by this module.
+- The web adapter requires `sql-wasm.wasm` at `public/assets/sql-wasm.wasm`. This asset has not yet been copied into the repository.
+- Static checks and browser/native open-write-close-reopen smoke tests remain unverified. The assistant cannot run npm or the app in the user's local checkout, and builds must not be triggered.
+
+Next gate: pull the source commit on the user's local `main`, copy the installed `sql.js` WASM asset to `public/assets/sql-wasm.wasm`, run the approved non-build TypeScript check, then perform a dedicated browser smoke test before beginning the legacy-data importer. Do not claim the app is ready for normal Chrome testing until these checks and the startup/migration safeguards are in place.
