@@ -1,4 +1,5 @@
 import type { jsPDF } from 'jspdf';
+import { recordDiagnosticError } from './errorDiagnostics';
 import { Game, HitFieldZone, PlayerProfile, Play, PlayCode } from '../types/baseball';
 import {
   calculateBattingSplits,
@@ -216,8 +217,12 @@ function drawLogo(doc: jsPDF, dataUrl: string | undefined, x: number, y: number,
     const w = props.width * scale;
     const h = props.height * scale;
     doc.addImage(dataUrl, props.fileType, x + (box - w) / 2, y + (box - h) / 2, w, h);
-  } catch {
-    /* A bad logo should never block the report */
+  } catch (error) {
+    try {
+      recordDiagnosticError('logo_library', error, 'A custom logo could not be included in the PDF report; the report continued without that logo.');
+    } catch {
+      // Keep the PDF report generation available if diagnostics cannot be recorded.
+    }
   }
 }
 
