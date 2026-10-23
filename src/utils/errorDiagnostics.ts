@@ -483,6 +483,9 @@ export function clearAppDataPreservingDiagnostics(): boolean {
       'dugoutPulse.recoverySnapshot.v1',
       'dugoutPulse.recoverySnapshot.previous.v1',
       'dugoutPulse.beforeRecovery.v1',
+      // Storage-engine authority is system metadata, not user app data.
+      // A reset must not remove the marker that tells startup which store wins.
+      'dugoutPulse.sqliteCutover.v1',
     ]);
     const keysToRemove: string[] = [];
     for (let index = 0; index < localStorage.length; index += 1) {
