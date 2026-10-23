@@ -466,7 +466,7 @@ export function installGlobalDiagnosticHandlers(): void {
   const captureHookOrderDiagnostic = (args: unknown[]): boolean => {
     const detail = formatConsoleArguments(args);
     const isHookComparison = /React has detected a change in the order of Hooks called|change in the order of Hooks called/i.test(detail)
-      && /Previous render[\\s\\S]*Next render/i.test(detail);
+      && /Previous render[\s\S]*Next render/i.test(detail);
     const isGenericHookException = /Rendered (?:more|fewer) hooks than during the previous render/i.test(detail);
     if (!isHookComparison && !isGenericHookException) return false;
 
@@ -476,7 +476,7 @@ export function installGlobalDiagnosticHandlers(): void {
     const existingHasComparison = Boolean(
       pendingReactHookDiagnostic &&
       Date.now() - pendingReactHookDiagnostic.time <= 15000 &&
-      /Previous render[\\s\\S]*Next render/i.test(pendingReactHookDiagnostic.details)
+      /Previous render[\s\S]*Next render/i.test(pendingReactHookDiagnostic.details)
     );
     if (isHookComparison || !existingHasComparison) {
       pendingReactHookDiagnostic = {
