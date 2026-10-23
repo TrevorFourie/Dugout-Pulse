@@ -11,21 +11,55 @@ const KEY = 'dugoutPulse.logoLibrary.v1';
 const DIR = 'team-logos';
 const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-library-changed'));
 let logoLibraryReadFailureReported = false;
-export const readTeamLogoLibrary = (): TeamLogoItem[] => {
+
+function isTeamLogoItem(value: unknown): value is TeamLogoItem {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.id === 'string' && item.id.length > 0 &&
+    typeof item.name === 'string' && typeof item.fileName === 'string' &&
+    typeof item.uri === 'string' && typeof item.sizeBytes === 'number' &&
+    Number.isFinite(item.sizeBytes) && item.sizeBytes >= 0 &&
+    (item.mimeType === undefined || typeof item.mimeType === 'string');
+}
+
+function readStoredTeamLogoLibrary(): TeamLogoItem[] {
+  const raw = localStorage.getItem(KEY);
+  if (raw === null) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed) || !parsed.every(isTeamLogoItem)) {
+    throw new SyntaxError('Saved team logo library contains invalid entries.');
+  }
+  return parsed;
+}
+
+/** Strict read for operations that must not replace or export an unreadable logo library. */
+export function readTeamLogoLibraryStrict(): TeamLogoItem[] {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) || '[]');
-    if (!Array.isArray(parsed)) throw new SyntaxError('Saved team logo library did not contain a list.');
+    const items = readStoredTeamLogoLibrary();
     logoLibraryReadFailureReported = false;
-    return parsed as TeamLogoItem[];
+    return items;
   } catch (error) {
     if (!logoLibraryReadFailureReported) {
-      recordDiagnosticError(
-        error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
-        error,
-        'The saved custom-logo library could not be read. The stored value was not changed.',
-      );
+      try {
+        recordDiagnosticError(
+          error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
+          error,
+          'The saved custom-logo library could not be read or validated. The stored value was not changed.',
+        );
+      } catch {
+        // Preserve the original read failure.
+      }
       logoLibraryReadFailureReported = true;
     }
+    throw error;
+  }
+}
+
+/** Non-destructive display read: keep UI rendering available, but never use this fallback for writes or backups. */
+export const readTeamLogoLibrary = (): TeamLogoItem[] => {
+  try {
+    return readTeamLogoLibraryStrict();
+  } catch {
     return [];
   }
 };
@@ -38,6 +72,7 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   if (!(await createVerifiedRecoveryCheckpoint('Before adding a custom team logo'))) {
     throw new UserFacingError(explainFailure('Your logo could not be added because the app could not first make a safety copy of your data. Nothing was changed.', getLastDiagnosticReference()));
   }
+  const existingLibrary = readTeamLogoLibraryStrict();
   const dataUrl = await processLogoImage(file, 512);
   const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'));
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
@@ -52,15 +87,17 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   const fileUri = await Filesystem.getUri({ path: DIR + '/' + fileName, directory: Directory.Data });
   const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
   const item: TeamLogoItem = { id, name: file.name.replace(/\.[^.]+$/, '') || 'Team logo', fileName, uri, mimeType, sizeBytes: Math.floor(base64.length * 3 / 4) };
-  writeTeamLogoLibrary([item, ...readTeamLogoLibrary()]);
+  writeTeamLogoLibrary([item, ...existingLibrary]);
   return item;
 }
 export async function deleteTeamLogo(item: TeamLogoItem): Promise<void> {
   if (!(await createVerifiedRecoveryCheckpoint('Before deleting a custom team logo'))) {
     throw new UserFacingError(explainFailure('Your logo could not be deleted because the app could not first make a safety copy of your data. Nothing was changed.', getLastDiagnosticReference()));
   }
-  // Update protected metadata before deleting the file, so a failed metadata write cannot destroy a referenced image.
-  writeTeamLogoLibrary(readTeamLogoLibrary().filter((entry) => entry.id !== item.id));
+  // Validate metadata before mutation, then update protected metadata before deleting the file.
+  // An unreadable library must never be treated as empty and overwritten.
+  const existingLibrary = readTeamLogoLibraryStrict();
+  writeTeamLogoLibrary(existingLibrary.filter((entry) => entry.id !== item.id));
   try { await Filesystem.deleteFile({ path: DIR + '/' + item.fileName, directory: Directory.Data }); } catch { /* Preserve an orphaned file rather than risk deleting referenced data. */ }
 }
 export const TEAM_LOGO_LIBRARY_EVENT = 'dugout-pulse-logo-library-changed';
