@@ -291,6 +291,33 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
   const fingerprint = sourceFingerprint(snapshot.entries);
   await initializeSQLiteDatabase();
 
+  // Before cutover, localStorage remains authoritative. If it changed since the
+  // last import, only refresh after proving the prior SQLite snapshot itself is
+  // intact and confirming no live-state writer has begun using the typed tables.
+  const priorMarker = await getSQLiteDatabase().query(
+    'SELECT value FROM app_meta WHERE key = ?',
+    [SNAPSHOT_MARKER],
+  );
+  const priorFingerprint = priorMarker.values?.[0]?.value;
+  let verifiedPriorFingerprint: string | null = null;
+  if (typeof priorFingerprint === 'string' && priorFingerprint !== fingerprint) {
+    const cutover = await getSQLiteDatabase().query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    const liveState = await getSQLiteDatabase().query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [LIVE_STATE_MARKER],
+    );
+    if (cutover.values?.[0]?.value === 'complete' || liveState.values?.[0]?.value === '1') {
+      throw new Error(
+        'The SQLite snapshot differs from local storage after live-state persistence began. Import stopped without changing either copy.',
+      );
+    }
+    await readVerifiedSQLiteSnapshot({ requireCurrentSourceMatch: false });
+    verifiedPriorFingerprint = priorFingerprint;
+  }
+
   await withSQLiteTransaction(async (database) => {
     const cutover = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
@@ -313,9 +340,18 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
         // fingerprint. A retry is a no-op, including after a web-store flush error.
         return;
       }
-      throw new Error(
-        'A SQLite legacy snapshot already exists, but local storage has changed. No data was changed; recovery/reconciliation is required before another import.',
+      if (!verifiedPriorFingerprint || existingFingerprint !== verifiedPriorFingerprint) {
+        throw new Error(
+          'A SQLite legacy snapshot already exists, but its previous contents could not be safely reconciled. No data was changed.',
+        );
+      }
+      const liveState = await database.query(
+        'SELECT value FROM app_meta WHERE key = ?',
+        [LIVE_STATE_MARKER],
       );
+      if (liveState.values?.[0]?.value === '1') {
+        throw new Error('SQLite live-state persistence has begun; the legacy snapshot cannot be refreshed.');
+      }
     }
 
     // Never clear rows from an unmarked database: they may be data from a partial
@@ -489,7 +525,9 @@ export interface VerifiedSQLiteSnapshot {
  * still matches its preserved source values. This is a read-only API for the
  * future startup gate; it does not make SQLite authoritative or mutate localStorage.
  */
-export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapshot> {
+export async function readVerifiedSQLiteSnapshot(
+  options: { requireCurrentSourceMatch?: boolean } = {},
+): Promise<VerifiedSQLiteSnapshot> {
   const database = await initializeSQLiteDatabase();
   const marker = await database.query(
     'SELECT value FROM app_meta WHERE key = ?',
@@ -511,10 +549,12 @@ export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapsh
   if (marker.values[0].value !== fingerprint) {
     throw new Error('SQLite legacy source values no longer match the recorded snapshot fingerprint.');
   }
-  const currentSource = readAllLocalStorage();
-  if (sourceFingerprint(currentSource) !== fingerprint ||
-      canonicalStringify(currentSource) !== canonicalStringify(legacyValues)) {
-    throw new Error('Current local storage differs from the imported SQLite snapshot. Cutover is blocked to protect changes made after import.');
+  if (options.requireCurrentSourceMatch !== false) {
+    const currentSource = readAllLocalStorage();
+    if (sourceFingerprint(currentSource) !== fingerprint ||
+        canonicalStringify(currentSource) !== canonicalStringify(legacyValues)) {
+      throw new Error('Current local storage differs from the imported SQLite snapshot. Cutover is blocked to protect changes made after import.');
+    }
   }
 
   const snapshot = validateSnapshot(legacyValues);
