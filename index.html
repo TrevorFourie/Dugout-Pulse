@@ -184,14 +184,39 @@
             reportButton.textContent = report.hidden ? 'Show diagnostic report' : 'Hide diagnostic report';
             if (!report.hidden) {
               var selected = capturedEvent || null;
+              var sanitiseText = function (value, limit) {
+                return String(value || '')
+                  .replace(/https?:\/\/[^\s)]+/gi, '[url]')
+                  .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
+                  .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+                  .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+                  .replace(/[^\x20-\x7E\n]/g, ' ')
+                  .slice(0, limit);
+              };
+              var safeCategory = selected && typeof selected.category === 'string' && /^[a-z0-9_.-]{1,48}$/i.test(selected.category)
+                ? selected.category.toLowerCase()
+                : 'unknown';
+              var allowedErrorTypes = ['Error', 'TypeError', 'SyntaxError', 'RangeError', 'ReferenceError', 'URIError', 'EvalError', 'QuotaExceededError', 'SecurityError', 'AbortError', 'NotFoundError', 'NetworkError', 'InvalidStateError', 'DataError', 'OperationError', 'TimeoutError', 'UnknownError', 'NullError'];
+              var safeSelected = selected ? {
+                id: typeof selected.id === 'string' && /^DP-[A-Z2-9]{6}$/.test(selected.id) ? selected.id : 'unavailable',
+                time: typeof selected.time === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(selected.time) ? selected.time : 'unknown',
+                category: safeCategory,
+                errorType: typeof selected.errorType === 'string' && allowedErrorTypes.indexOf(selected.errorType) !== -1 ? selected.errorType : 'Error',
+                errorMessage: sanitiseText(selected.errorMessage, 400),
+                userMessage: friendlyMessages[safeCategory] || "Dugout Pulse couldn't complete that action. If it happens again, please share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.",
+                frames: Array.isArray(selected.frames) ? selected.frames.filter(function (frame) { return typeof frame === 'string' && /^[a-zA-Z0-9_.-]+\.(?:tsx?|jsx?|mjs|cjs):\d{1,6}:\d{1,6}$/.test(frame); }).slice(0, 8) : [],
+                details: sanitiseText(selected.details, 12000),
+                platform: selected.platform === 'Android' || selected.platform === 'iOS' || selected.platform === 'Web' ? selected.platform : 'Web',
+                build: typeof selected.build === 'string' ? selected.build.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 32) : 'unknown'
+              } : null;
               report.value = JSON.stringify({
                 reportFormat: 2,
                 app: 'Dugout Pulse',
                 appVersion: '1.0.0',
-                build: selected && selected.build ? selected.build : 'unknown',
-                platform: selected && selected.platform ? selected.platform : (/Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web')),
+                build: safeSelected && safeSelected.build ? safeSelected.build : 'unknown',
+                platform: safeSelected ? safeSelected.platform : (/Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web')),
                 privacy: 'Offline report. No name, account ID, game data, player/team names, full user-agent, network address, or full file path is intentionally collected. Error messages are sanitised and truncated; review before sharing. Exact timestamps are included to help correlate errors with logs. Review before sharing.',
-                events: selected ? [selected] : []
+                events: safeSelected ? [safeSelected] : []
               }, null, 2);
               report.select();
             }
