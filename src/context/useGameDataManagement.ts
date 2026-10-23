@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
-import { readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
+import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
@@ -196,8 +196,10 @@ export function useGameDataManagement({
           try {
             await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
             exists = true;
-          } catch {
-            // A file that does not exist can safely be treated as newly imported.
+          } catch (statError) {
+            if (!isMissingTeamLogoFileError(statError)) {
+              throw new Error('Could not verify whether an incoming custom logo file is absent. No backup data was changed.');
+            }
           }
           if (exists) {
             throw new Error('An existing custom logo could not be preserved before backup import. No backup data was changed.');
@@ -435,16 +437,16 @@ export function useGameDataManagement({
             try {
               await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
               rollbackFailure = rollbackFailure || deleteError;
-            } catch {
-              // The newly imported file is already absent.
+            } catch (statError) {
+              if (!isMissingTeamLogoFileError(statError)) rollbackFailure = rollbackFailure || statError;
             }
             continue;
           }
           try {
             await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
             rollbackFailure = rollbackFailure || new Error('A newly imported logo file still exists after rollback.');
-          } catch {
-            // File absence confirmed after deletion.
+          } catch (statError) {
+            if (!isMissingTeamLogoFileError(statError)) rollbackFailure = rollbackFailure || statError;
           }
         }
       }
