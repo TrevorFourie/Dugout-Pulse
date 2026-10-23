@@ -493,6 +493,15 @@ export function useGameDataManagement({
 
   // Resolves true only after a verified checkpoint exists and app-data removal is confirmed.
   const resetAllData = useCallback(async (): Promise<boolean> => {
+      if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+        setRestoreFailed(true);
+        recordDiagnosticError(
+          'storage_write_games',
+          new Error('A completed-game save is awaiting recovery.'),
+          'Reset was stopped so an interrupted completed-game save can be recovered before any saved data is removed.',
+        );
+        return false;
+      }
       // Reset is destructive: require a verified private checkpoint immediately before it.
       if (!(await createVerifiedRecoveryCheckpoint('Before user-requested reset of app data'))) {
         setRestoreFailed(true);
