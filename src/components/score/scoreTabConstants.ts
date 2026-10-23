@@ -59,6 +59,8 @@ const POSITION_NAMES: Record<string, string> = {
 export const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
 
 export const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
+import { recordDiagnosticError } from '../../utils/errorDiagnostics';
+
 export const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
 export type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
 export type PersistedRunnerWorkflow = {
@@ -67,10 +69,31 @@ export type PersistedRunnerWorkflow = {
   activeRunnerChips: Record<string, { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string }>;
 };
 export const readLocalJson = <T,>(key: string, fallback: T): T => {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? ({ ...fallback as object, ...JSON.parse(raw) } as T) : fallback;
-  } catch {
+    raw = localStorage.getItem(key);
+  } catch (error) {
+    try {
+      recordDiagnosticError('storage_read', error, 'Saved score UI data could not be read. The original stored value was left untouched.');
+    } catch {
+      // Keep the fallback available even if diagnostic recording is unavailable.
+    }
+    return fallback;
+  }
+  if (!raw) return fallback;
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Saved score UI data had an unexpected format.');
+    }
+    return { ...fallback as object, ...parsed } as T;
+  } catch (error) {
+    try {
+      recordDiagnosticError('data_corruption', error, 'Saved score UI data could not be parsed or had an unexpected format. The original stored value was left untouched; a fallback was used only for this read.');
+    } catch {
+      // Keep the fallback available even if diagnostic recording is unavailable.
+    }
     return fallback;
   }
 };
