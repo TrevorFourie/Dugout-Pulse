@@ -433,7 +433,7 @@ export function useGameDataManagement({
             await Filesystem.deleteFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
           } catch (deleteError) {
             try {
-              await readLogoFileAsBase64(fileName);
+              await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
               rollbackFailure = rollbackFailure || deleteError;
             } catch {
               // The newly imported file is already absent.
