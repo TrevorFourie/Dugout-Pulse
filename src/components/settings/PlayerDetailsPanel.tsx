@@ -1,6 +1,6 @@
 import React from 'react';
 import type { PlayerProfile } from '../../types/baseball';
-import { AppLogo } from '../AppLogo';
+import TeamIcon from '../../assets/TeamIcon.png';
 import { ImagePlus, UserPlus } from 'lucide-react';
 
 interface PlayerDetailsPanelProps {
@@ -16,7 +16,6 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
 }) => (
               <div className="space-y-6">
              
-
             <div>
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF] mb-3 flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-[#18212D] dark:text-blue-400" />
@@ -69,7 +68,11 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
                 {/* Custom logo */}
                 <div className="sm:col-span-2 flex items-center gap-3">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shrink-0">
-                    <AppLogo variant="logo" className="w-full h-full object-contain p-1" />
+                    <img
+                      src={activeProfile.logo || TeamIcon}
+                      alt={activeProfile.logo ? 'Player logo' : 'Default team icon'}
+                      className="w-full h-full object-contain p-1"
+                    />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
