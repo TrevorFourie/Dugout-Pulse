@@ -196,6 +196,12 @@ export function useGameDataManagement({
         setRestoreFailed(true);
         return false;
       }
+    // Do not publish an empty in-memory state until every app-data key has been
+    // removed and read back as absent. The verified private checkpoint remains intact.
+    if (!clearAppDataPreservingDiagnostics()) {
+      setRestoreFailed(true);
+      return false;
+    }
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
@@ -210,7 +216,6 @@ export function useGameDataManagement({
     setSavedTournaments?.([]);
     setSavedAgeGroups?.([]);
     setSavedSeasons?.([]);
-    clearAppDataPreservingDiagnostics();
     // The first-time-user flag is only read at startup, so it must be set explicitly here;
     // App then closes Settings and shows the setup screen.
     setIsFirstTimeUser(true);
