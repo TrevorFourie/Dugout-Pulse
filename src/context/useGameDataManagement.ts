@@ -615,7 +615,15 @@ export function useGameDataManagement({
     // App then closes Settings and shows the setup screen.
     setIsFirstTimeUser(true);
     return true;
-  }, []);
+  }, [
+    games, liveGame, editingGameId, reopenedGameId, profiles, settings, oppositionTeams,
+    savedOpponents, savedTournaments, savedAgeGroups, savedSeasons,
+    hiddenTournaments, hiddenAgeGroups, hiddenSeasons,
+    setGames, setLiveGame, setEditingGameId, setReopenedGameId, setProfiles, setSettings,
+    setOppositionTeams, setHiddenTournaments, setHiddenAgeGroups, setHiddenSeasons,
+    setSavedOpponents, setSavedTournaments, setSavedAgeGroups, setSavedSeasons,
+    setIsFirstTimeUser, setRestoreFailed,
+  ]);
 
   const completeFirstTimeSetup = useCallback(
     (setup: {
