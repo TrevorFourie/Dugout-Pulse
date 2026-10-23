@@ -225,7 +225,7 @@
           recoveryButton.type = 'button';
           recoveryButton.textContent = 'Open recovery tools';
           recoveryButton.style.cssText = 'margin:12px 8px 0 0;padding:10px 14px;border:1px solid ' + (darkTheme ? '#00D7BC' : '#007A6A') + ';border-radius:10px;background:transparent;color:' + (darkTheme ? '#00D7BC' : '#007A6A') + ';font-weight:600;cursor:pointer;';
-          var recoveryCategories = ['storage_load', 'storage_read', 'data_corruption', 'storage_write', 'storage_write_games', 'storage_write_profiles', 'storage_write_opposition_teams', 'backup_import', 'recovery_checkpoint', 'recovery_restore', 'data_reset'];
+          var recoveryCategories = ['storage_load', 'storage_read', 'data_corruption', 'recovery_checkpoint', 'recovery_restore', 'data_reset'];
           recoveryButton.hidden = !(latest && recoveryCategories.indexOf(latest.category) !== -1);
           recoveryButton.addEventListener('click', function () {
             var recoveryUrl = new URL('startup-recovery.html', document.baseURI);
