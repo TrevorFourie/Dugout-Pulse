@@ -4,6 +4,7 @@ import { Plus, Shield, Trash2, Pencil, X, Check } from 'lucide-react';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoPicker } from './TeamLogoPicker';
 import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../utils/teamLogoLibrary';
+import { reportFailure } from '../utils/userMessages';
 import { TeamLogoImage } from './TeamLogoImage';
 
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
@@ -31,7 +32,7 @@ export const OppositionTeamsSettings: React.FC = () => {
           const logo = await migrateLegacyLogoDataUrl(team.logo);
           if (!cancelled) updateOppositionTeam(team.id, { logo });
         } catch (cause) {
-          if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not migrate an existing team logo.');
+          if (!cancelled) setError(reportFailure('team_logo_migration', cause, 'We could not update an existing team logo. Your original image has been kept.'));
         }
       }
     };

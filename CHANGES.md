@@ -2,6 +2,34 @@
 
 No package.json changes. No new dependencies.
 
+## Update 5 (friendly errors for users, TRUE errors in the diagnostic report)
+Rule applied everywhere below: the user sees plain language + "Reference: DP-XXXXXX" + where to
+find the report (Settings > Data & About > Offline Diagnostics). The real technical error is
+recorded in the diagnostic report under that same reference.
+- New utils/userMessages.ts: reportFailure() (records true error, returns friendly text),
+  explainFailure(), UserFacingError (messages written for users, e.g. "Unsupported image format").
+  Adds plain hints for low storage space / permission problems.
+- errorDiagnostics: new categories (backup_export, backup_import, recovery_checkpoint,
+  recovery_restore, data_reset, logo_library, team_logo_migration, storage_write). Before,
+  anything not whitelisted was labelled "unknown" (this included existing 'storage_write'
+  events). True message length kept up to 400 chars (was 240). getLastDiagnosticReference() added.
+- recoveryJournal: checkpoint failures were swallowed (return false, console only); the true
+  error is now recorded. Restore failures no longer show raw error text to the user.
+- Export, import, reset-blocked, logo add/delete/migrate, settings recovery and the startup
+  recovery screen (whose catch blocks recorded nothing) now use friendly text + reference.
+- Tests: utils/userMessages.test.ts (6 tests). 56 pass in total.
+
+## Update 4 (reset -> setup screen)
+- FIXED: "Reset All Local Data" never returned the user to the setup screen. isFirstTimeUser was
+  only read at startup, so after a reset it stayed false. resetAllData now sets it back to true,
+  and App closes Settings so the setup screen shows.
+- FIXED: saved tournaments/seasons/age groups/opponents stayed in memory after a reset and were
+  written straight back to storage; they are now cleared too.
+- resetAllData now returns Promise<boolean>; Settings shows "Reset was not applied..." if the
+  safety checkpoint could not be created (previously it always said "All data has been reset").
+- Reset confirmation text updated (backups now include logos).
+- Not changed: logo image files are still left on the phone after a reset (the library entries are cleared).
+
 ## Update 3 (restore modal + crash fixes)
 - After a successful restore (Settings OR first-run setup screen) the app goes to the
   Dashboard and shows a "Restore successful" modal (amber "completed with a warning" if

@@ -11,6 +11,8 @@ import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageS
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
+import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
+import { explainFailure, reportFailure } from '../utils/userMessages';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -29,6 +31,10 @@ interface GameDataManagementOptions {
   setRestoreFailed: StateSetter<boolean>;
   /** Optional: lets a backup restore the saved-opponent name list. */
   setSavedOpponents?: StateSetter<string[]>;
+  /** Optional: cleared on reset so saved lists are not written straight back to storage. */
+  setSavedTournaments?: StateSetter<string[]>;
+  setSavedAgeGroups?: StateSetter<string[]>;
+  setSavedSeasons?: StateSetter<string[]>;
   saveTournament: (name: string) => void;
   saveAgeGroup: (name: string) => void;
   saveSeason: (name: string) => void;
@@ -50,6 +56,9 @@ export function useGameDataManagement({
   setIsFirstTimeUser,
   setRestoreFailed,
   setSavedOpponents,
+  setSavedTournaments,
+  setSavedAgeGroups,
+  setSavedSeasons,
   saveTournament,
   saveAgeGroup,
   saveSeason,
@@ -69,7 +78,7 @@ export function useGameDataManagement({
       const check = verifyBackup(parsedData);
       if (!check.ok) return { success: false, message: check.message };
       if (!(await createVerifiedRecoveryCheckpoint('Before importing a JSON backup'))) {
-        return { success: false, message: 'Import stopped because a verified recovery checkpoint could not be created. No imported data was applied.' };
+        return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
       // Restore logo images + library first so logo references in games/profiles resolve below.
       const restoredLogoCount = await restoreLogosFromBackup(parsedData as Record<string, unknown>);
@@ -147,21 +156,31 @@ export function useGameDataManagement({
       }
       return { success: true, message: `Season data successfully restored!${logoNote}${unverifiedNote}` };
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid JSON file';
-      return { success: false, message: `Failed to import backup: ${message}` };
+      // True error -> diagnostic report. The user gets plain language and a reference.
+      const unreadable = err instanceof SyntaxError;
+      return {
+        success: false,
+        message: reportFailure(
+          'backup_import',
+          err,
+          unreadable
+            ? 'This file could not be read as a Dugout Pulse backup. Please choose a backup file that was exported from this app. Nothing was changed.'
+            : 'We could not finish restoring from this backup. Your previous data was kept as a recovery point.',
+        ),
+      };
     }
   }, []);
 
-  const resetAllData = useCallback(() => {
-    void (async () => {
+  // Resolves true once the reset has been applied, false when it was blocked (no verified checkpoint).
+  const resetAllData = useCallback(async (): Promise<boolean> => {
       // Reset is destructive: require a verified private checkpoint immediately before it.
       if (!(await createVerifiedRecoveryCheckpoint('Before user-requested reset of app data'))) {
         setRestoreFailed(true);
-        return;
+        return false;
       }
       if (!snapshotBeforeGameWrite()) {
         setRestoreFailed(true);
-        return;
+        return false;
       }
     setGames([]);
     setLiveGame(null);
@@ -173,8 +192,15 @@ export function useGameDataManagement({
     setHiddenTournaments([]);
     setHiddenAgeGroups([]);
     setHiddenSeasons([]);
+    setSavedOpponents?.([]);
+    setSavedTournaments?.([]);
+    setSavedAgeGroups?.([]);
+    setSavedSeasons?.([]);
     clearAppDataPreservingDiagnostics();
-    })();
+    // The first-time-user flag is only read at startup, so it must be set explicitly here;
+    // App then closes Settings and shows the setup screen.
+    setIsFirstTimeUser(true);
+    return true;
   }, []);
 
   const completeFirstTimeSetup = useCallback(

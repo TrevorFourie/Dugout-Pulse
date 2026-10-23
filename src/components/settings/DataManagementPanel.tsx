@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, Upload, AlertOctagon, ShieldCheck } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
+import { reportFailure } from '../../utils/userMessages';
 import { createVerifiedRecoveryCheckpoint, getRecoveryJournalStorageInfo, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, setRecoveryCheckpointPinned, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
 
 interface DataManagementPanelProps {
@@ -67,9 +68,7 @@ const RecoveryJournalPanel: React.FC = () => {
       setMessage(result.message);
     } catch (error) {
       await refresh();
-      setMessage(error instanceof Error && error.message
-        ? 'Recovery stopped: ' + error.message + ' Your saved data has not been intentionally reset. Do not retry until this message has been reviewed.'
-        : 'Recovery stopped unexpectedly. Your saved data has not been intentionally reset. Do not retry until diagnostics have been reviewed.');
+      setMessage(reportFailure('recovery_restore', error, 'The recovery stopped unexpectedly. Your saved data has not been intentionally changed. Please do not try again yet.'));
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,8 @@ import { Game, PlayerProfile } from '../types/baseball';
 import { saveTextFileDetailed } from './saveFile';
 import { buildFullBackup } from './fullBackup';
 import { recordBackupExported } from './backupReminder';
+import { getLastDiagnosticReference } from './errorDiagnostics';
+import { reportFailure, explainFailure } from './userMessages';
 
 export interface BackupExportResult {
   outcome: 'handed-off' | 'cancelled' | 'failed';
@@ -26,9 +28,13 @@ export async function exportJsonBackup(data: {
   try {
     built = await buildFullBackup(data);
   } catch (err) {
-    return { outcome: 'failed', logoCount: 0, missingLogos: [], error: err instanceof Error ? err.message : String(err) };
+    return { outcome: 'failed', logoCount: 0, missingLogos: [], error: reportFailure('backup_export', err, 'We could not prepare your backup file. Nothing was saved and your data is unchanged.') };
   }
   const outcome = await saveTextFileDetailed(filename, JSON.stringify(built.payload), 'application/json');
   if (outcome === 'handed-off') recordBackupExported();
+  if (outcome === 'failed') {
+    // saveFile already recorded the true error; point the user at that report entry.
+    return { outcome, logoCount: 0, missingLogos: built.missingLogos, error: explainFailure('We could not save or share your backup file. Nothing was saved and your data is unchanged.', getLastDiagnosticReference() || undefined) };
+  }
   return { outcome, logoCount: built.logoCount, missingLogos: built.missingLogos };
 }

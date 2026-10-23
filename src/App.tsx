@@ -305,6 +305,14 @@ const MainApp: React.FC = () => {
     setRestoreResult({ message, partial });
   };
 
+  // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
+  useEffect(() => {
+    if (!isFirstTimeUser) return;
+    setIsSettingsOpen(false);
+    setIsSettingsMenuOpen(false);
+    setActiveTab('dashboard');
+  }, [isFirstTimeUser]);
+
   const handleSelectSettingsSection = (section: SettingsSectionId) => {
     setSettingsInitialSection(section);
     setIsSettingsMenuOpen(false);

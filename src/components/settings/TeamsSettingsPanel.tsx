@@ -4,6 +4,7 @@ import { Check, Edit2, Plus, Shield, Star, Trash2, Trophy } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { TeamLogoPicker } from '../TeamLogoPicker';
 import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../../utils/teamLogoLibrary';
+import { reportFailure } from '../../utils/userMessages';
 import { TeamLogoImage } from '../TeamLogoImage';
 import { ValueCombobox } from '../ValueCombobox';
 
@@ -42,9 +43,7 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
         } catch (cause) {
           if (!cancelled) {
             onStatusMessage({
-              text: cause instanceof Error
-                ? `Could not migrate the existing logo for ${team.name}: ${cause.message}. The original image has been kept.`
-                : `Could not migrate the existing logo for ${team.name}. The original image has been kept.`,
+              text: reportFailure('team_logo_migration', cause, `We could not update the logo for ${team.name}. Your original image has been kept.`),
               isError: true,
             });
           }

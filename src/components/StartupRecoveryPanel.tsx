@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { explainFailure, reportFailure } from '../utils/userMessages';
+import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
 import { createVerifiedRecoveryCheckpoint, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, type RecoveryCheckpointSummary } from '../context/recoveryJournal';
 
 interface StartupRecoveryPanelProps {
@@ -22,10 +24,10 @@ export const StartupRecoveryPanel: React.FC<StartupRecoveryPanelProps> = ({ erro
       setMessage(items.length
         ? 'Recovery journal checked. Only checkpoints that pass integrity and saved-data validation are listed.'
         : 'No verified recovery checkpoints are available. No recovery operation was started.');
-    } catch {
+    } catch (error) {
       setCheckpoints([]);
       setSelectedId('');
-      setMessage('The recovery journal could not be read. No recovery operation was started.');
+      setMessage(reportFailure('recovery_restore', error, 'The app could not read its recovery points. Nothing was changed.'));
     } finally {
       setLoading(false);
     }
@@ -42,9 +44,9 @@ export const StartupRecoveryPanel: React.FC<StartupRecoveryPanelProps> = ({ erro
       await refresh();
       setMessage(ok
         ? 'Checkpoint created and verified. It is available in the recovery-point list.'
-        : 'Checkpoint creation failed. No restore was started; review diagnostics before continuing.');
-    } catch {
-      setMessage('Checkpoint creation failed. No restore was started; review diagnostics before continuing.');
+        : explainFailure('The app could not make a safety copy of your data. Nothing was changed.', getLastDiagnosticReference() || undefined));
+    } catch (error) {
+      setMessage(reportFailure('recovery_checkpoint', error, 'The app could not make a safety copy of your data. Nothing was changed.'));
     } finally {
       setBusy(false);
     }
@@ -67,8 +69,8 @@ export const StartupRecoveryPanel: React.FC<StartupRecoveryPanelProps> = ({ erro
         await refresh();
         setMessage(result.message);
       }
-    } catch {
-      setMessage('Recovery stopped unexpectedly. Do not retry repeatedly; review diagnostics before trying another recovery point.');
+    } catch (error) {
+      setMessage(reportFailure('recovery_restore', error, 'The recovery stopped unexpectedly. Your data was not intentionally changed. Please do not try again repeatedly.'));
       setRestored(false);
     } finally {
       setBusy(false);

@@ -197,7 +197,8 @@ export interface GameContextType {
   deleteProfile: (id: string) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
   importJsonData: (jsonStr: string) => Promise<{ success: boolean; message: string; partial?: boolean }>;
-  resetAllData: () => void;
+  /** Resolves true when the reset was applied, false when blocked because no verified checkpoint could be made. */
+  resetAllData: () => Promise<boolean>;
 
   // First time user setup
   isFirstTimeUser: boolean;

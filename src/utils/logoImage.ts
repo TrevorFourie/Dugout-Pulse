@@ -1,3 +1,4 @@
+import { UserFacingError } from './userMessages';
 const MAX_LOGO_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_LOGO_OUTPUT_BYTES = 250 * 1024;
 const MAX_LOGO_DIMENSION = 8_000;
@@ -22,22 +23,22 @@ const blobToDataUrl = (blob: Blob): Promise<string> => new Promise((resolve, rej
 /** Resizes a logo while preserving alpha transparency and enforcing the 250 KB output ceiling. */
 export async function processLogoImage(file: File, maxSize = 256): Promise<string> {
   const extension = getExtension(file.name);
-  if (!ALLOWED_EXTENSIONS.has(extension)) throw new Error('Unsupported image format. Choose PNG, JPG, JPEG, or WebP.');
-  if (file.size <= 0 || file.size > MAX_LOGO_FILE_BYTES) throw new Error('The original logo must be 5 MB or smaller before resizing.');
-  if (file.type && !ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) throw new Error('Unsupported image type. Choose PNG, JPG, JPEG, or WebP.');
+  if (!ALLOWED_EXTENSIONS.has(extension)) throw new UserFacingError('Unsupported image format. Choose PNG, JPG, JPEG, or WebP.');
+  if (file.size <= 0 || file.size > MAX_LOGO_FILE_BYTES) throw new UserFacingError('The original logo must be 5 MB or smaller before resizing.');
+  if (file.type && !ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) throw new UserFacingError('Unsupported image type. Choose PNG, JPG, JPEG, or WebP.');
   const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  if (!matchesSignature(header, extension)) throw new Error('The file contents do not match a supported image format.');
-  if (file.type) { const normalized = extension === 'jpg' ? 'jpeg' : extension; const expected = normalized === 'jpeg' ? 'image/jpeg' : `image/${normalized}`; if (file.type.toLowerCase() !== expected) throw new Error('The file extension and image type do not match.'); }
+  if (!matchesSignature(header, extension)) throw new UserFacingError('The file contents do not match a supported image format.');
+  if (file.type) { const normalized = extension === 'jpg' ? 'jpeg' : extension; const expected = normalized === 'jpeg' ? 'image/jpeg' : `image/${normalized}`; if (file.type.toLowerCase() !== expected) throw new UserFacingError('The file extension and image type do not match.'); }
   const dataUrl = await readAsDataUrl(file); const image = new Image();
   await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('The image is damaged or cannot be decoded.')); image.src = dataUrl; });
   const sw = image.naturalWidth, sh = image.naturalHeight;
-  if (!sw || !sh || sw > MAX_LOGO_DIMENSION || sh > MAX_LOGO_DIMENSION || sw * sh > MAX_LOGO_PIXELS) throw new Error('This image has dimensions that are too large to process safely.');
+  if (!sw || !sh || sw > MAX_LOGO_DIMENSION || sh > MAX_LOGO_DIMENSION || sw * sh > MAX_LOGO_PIXELS) throw new UserFacingError('This image has dimensions that are too large to process safely.');
   let dimension = Math.min(1024, Math.max(64, Math.floor(maxSize)));
   const preserveAlpha = extension === 'png' || extension === 'webp';
   while (dimension >= 64) {
     const scale = Math.min(1, dimension / Math.max(sw, sh)); const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(sw * scale)); canvas.height = Math.max(1, Math.round(sh * scale));
-    const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Image processing is not supported on this device.');
+    const ctx = canvas.getContext('2d'); if (!ctx) throw new UserFacingError('Image processing is not supported on this device.');
     // Do not paint a background: transparent pixels must remain transparent.
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -52,5 +53,5 @@ export async function processLogoImage(file: File, maxSize = 256): Promise<strin
     }
     dimension = Math.floor(dimension * 0.75);
   }
-  throw new Error('Could not reduce this logo below 250 KB while preserving its transparency. Please choose a simpler or smaller image.');
+  throw new UserFacingError('Could not reduce this logo below 250 KB while preserving its transparency. Please choose a simpler or smaller image.');
 }

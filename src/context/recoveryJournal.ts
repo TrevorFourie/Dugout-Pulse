@@ -1,4 +1,6 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
+import { explainFailure } from '../utils/userMessages';
 
 const RECOVERY_DIR = 'dugout-pulse-recovery';
 const INDEX_FILE = RECOVERY_DIR + '/index.json';
@@ -293,6 +295,7 @@ async function createCheckpointSerially(reason: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Could not create and verify the private recovery checkpoint.', error);
+    recordDiagnosticError('recovery_checkpoint', error);
     return false;
   }
 }
@@ -316,6 +319,7 @@ export async function ensureRecoveryBaseline(): Promise<boolean> {
     return await createVerifiedRecoveryCheckpoint('Pre-startup state before restore or migration');
   } catch (error) {
     console.error('Could not establish a private recovery baseline.', error);
+    recordDiagnosticError('recovery_checkpoint', error);
     return false;
   }
 }
@@ -524,15 +528,18 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
     const entry = index.checkpoints.find((candidate) => candidate.id === id);
     if (!entry) return { success: false, message: 'That recovery checkpoint is no longer available.' };
     const payload = await readVerifiedCheckpoint(entry);
-    if (!validateRecoveryValues(payload.values)) return { success: false, message: 'The checkpoint contains data that failed validation.' };
+    if (!validateRecoveryValues(payload.values)) {
+      const ref = recordDiagnosticError('recovery_restore', new Error('Checkpoint ' + id + ' failed data validation before restore'));
+      return { success: false, message: explainFailure('That recovery point looks damaged, so it was not used. Nothing was changed. You can try a different recovery point.', ref) };
+    }
 
     // Protect the user-selected source checkpoint from pruning while the pre-recovery
     // checkpoint is being written. Keep it pinned so rollback remains possible.
     if (!(await setRecoveryCheckpointPinned(id, true))) {
-      return { success: false, message: 'The selected checkpoint could not be protected. Nothing was restored.' };
+      return { success: false, message: explainFailure('The app could not prepare that recovery point, so nothing was restored. Your data is unchanged.', getLastDiagnosticReference() || undefined) };
     }
     if (!(await createVerifiedRecoveryCheckpoint('Before restoring checkpoint ' + id))) {
-      return { success: false, message: 'The current state could not be safely checkpointed. Nothing was restored.' };
+      return { success: false, message: explainFailure('The app could not first make a safety copy of your current data, so nothing was restored. Your data is unchanged.', getLastDiagnosticReference() || undefined) };
     }
 
     const before: Record<string, string> = {};
@@ -605,7 +612,14 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
     }
   } catch (error) {
     console.error('Private journal recovery failed; recovery checkpoints were retained.', error);
-    const detail = error instanceof Error && error.message ? error.message.slice(0, 240) : 'Unknown error';
-    return { success: false, message: 'Recovery failed: ' + detail + ' The original recovery checkpoint and pre-recovery checkpoint were retained. Do not retry until this error has been reviewed.' };
+    // The TRUE error goes to the diagnostic report; the user gets plain language plus a reference.
+    const reference = recordDiagnosticError('recovery_restore', error);
+    const rollbackUnverified = error instanceof Error && /automatic rollback could not be verified/i.test(error.message);
+    return {
+      success: false,
+      message: rollbackUnverified
+        ? explainFailure('The restore did not finish and the app could not confirm that your previous data was put back safely. Your recovery points have all been kept. Please do not reinstall or clear the app.', reference, error)
+        : explainFailure('The restore did not finish. Your recovery points have been kept and your data was left as it was. Please do not try again yet.', reference, error),
+    };
   }
 }

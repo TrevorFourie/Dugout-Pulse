@@ -1,6 +1,9 @@
 const STORAGE_KEY = 'dugoutPulse.diagnostics.v1';
 const MAX_EVENTS = 40;
 const MAX_STORAGE_CHARS = 48_000;
+// The diagnostic report must show the TRUE error, so keep enough of it to be useful.
+const MAX_MESSAGE_CHARS = 400;
+let lastReference = '';
 
 declare const __BUILD_ID__: string;
 
@@ -49,6 +52,7 @@ const ALLOWED_CATEGORIES = new Set([
   'app_startup',
   'react_render',
   'storage_load',
+  'storage_write',
   'storage_write_opposition_teams',
   'storage_write_games',
   'storage_write_profiles',
@@ -57,6 +61,14 @@ const ALLOWED_CATEGORIES = new Set([
   'native_binary_export',
   'browser_binary_export',
   'native_text_share',
+  // Backup / recovery / reset / logo operations. The real error is recorded under these labels.
+  'backup_export',
+  'backup_import',
+  'recovery_checkpoint',
+  'recovery_restore',
+  'data_reset',
+  'logo_library',
+  'team_logo_migration',
 ]);
 
 const ALLOWED_ERROR_TYPES = new Set([
@@ -101,7 +113,7 @@ function safeErrorMessage(error: unknown): string | undefined {
     .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 240);
+    .slice(0, MAX_MESSAGE_CHARS);
   return message || undefined;
 }
 
@@ -156,7 +168,7 @@ function readEvents(): DiagnosticEvent[] {
           category: safeCategory(item.category),
           ...(cleanType ? { errorType: cleanType } : {}),
           ...(typeof item.errorMessage === 'string' && item.errorMessage.length
-            ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, 240) }
+            ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, MAX_MESSAGE_CHARS) }
             : {}),
           ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
           platform: item.platform,
@@ -196,7 +208,13 @@ export function recordDiagnosticError(category: string, error: unknown): string 
     build: getBuild(),
   };
   persist(event);
+  lastReference = event.id;
   return event.id;
+}
+
+/** Reference of the most recently recorded error (e.g. a checkpoint failure recorded deeper in the stack). */
+export function getLastDiagnosticReference(): string {
+  return lastReference;
 }
 
 export function recordDiagnosticEvent(category: string): void {

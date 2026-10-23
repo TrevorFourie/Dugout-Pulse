@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Check, ImagePlus, X } from 'lucide-react';
+import { reportFailure } from '../utils/userMessages';
 import { addTeamLogo, logoLibraryReference, readTeamLogoLibrary, type TeamLogoItem } from '../utils/teamLogoLibrary';
 import { TeamLogoImage } from './TeamLogoImage';
 
@@ -30,7 +31,7 @@ export const TeamLogoPicker: React.FC<TeamLogoPickerProps> = ({ value, onChange,
       onChange(logoLibraryReference(item.id));
       setShowPicker(false);
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'Could not save that logo.');
+      onError(reportFailure('logo_library', error, 'We could not save that logo.'));
     } finally {
       setBusy(false);
     }

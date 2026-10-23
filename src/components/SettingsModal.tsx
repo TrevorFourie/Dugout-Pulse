@@ -4,6 +4,8 @@ import { ScoringSettingsPanel } from './settings/ScoringSettingsPanel';
 import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
 import { exportJsonBackup } from '../utils/backup';
 import { describeBackupAge, getBackupStatus } from '../utils/backupReminder';
+import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
+import { explainFailure, reportFailure } from '../utils/userMessages';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
   ArrowLeft,
@@ -77,7 +79,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setStatusMessage({ text: 'Logo updated!', isError: false });
     } catch (err) {
       setStatusMessage({
-        text: err instanceof Error ? err.message : 'Could not use that image.',
+        text: reportFailure('logo_library', err, 'We could not use that image.'),
         isError: true,
       });
     }
@@ -98,7 +100,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
     setBackupStatusTick((tick) => tick + 1);
     if (result.outcome === 'failed') {
-      setStatusMessage({ text: `Backup export failed${result.error ? ` (${result.error})` : ''}. Nothing was saved. Please try again.`, isError: true });
+      setStatusMessage({ text: result.error ?? 'We could not create your backup. Nothing was saved. Please try again.', isError: true });
     } else if (result.outcome === 'cancelled') {
       setStatusMessage({ text: 'Backup was not saved. Choose a place to keep the file (Drive, Files, email) to complete the backup.', isError: true });
     } else {
@@ -245,13 +247,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <ConfirmationModal
         isOpen={isResetConfirmOpen}
         title="Reset All Local Data?"
-        message="This permanently deletes all recorded games, season statistics, settings, and custom logo images stored on this device. JSON backups do not contain the image files, so logos cannot be recovered from a backup after the local images are deleted. This action cannot be undone."
+        message="This permanently deletes all recorded games, season statistics, settings, saved lists and your logo library from this device, then returns you to the setup screen. Export a backup first if you want to keep your data - backups include your logo images."
         confirmLabel="Yes, Reset Everything"
         variant="danger"
-        onConfirm={() => {
-          resetAllData();
+        onConfirm={async () => {
           setIsResetConfirmOpen(false);
-          setStatusMessage({ text: 'All data has been reset.', isError: false });
+          const applied = await resetAllData();
+          setStatusMessage(applied
+            ? { text: 'All data has been reset.', isError: false }
+            : { text: explainFailure('Your data was NOT reset, because the app could not first make a safety copy of it. Nothing was changed.', getLastDiagnosticReference() || undefined), isError: true });
         }}
         onCancel={() => setIsResetConfirmOpen(false)}
       />
