@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Bug, Download, Trash2, ShieldCheck } from 'lucide-react';
-import { clearDiagnosticLogs, createDiagnosticReport, getCurrentBuildDiagnosticEvent } from '../utils/errorDiagnostics';
+import { clearDiagnosticLogs, createDiagnosticReport, getCurrentBuildDiagnosticEvent, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { saveTextFile } from '../utils/saveFile';
 import { ConfirmationModal } from './ConfirmationModal';
 
@@ -15,14 +15,25 @@ export const DiagnosticsPanel: React.FC = () => {
   void refresh;
 
   const exportReport = async () => {
-    const report = createDiagnosticReport();
-    const today = new Date().toISOString().slice(0, 10);
-    const ok = await saveTextFile(`dugout-pulse-diagnostics-${today}.json`, report, 'application/json');
-    if (ok) {
-      setMessage('Diagnostic report is ready to save or share.');
-    } else {
+    try {
+      const report = createDiagnosticReport();
+      const today = new Date().toISOString().slice(0, 10);
+      const ok = await saveTextFile(`dugout-pulse-diagnostics-${today}.json`, report, 'application/json');
+      if (ok) {
+        setMessage('Diagnostic report is ready to save or share.');
+      } else {
+        setMessage(null);
+        setExportFailureAlert('Dugout Pulse could not export the diagnostic file. The report preview is open below so you can review and copy it manually.');
+        setShowPreview(true);
+      }
+    } catch (error) {
+      try {
+        recordDiagnosticError('browser_text_export', error, 'Diagnostic report export failed while preparing or saving the report.');
+      } catch {
+        // Keep the original export failure visible even if diagnostics also fail.
+      }
       setMessage(null);
-      setExportFailureAlert('Dugout Pulse could not export the diagnostic file. The report preview is open below so you can review and copy it manually.');
+      setExportFailureAlert('Dugout Pulse could not prepare or export the diagnostic file. You can still try the report preview below and copy it manually.');
       setShowPreview(true);
     }
   };
