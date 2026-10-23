@@ -640,7 +640,7 @@ export interface SQLiteLiveState {
  */
 export async function saveLiveSQLiteState(
   state: SQLiteLiveState,
-  options: { completeCutover?: boolean } = {},
+  options: { completeCutover?: boolean; includeAuxiliary?: boolean } = {},
 ): Promise<void> {
   if (!Array.isArray(state.games) || !state.games.every(isGame)) {
     throw new Error('SQLite save stopped because saved games failed validation.');
@@ -678,10 +678,11 @@ export async function saveLiveSQLiteState(
   if (!Array.isArray(state.oppositionTeams) || !state.oppositionTeams.every(isOppositionTeam)) {
     throw new Error('SQLite save stopped because opposition teams failed validation.');
   }
-  if (!Array.isArray(state.upcomingGames) || !state.upcomingGames.every(isUpcomingGame)) {
+  const includeAuxiliary = options.completeCutover === true || options.includeAuxiliary === true;
+  if (includeAuxiliary && (!Array.isArray(state.upcomingGames) || !state.upcomingGames.every(isUpcomingGame))) {
     throw new Error('SQLite save stopped because scheduled games failed validation.');
   }
-  if (!Array.isArray(state.logoLibrary) || !state.logoLibrary.every(isLogoItem)) {
+  if (includeAuxiliary && (!Array.isArray(state.logoLibrary) || !state.logoLibrary.every(isLogoItem))) {
     throw new Error('SQLite save stopped because the logo library failed validation.');
   }
 
@@ -719,8 +720,8 @@ export async function saveLiveSQLiteState(
     }
 
     const tables = [
-      'games', 'profiles', 'named_lists', 'opposition_teams',
-      'upcoming_games', 'logo_library', 'app_state',
+      'games', 'profiles', 'named_lists', 'opposition_teams', 'app_state',
+      ...(includeAuxiliary ? ['upcoming_games', 'logo_library'] : []),
     ];
     for (const table of tables) {
       await database.run(`DELETE FROM ${table}`, [], false);
@@ -758,18 +759,22 @@ export async function saveLiveSQLiteState(
       expectedOpposition.set(team.id, value);
     }
 
-    const expectedUpcoming = new Map<string, string>();
-    for (const game of state.upcomingGames) {
-      const value = serializeJson(game);
-      await database.run('INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)', [game.id, value], false);
-      expectedUpcoming.set(game.id, value);
-    }
+    if (includeAuxiliary) {
+      const expectedUpcoming = new Map<string, string>();
+      for (const game of state.upcomingGames) {
+        const value = serializeJson(game);
+        await database.run('INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)', [game.id, value], false);
+        expectedUpcoming.set(game.id, value);
+      }
+      await verifyRows(database, 'upcoming_games', 'id', 'value_json', expectedUpcoming);
 
-    const expectedLogos = new Map<string, string>();
-    for (const logo of state.logoLibrary) {
-      const value = serializeJson(logo);
-      await database.run('INSERT INTO logo_library (id, value_json) VALUES (?, ?)', [logo.id, value], false);
-      expectedLogos.set(logo.id, value);
+      const expectedLogos = new Map<string, string>();
+      for (const logo of state.logoLibrary) {
+        const value = serializeJson(logo);
+        await database.run('INSERT INTO logo_library (id, value_json) VALUES (?, ?)', [logo.id, value], false);
+        expectedLogos.set(logo.id, value);
+      }
+      await verifyRows(database, 'logo_library', 'id', 'value_json', expectedLogos);
     }
 
     const expectedAppState = new Map<string, string>();
@@ -783,8 +788,6 @@ export async function saveLiveSQLiteState(
     await verifyRows(database, 'profiles', 'id', 'value_json', expectedProfiles);
     await verifyRows(database, 'named_lists', 'key', 'value_json', expectedLists);
     await verifyRows(database, 'opposition_teams', 'id', 'value_json', expectedOpposition);
-    await verifyRows(database, 'upcoming_games', 'id', 'value_json', expectedUpcoming);
-    await verifyRows(database, 'logo_library', 'id', 'value_json', expectedLogos);
     await verifyRows(database, 'app_state', 'key', 'value_json', expectedAppState);
 
     await database.run(
