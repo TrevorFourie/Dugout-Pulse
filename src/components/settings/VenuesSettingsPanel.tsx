@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, Edit2, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { recordDiagnosticError } from '../../utils/errorDiagnostics';
+import { protectedStorageSetItem } from '../../context/gameStorageSafety';
 
 interface VenuesSettingsPanelProps {
   isActive: boolean;
@@ -83,22 +84,33 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                           }
                           if (renamedVenue !== venue) {
                             const updatedVenues = (settings.venues || []).map((item) => item === venue ? renamedVenue : item);
-                            updateSettings({ venues: updatedVenues });
-                            // Keep previously scheduled games in sync with the renamed master venue.
+                            // Validate and safely write the scheduled-game list before changing the
+                            // venue master list. Never treat an empty string or malformed list as absent.
                             try {
                               const upcomingGamesKey = 'dugoutPulse.upcomingGames.v1';
                               const storedGames = localStorage.getItem(upcomingGamesKey);
-                              if (storedGames) {
-                                const parsedGames = JSON.parse(storedGames);
-                                if (Array.isArray(parsedGames)) {
-                                  const updatedGames = parsedGames.map((game) =>
-                                    game && typeof game.venue === 'string' && game.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
-                                      ? { ...game, venue: renamedVenue }
-                                      : game
-                                  );
-                                  localStorage.setItem(upcomingGamesKey, JSON.stringify(updatedGames));
+                              if (storedGames !== null) {
+                                const parsedGames: unknown = JSON.parse(storedGames);
+                                if (!Array.isArray(parsedGames) || !parsedGames.every((game) =>
+                                  Boolean(game && typeof game === 'object' && !Array.isArray(game) &&
+                                    typeof (game as Record<string, unknown>).id === 'string' &&
+                                    typeof (game as Record<string, unknown>).opponent === 'string' &&
+                                    typeof (game as Record<string, unknown>).date === 'string' &&
+                                    typeof (game as Record<string, unknown>).isHome === 'boolean')
+                                )) {
+                                  throw new SyntaxError('Saved scheduled games contain invalid entries.');
+                                }
+                                const updatedGames = parsedGames.map((game) =>
+                                  typeof (game as Record<string, unknown>).venue === 'string' &&
+                                  ((game as Record<string, unknown>).venue as string).trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
+                                    ? { ...(game as Record<string, unknown>), venue: renamedVenue }
+                                    : game
+                                );
+                                if (!protectedStorageSetItem(upcomingGamesKey, JSON.stringify(updatedGames))) {
+                                  throw new Error('Scheduled games could not be safely saved after the venue rename.');
                                 }
                               }
+                              updateSettings({ venues: updatedVenues });
                               window.dispatchEvent(new CustomEvent('dugout-pulse-venue-renamed', {
                                 detail: { oldName: venue, newName: renamedVenue },
                               }));
@@ -108,12 +120,12 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                                 recordDiagnosticError(
                                   error instanceof SyntaxError ? 'data_corruption' : 'storage_write',
                                   error,
-                                  'A venue rename was saved, but synchronizing the affected scheduled games did not complete. The saved schedule needs to be checked before further edits.',
+                                  'A venue rename could not safely synchronize the saved scheduled-game list. The venue master list was not updated; inspect recovery points before retrying.',
                                 );
                               } catch {
                                 // Preserve the visible warning even if diagnostic recording is unavailable.
                               }
-                              onStatusMessage({ text: 'Venue name updated, but scheduled games could not be synchronized on this device. Please reopen Upcoming Games and check them. If the problem continues, share the diagnostic report.', isError: true });
+                              onStatusMessage({ text: 'Dugout Pulse could not safely complete the venue rename. The venue list was not updated; scheduled-game storage may need recovery. Review diagnostics and the Recovery Journal before retrying.', isError: true });
                             }
                           }
                           setEditingVenue(null);
