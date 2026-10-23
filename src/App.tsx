@@ -421,6 +421,13 @@ const MainApp: React.FC = () => {
         showCancelButton={false}
         closeOnBackdrop={false}
         variant="danger"
+        secondaryLabel="Open recovery tools"
+        onSecondary={() => {
+          setIsRecoveryAlertDismissed(true);
+          setSettingsInitialSection('data');
+          setIsSettingsMenuOpen(false);
+          setIsSettingsOpen(true);
+        }}
         onCancel={() => setIsRecoveryAlertDismissed(true)}
         onConfirm={() => {
           setIsRecoveryAlertDismissed(true);
