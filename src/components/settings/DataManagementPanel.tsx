@@ -160,7 +160,7 @@ const RecoveryJournalPanel: React.FC = () => {
         confirmLabel="OK"
         showCancelButton={false}
         closeOnBackdrop={false}
-        variant="warning"
+        variant="danger"
         onCancel={() => setFailureAlert(null)}
         onConfirm={() => setFailureAlert(null)}
       />
