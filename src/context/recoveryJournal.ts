@@ -39,6 +39,8 @@ const EXCLUDED_KEYS = new Set([
   'dugoutPulse.recoverySnapshot.previous.v1',
   'dugoutPulse.beforeRecovery.v1',
   'dugoutPulse.diagnostics.v1',
+  // Transient write-ahead state must never be restored from an older checkpoint.
+  'dugoutPulse.pendingLiveGameWrite.v1',
   // Storage authority is system metadata and must not be rolled back with app data.
   'dugoutPulse.sqliteCutover.v1',
 ]);
