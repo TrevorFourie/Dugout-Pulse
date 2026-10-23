@@ -8,6 +8,7 @@ import test from 'node:test';
 import { PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
 import assert from 'node:assert/strict';
 import {
+  readPendingLiveGameFromStorage,
   protectedStorageRemoveItem,
   protectedStorageSetItem,
   restoreRecoverySnapshot,
@@ -94,4 +95,31 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
   assert.equal(values.get(PENDING_LIVE_GAME_WRITE_KEY), 'pending', 'restoring an old snapshot does not replace the live scoring journal');
   assert.equal(values.has('user-preference'), false);
   assert.equal(values.has('test-protected-key'), false);
+});
+
+
+test('pending scoring journal fails closed when the live-game mirror is missing', () => {
+  values.clear();
+  values.set(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
+  assert.throws(
+    () => readPendingLiveGameFromStorage(),
+    /no recoverable game value/,
+    'a pending write with no mirror must not be mistaken for a completed clear',
+  );
+  assert.equal(values.get(PENDING_LIVE_GAME_WRITE_KEY), 'pending', 'the ambiguous journal remains available for recovery');
+});
+
+test('pending scoring journal returns the validated mirrored live game', () => {
+  values.clear();
+  const game = { id: 'live-game-1', date: '2026-10-23', teamName: 'Home', innings: 2, plays: [] };
+  values.set(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
+  values.set('baseball_hub_live_game_v1', JSON.stringify(game));
+  assert.deepEqual(readPendingLiveGameFromStorage(), game);
+});
+
+test('legacy full-game scoring marker remains readable', () => {
+  values.clear();
+  const game = { id: 'legacy-live-game', innings: 1, plays: [] };
+  values.set(PENDING_LIVE_GAME_WRITE_KEY, JSON.stringify(game));
+  assert.deepEqual(readPendingLiveGameFromStorage(), game);
 });
