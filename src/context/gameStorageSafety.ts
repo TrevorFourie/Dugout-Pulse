@@ -1,4 +1,5 @@
 import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
+import type { Game } from '../types/baseball';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 export const RECOVERY_STORAGE_KEY = 'dugoutPulse.recoverySnapshot.v1';
@@ -6,6 +7,40 @@ const PREVIOUS_RECOVERY_KEY = 'dugoutPulse.recoverySnapshot.previous.v1';
 const BEFORE_RECOVERY_KEY = 'dugoutPulse.beforeRecovery.v1';
 const DIAGNOSTICS_KEY = 'dugoutPulse.diagnostics.v1';
 const RECOVERY_VERSION = 1;
+
+/**
+ * Read and validate the write-ahead live-game marker used by scoring actions.
+ * A missing mirror while the marker is pending is ambiguous, not proof that the
+ * live game was cleared; callers must stop reconciliation rather than overwrite
+ * SQLite with a potentially stale snapshot.
+ */
+export function readPendingLiveGameFromStorage(): Game | undefined {
+  const marker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
+  if (marker === null) return undefined;
+  // Older in-progress builds may have stored the full game in the marker.
+  const raw = marker === 'pending' ? localStorage.getItem(STORAGE_KEYS.LIVE_GAME) : marker;
+  if (raw === null) {
+    throw new Error('A pending live-game write has no recoverable game value; SQLite reconciliation was stopped to protect scoring data.');
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error('A pending live-game write could not be parsed; SQLite reconciliation was stopped to protect scoring data.');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('A pending live-game write has an invalid shape; SQLite reconciliation was stopped to protect scoring data.');
+  }
+  const game = parsed as Record<string, unknown>;
+  if (typeof game.id !== 'string' || game.id.length === 0 ||
+      (game.date !== undefined && typeof game.date !== 'string') ||
+      (game.teamName !== undefined && typeof game.teamName !== 'string') ||
+      (game.innings !== undefined && typeof game.innings !== 'number') ||
+      (game.plays !== undefined && !Array.isArray(game.plays))) {
+    throw new Error('A pending live-game write failed validation; SQLite reconciliation was stopped to protect scoring data.');
+  }
+  return parsed as Game;
+}
 
 // One pre-mutation snapshot per page lifetime. Preserve the best previous snapshot
 // separately so a later reload cannot replace the only useful backup with damaged state.
