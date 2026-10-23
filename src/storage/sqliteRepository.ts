@@ -544,3 +544,164 @@ export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapsh
     legacyValues,
   };
 }
+
+
+export interface SQLiteLiveState {
+  games: Game[];
+  profiles: PlayerProfile[];
+  settings: AppSettings;
+  liveGame: Game | null;
+  editingGameId: string | null;
+  reopenedGameId: string | null;
+  setupCompleted: boolean;
+  savedOpponents: string[];
+  savedTournaments: string[];
+  savedAgeGroups: string[];
+  savedSeasons: string[];
+  hiddenTournaments: string[];
+  hiddenAgeGroups: string[];
+  hiddenSeasons: string[];
+  oppositionTeams: OppositionTeam[];
+  upcomingGames: (Record<string, unknown> & { id: string })[];
+  logoLibrary: TeamLogoItem[];
+}
+
+/**
+ * Persists one complete live-state snapshot in a single SQLite transaction.
+ * The legacy_values table is intentionally immutable: it remains the exact
+ * source copy from the initial migration and is not a live mirror.
+ *
+ * Callers must create the established recovery checkpoint before invoking this.
+ */
+export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void> {
+  if (!Array.isArray(state.games) || !state.games.every(isGame)) {
+    throw new Error('SQLite save stopped because saved games failed validation.');
+  }
+  if (!Array.isArray(state.profiles) || !state.profiles.every(isProfile)) {
+    throw new Error('SQLite save stopped because player profiles failed validation.');
+  }
+  if (!isRecord(state.settings)) {
+    throw new Error('SQLite save stopped because app settings failed validation.');
+  }
+  if (state.liveGame !== null && !isGame(state.liveGame)) {
+    throw new Error('SQLite save stopped because the live game failed validation.');
+  }
+  if (state.editingGameId !== null && typeof state.editingGameId !== 'string') {
+    throw new Error('SQLite save stopped because the editing-game reference failed validation.');
+  }
+  if (state.reopenedGameId !== null && typeof state.reopenedGameId !== 'string') {
+    throw new Error('SQLite save stopped because the reopened-game reference failed validation.');
+  }
+  if (typeof state.setupCompleted !== 'boolean') {
+    throw new Error('SQLite save stopped because the setup flag failed validation.');
+  }
+  const lists: [string, string[]][] = [
+    [STORAGE_KEYS.SAVED_OPPONENTS, state.savedOpponents],
+    [STORAGE_KEYS.SAVED_TOURNAMENTS, state.savedTournaments],
+    [STORAGE_KEYS.SAVED_AGE_GROUPS, state.savedAgeGroups],
+    [STORAGE_KEYS.SAVED_SEASONS, state.savedSeasons],
+    [STORAGE_KEYS.HIDDEN_TOURNAMENTS, state.hiddenTournaments],
+    [STORAGE_KEYS.HIDDEN_AGE_GROUPS, state.hiddenAgeGroups],
+    [STORAGE_KEYS.HIDDEN_SEASONS, state.hiddenSeasons],
+  ];
+  if (lists.some(([, values]) => !Array.isArray(values) || !values.every((value) => typeof value === 'string'))) {
+    throw new Error('SQLite save stopped because a saved preset list failed validation.');
+  }
+  if (!Array.isArray(state.oppositionTeams) || !state.oppositionTeams.every(isOppositionTeam)) {
+    throw new Error('SQLite save stopped because opposition teams failed validation.');
+  }
+  if (!Array.isArray(state.upcomingGames) || !state.upcomingGames.every(isUpcomingGame)) {
+    throw new Error('SQLite save stopped because scheduled games failed validation.');
+  }
+  if (!Array.isArray(state.logoLibrary) || !state.logoLibrary.every(isLogoItem)) {
+    throw new Error('SQLite save stopped because the logo library failed validation.');
+  }
+
+  const appState: [string, unknown][] = [
+    [STORAGE_KEYS.SETTINGS, state.settings],
+    [STORAGE_KEYS.LIVE_GAME, state.liveGame],
+    [STORAGE_KEYS.EDITING_GAME_ID, state.editingGameId],
+    [STORAGE_KEYS.REOPENED_GAME_ID, state.reopenedGameId],
+    [STORAGE_KEYS.SETUP_COMPLETED, state.setupCompleted],
+  ];
+
+  await withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value === 'complete') {
+      // Live writes are expected after cutover, but they still go through the same
+      // validated transaction and never rewrite the immutable legacy source copy.
+    }
+
+    const tables = [
+      'games', 'profiles', 'named_lists', 'opposition_teams',
+      'upcoming_games', 'logo_library', 'app_state',
+    ];
+    for (const table of tables) {
+      await database.run(`DELETE FROM ${table}`, [], false);
+    }
+
+    const expectedGames = new Map<string, string>();
+    for (const game of state.games) {
+      const value = serializeJson(game);
+      await database.run(
+        'INSERT INTO games (id, value_json, updated_at) VALUES (?, ?, ?)',
+        [game.id, value, typeof game.date === 'string' ? game.date : null],
+        false,
+      );
+      expectedGames.set(game.id, value);
+    }
+
+    const expectedProfiles = new Map<string, string>();
+    for (const profile of state.profiles) {
+      const value = serializeJson(profile);
+      await database.run('INSERT INTO profiles (id, value_json) VALUES (?, ?)', [profile.id, value], false);
+      expectedProfiles.set(profile.id, value);
+    }
+
+    const expectedLists = new Map<string, string>();
+    for (const [key, list] of lists) {
+      const value = serializeJson(list);
+      await database.run('INSERT INTO named_lists (key, value_json) VALUES (?, ?)', [key, value], false);
+      expectedLists.set(key, value);
+    }
+
+    const expectedOpposition = new Map<string, string>();
+    for (const team of state.oppositionTeams) {
+      const value = serializeJson(team);
+      await database.run('INSERT INTO opposition_teams (id, value_json) VALUES (?, ?)', [team.id, value], false);
+      expectedOpposition.set(team.id, value);
+    }
+
+    const expectedUpcoming = new Map<string, string>();
+    for (const game of state.upcomingGames) {
+      const value = serializeJson(game);
+      await database.run('INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)', [game.id, value], false);
+      expectedUpcoming.set(game.id, value);
+    }
+
+    const expectedLogos = new Map<string, string>();
+    for (const logo of state.logoLibrary) {
+      const value = serializeJson(logo);
+      await database.run('INSERT INTO logo_library (id, value_json) VALUES (?, ?)', [logo.id, value], false);
+      expectedLogos.set(logo.id, value);
+    }
+
+    const expectedAppState = new Map<string, string>();
+    for (const [key, value] of appState) {
+      const serialized = serializeJson(value);
+      await database.run('INSERT INTO app_state (key, value_json) VALUES (?, ?)', [key, serialized], false);
+      expectedAppState.set(key, serialized);
+    }
+
+    await verifyRows(database, 'games', 'id', 'value_json', expectedGames);
+    await verifyRows(database, 'profiles', 'id', 'value_json', expectedProfiles);
+    await verifyRows(database, 'named_lists', 'key', 'value_json', expectedLists);
+    await verifyRows(database, 'opposition_teams', 'id', 'value_json', expectedOpposition);
+    await verifyRows(database, 'upcoming_games', 'id', 'value_json', expectedUpcoming);
+    await verifyRows(database, 'logo_library', 'id', 'value_json', expectedLogos);
+    await verifyRows(database, 'app_state', 'key', 'value_json', expectedAppState);
+  });
+}
