@@ -236,6 +236,21 @@ export function withSQLiteTransaction<T>(
   return run;
 }
 
+/**
+ * Runs a read against the same serial queue as writes. Multi-query snapshots must
+ * not observe the intermediate table replacement inside a live-state transaction.
+ */
+export function withSQLiteRead<T>(
+  operation: (database: SQLiteDBConnection) => Promise<T>,
+): Promise<T> {
+  const run = transactionQueue.then(async () => {
+    const database = await initializeSQLiteDatabase();
+    return operation(database);
+  });
+  transactionQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 /** Closes the connection cleanly; web data is saved before the connection closes. */
 export async function closeSQLiteDatabase(): Promise<void> {
   await transactionQueue;
