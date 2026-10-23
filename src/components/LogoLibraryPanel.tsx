@@ -24,12 +24,12 @@ export const LogoLibraryPanel: React.FC<{ isActive: boolean; onStatusMessage: (m
   useEffect(() => () => { if (uploadSuccessTimer.current) clearTimeout(uploadSuccessTimer.current); }, []);
   const showUploadSuccess = (message: string) => { if (uploadSuccessTimer.current) clearTimeout(uploadSuccessTimer.current); setUploadSuccess(message); uploadSuccessTimer.current = setTimeout(() => setUploadSuccess(''), 5000); };
   if (!isActive) return null;
-  const saveName = (id: string) => {
+  const saveName = async (id: string) => {
     const trimmed = name.trim();
     if (!trimmed) return;
     const next = items.map(item => item.id === id ? { ...item, name: trimmed } : item);
     try {
-      renameTeamLogo(id, trimmed);
+      await renameTeamLogo(id, trimmed);
       setItems(next);
       setEditing(null);
       setName('');
