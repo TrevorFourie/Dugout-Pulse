@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import type { HitLocation, HitTrajectory, PlayCode } from '../types/baseball';
 import {
   BASES,
@@ -682,7 +683,14 @@ const HitField3D: React.FC<HitField3DProps> = ({ location, isHit, playCode, onUn
           api = createScene(canvas, () => {
             if (!cancelled) setReady(true);
           });
-        } catch {
+        } catch (error) {
+          // This view can fall back safely, so record the technical failure without
+          // replacing the user's current screen with a blocking diagnostic modal.
+          try {
+            recordDiagnosticError('module_load_failure', error, 'The optional 3D hit-field scene could not be created; the view used its fallback.');
+          } catch {
+            // Preserve the fallback even if diagnostic recording itself is unavailable.
+          }
           unsupportedRef.current?.();
           return;
         }
