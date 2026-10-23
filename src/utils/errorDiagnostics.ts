@@ -161,7 +161,7 @@ function redactLikelyUserValues(value: string): string {
         token.includes('\\') ||
         token.includes('@') ||
         /\.(?:tsx?|jsx?|mjs|cjs|json|css|svg|png|jpe?g|webp)$/i.test(token) ||
-        /^[{}()[\].,:;!?]$/.test(token) ||
+        /^(?:\{|\}|\(|\)|\[|\]|\.|,|:|;|!|\?)$/.test(token) ||
         /^(?:undefined|null|NaN|true|false|length|map|filter|find|then|catch|default|useState|useEffect|useMemo|useCallback|useRef|useContext|useReducer|useLayoutEffect)$/i.test(token)
       ) return match;
       return '[redacted value]';
