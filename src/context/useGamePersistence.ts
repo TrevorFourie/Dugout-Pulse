@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
@@ -27,17 +27,31 @@ interface GamePersistenceOptions {
 }
 
 const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
+
+/** A newer scoring action owns the live-game mirror while its journal is pending. */
+function hasNewerPendingLiveGameWrite(expectedLiveGame: string | null): boolean {
+  if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) === null) return false;
+  return localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== expectedLiveGame;
+}
+
 /** Persists one coherent GameContext snapshot after a verified recovery checkpoint. */
 export function useGamePersistence({
   isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
   savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments, hiddenAgeGroups,
   hiddenSeasons, liveGame, editingGameId, reopenedGameId, profiles, settings,
 }: GamePersistenceOptions): void {
+  // Effects can overlap while recovery checkpoints or SQLite writes are awaiting I/O.
+  // Serialize complete snapshots so an older render cannot commit after a newer one.
+  const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
+
   useEffect(() => {
     if (isLoading) return;
 
-    void (async () => {
+    const persistSnapshot = async () => {
       try {
+        const expectedLiveGame = liveGame === null ? null : JSON.stringify(liveGame);
+        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
+
         const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed');
         if (!checkpointed) {
           onStorageProtectionFailure();
@@ -62,6 +76,8 @@ export function useGamePersistence({
             throw new Error('SQLite is authoritative, but its local cutover marker could not be reconciled.');
           }
         }
+
+        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
 
         if (cutoverComplete) {
           const setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true';
@@ -89,6 +105,13 @@ export function useGamePersistence({
           // SQLite has committed the complete state, so clear the journal before
           // mirroring unrelated compatibility keys. A crash during mirroring must
           // not replay an older live game over a newer saved-game state.
+        }
+
+        // A scoring action may have landed while SQLite was committing this snapshot.
+        // Leave its pending journal intact and let the queued newer snapshot reconcile it.
+        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
+
+        if (cutoverComplete) {
           if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
             localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
             if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
@@ -148,7 +171,10 @@ export function useGamePersistence({
           // Preserve the storage pause even if diagnostic recording is unavailable.
         }
       }
-    })();
+    };
+
+    const queuedPersistence = persistenceQueue.current.then(persistSnapshot, persistSnapshot);
+    persistenceQueue.current = queuedPersistence.catch(() => undefined);
   }, [
     isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
     savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments,
