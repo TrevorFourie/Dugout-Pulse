@@ -158,7 +158,7 @@ export function useGameDataManagement({
         };
         // Drain any pending context edits before taking the rollback baseline.
         // This makes the recovery target match the state the user currently sees.
-        await saveLiveSQLiteState(originalSQLiteState);
+        await saveLiveSQLiteState(originalSQLiteState, { includeAuxiliary: true });
         // Logo-file restoration may update SQLite metadata before the full import
         // transaction. If anything later fails, the previous live state is restored.
         sqliteStateMayHaveChanged = true;
@@ -269,7 +269,7 @@ export function useGameDataManagement({
           upcomingGames: nextUpcomingGames,
           logoLibrary: readTeamLogoLibraryStrict(),
         };
-        await saveLiveSQLiteState(nextState);
+        await saveLiveSQLiteState(nextState, { includeAuxiliary: true });
         if (data && Array.isArray(data.upcomingGames) &&
             !protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
           throw new Error('SQLite import committed, but the scheduled-game compatibility copy could not be verified.');
@@ -336,7 +336,7 @@ export function useGameDataManagement({
       // reconciled from SQLite on the next startup if any compatibility write failed.
       if (sqliteStateMayHaveChanged && originalSQLiteState) {
         try {
-          await saveLiveSQLiteState(originalSQLiteState);
+          await saveLiveSQLiteState(originalSQLiteState, { includeAuxiliary: true });
         } catch (rollbackError) {
           recordDiagnosticError('storage_write', rollbackError, 'Backup import failed and the previous SQLite state could not be restored automatically. The verified recovery checkpoint was retained.');
         }
@@ -423,7 +423,7 @@ export function useGameDataManagement({
             oppositionTeams: [],
             upcomingGames: [],
             logoLibrary: [],
-          });
+          }, { includeAuxiliary: true });
         } catch (error) {
           setRestoreFailed(true);
           recordDiagnosticError('storage_write', error, 'Local app data was cleared, but the reset could not be committed to SQLite. The verified recovery checkpoint was retained; automatic saving is paused.');
