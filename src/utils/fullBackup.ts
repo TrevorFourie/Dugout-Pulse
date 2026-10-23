@@ -6,7 +6,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
 import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
-import { isLegacyStorageImportComplete, readLiveSQLiteState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 import { recordDiagnosticError } from './errorDiagnostics';
 
 const LOGO_LIBRARY_KEY = 'dugoutPulse.logoLibrary.v1';
@@ -98,6 +98,10 @@ export async function buildFullBackup(data: {
   games: Game[];
   profiles: PlayerProfile[];
   settings: unknown;
+  liveState?: Partial<Pick<SQLiteLiveState,
+    'oppositionTeams' | 'savedOpponents' | 'savedTournaments' | 'savedAgeGroups' |
+    'savedSeasons' | 'hiddenTournaments' | 'hiddenAgeGroups' | 'hiddenSeasons'
+  >>;
 }): Promise<FullBackupResult> {
   let sqliteCutoverComplete = false;
   try {
@@ -118,24 +122,25 @@ export async function buildFullBackup(data: {
   };
   let library: TeamLogoItem[];
   if (sqliteCutoverComplete) {
-    // Read one complete SQLite snapshot so export never mixes a newer context
-    // state with stale compatibility-mirror schedules, presets, or logo metadata.
+    // Core values come from the current React snapshot; scheduled games and
+    // logo metadata come from their serialized SQLite write paths, never the mirror.
     const state = await readLiveSQLiteState();
+    const current = data.liveState;
     backupData = {
-      games: state.games,
-      profiles: state.profiles,
-      settings: state.settings,
+      games: data.games,
+      profiles: data.profiles,
+      settings: data.settings,
       upcomingGames: state.upcomingGames,
-      oppositionTeams: state.oppositionTeams,
+      oppositionTeams: current?.oppositionTeams ?? state.oppositionTeams,
       extras: {
-        savedTournaments: state.savedTournaments,
-        savedAgeGroups: state.savedAgeGroups,
-        savedSeasons: state.savedSeasons,
-        savedOpponents: state.savedOpponents,
-        hiddenTournaments: state.hiddenTournaments,
-        hiddenAgeGroups: state.hiddenAgeGroups,
-        hiddenSeasons: state.hiddenSeasons,
-        setupCompleted: state.setupCompleted,
+        savedTournaments: current?.savedTournaments ?? state.savedTournaments,
+        savedAgeGroups: current?.savedAgeGroups ?? state.savedAgeGroups,
+        savedSeasons: current?.savedSeasons ?? state.savedSeasons,
+        savedOpponents: current?.savedOpponents ?? state.savedOpponents,
+        hiddenTournaments: current?.hiddenTournaments ?? state.hiddenTournaments,
+        hiddenAgeGroups: current?.hiddenAgeGroups ?? state.hiddenAgeGroups,
+        hiddenSeasons: current?.hiddenSeasons ?? state.hiddenSeasons,
+        setupCompleted: state.setupCompleted || localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
       },
     };
     library = state.logoLibrary;
