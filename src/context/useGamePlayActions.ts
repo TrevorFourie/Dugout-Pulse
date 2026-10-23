@@ -262,57 +262,52 @@ export function useGamePlayActions({
   const movePlay = useCallback(
     (playId: string, direction: 'earlier' | 'later', sameModeOnly = false) => {
       if (storageWritesBlocked || !liveGame) return;
-      setLiveGame((prev) => {
-        if (!prev) return null;
-        const i = prev.plays.findIndex((p) => p.id === playId);
-        if (i === -1) return prev;
-        const step = direction === 'earlier' ? -1 : 1;
-        let j = i + step;
-        if (sameModeOnly) {
-          while (j >= 0 && j < prev.plays.length && prev.plays[j].mode !== prev.plays[i].mode) j += step;
-        }
-        if (j < 0 || j >= prev.plays.length) return prev;
-        const plays = [...prev.plays];
-        const [moved] = plays.splice(i, 1);
-        plays.splice(j, 0, moved);
-        // Keep the timestamp consistent with the new position (between its new neighbours)
-        const before = plays[j - 1]?.timestamp;
-        const after = plays[j + 1]?.timestamp;
-        let timestamp = moved.timestamp;
-        if (before !== undefined && after !== undefined) timestamp = (before + after) / 2;
-        else if (before !== undefined) timestamp = before + 1;
-        else if (after !== undefined) timestamp = after - 1;
-        plays[j] = { ...moved, timestamp };
-        return { ...prev, plays };
-      });
-    },
-    [liveGame, storageWritesBlocked]
-  );
-
-  // Drop a play right before / after another play (used by drag and drop)
-  const movePlayTo = useCallback((playId: string, targetId: string, position: 'before' | 'after') => {
-    if (storageWritesBlocked || !liveGame) return;
-    setLiveGame((prev) => {
-      if (!prev || playId === targetId) return prev;
-      const from = prev.plays.findIndex((p) => p.id === playId);
-      if (from === -1 || prev.plays.findIndex((p) => p.id === targetId) === -1) return prev;
-      const plays = [...prev.plays];
-      const [moved] = plays.splice(from, 1);
-      const targetIdx = plays.findIndex((p) => p.id === targetId);
-      const targetInning = plays[targetIdx].inning;
-      const at = position === 'before' ? targetIdx : targetIdx + 1;
-      plays.splice(at, 0, moved);
-      const before = plays[at - 1]?.timestamp;
-      const after = plays[at + 1]?.timestamp;
+      const i = liveGame.plays.findIndex((p) => p.id === playId);
+      if (i === -1) return;
+      const step = direction === 'earlier' ? -1 : 1;
+      let j = i + step;
+      if (sameModeOnly) {
+        while (j >= 0 && j < liveGame.plays.length && liveGame.plays[j].mode !== liveGame.plays[i].mode) j += step;
+      }
+      if (j < 0 || j >= liveGame.plays.length) return;
+      const plays = [...liveGame.plays];
+      const [moved] = plays.splice(i, 1);
+      plays.splice(j, 0, moved);
+      const before = plays[j - 1]?.timestamp;
+      const after = plays[j + 1]?.timestamp;
       let timestamp = moved.timestamp;
       if (before !== undefined && after !== undefined) timestamp = (before + after) / 2;
       else if (before !== undefined) timestamp = before + 1;
       else if (after !== undefined) timestamp = after - 1;
-      // Dropping among another inning's plays moves it into that inning
-      plays[at] = { ...moved, timestamp, inning: targetInning };
-      return { ...prev, plays };
-    });
-  }, [liveGame, storageWritesBlocked]);
+      plays[j] = { ...moved, timestamp };
+      const nextGame = { ...liveGame, plays };
+      if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+    },
+    [liveGame, storageWritesBlocked, commitLiveGame]
+  );
+
+  // Drop a play right before / after another play (used by drag and drop)
+  const movePlayTo = useCallback((playId: string, targetId: string, position: 'before' | 'after') => {
+    if (storageWritesBlocked || !liveGame || playId === targetId) return;
+    const from = liveGame.plays.findIndex((p) => p.id === playId);
+    const targetIndex = liveGame.plays.findIndex((p) => p.id === targetId);
+    if (from === -1 || targetIndex === -1) return;
+    const plays = [...liveGame.plays];
+    const [moved] = plays.splice(from, 1);
+    const targetIdx = plays.findIndex((p) => p.id === targetId);
+    const targetInning = plays[targetIdx].inning;
+    const at = position === 'before' ? targetIdx : targetIdx + 1;
+    plays.splice(at, 0, moved);
+    const before = plays[at - 1]?.timestamp;
+    const after = plays[at + 1]?.timestamp;
+    let timestamp = moved.timestamp;
+    if (before !== undefined && after !== undefined) timestamp = (before + after) / 2;
+    else if (before !== undefined) timestamp = before + 1;
+    else if (after !== undefined) timestamp = after - 1;
+    plays[at] = { ...moved, timestamp, inning: targetInning };
+    const nextGame = { ...liveGame, plays };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, storageWritesBlocked, commitLiveGame]);
 
   // Insert a new play right after an existing one
   const insertPlayAfter = useCallback(
@@ -324,37 +319,29 @@ export function useGamePlayActions({
       hitLocation?: HitLocation | null
     ) => {
       if (storageWritesBlocked || !liveGame) return;
-      setLiveGame((prev) => {
-        if (!prev) return null;
-        const i = prev.plays.findIndex((p) => p.id === afterPlayId);
-        if (i === -1) return prev;
-        const ref = prev.plays[i];
-        const next = prev.plays[i + 1];
-        const refTs = ref.timestamp ?? Date.now();
-        const timestamp = next?.timestamp !== undefined && next.timestamp > refTs ? (refTs + next.timestamp) / 2 : refTs + 1;
-        const newPlay: Play = {
-          id: 'play_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-          inning,
-          mode,
-          code,
-          timestamp,
-        };
-        if (mode === 'batting') {
-          newPlay.lineupSpot =
-            ref.mode === 'batting' && ref.inning === inning
-              ? ref.lineupSpot
-              : prev.inningLineupSpots?.[inning] ?? prev.lineupSpot;
-          if (ref.pitcherHand) newPlay.pitcherHand = ref.pitcherHand;
-          if (hitLocation) newPlay.hitLocation = hitLocation;
-        } else if (mode === 'fielding') {
-          newPlay.defensivePosition = prev.fieldingPositions?.[inning] || ref.defensivePosition;
-        }
-        const plays = [...prev.plays.slice(0, i + 1), newPlay, ...prev.plays.slice(i + 1)];
-        return { ...prev, plays };
-      });
+      const i = liveGame.plays.findIndex((p) => p.id === afterPlayId);
+      if (i === -1) return;
+      const ref = liveGame.plays[i];
+      const next = liveGame.plays[i + 1];
+      const refTs = ref.timestamp ?? Date.now();
+      const timestamp = next?.timestamp !== undefined && next.timestamp > refTs ? (refTs + next.timestamp) / 2 : refTs + 1;
+      const newPlay: Play = { id: 'play_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6), inning, mode, code, timestamp };
+      if (mode === 'batting') {
+        newPlay.lineupSpot = ref.mode === 'batting' && ref.inning === inning
+          ? ref.lineupSpot
+          : liveGame.inningLineupSpots?.[inning] ?? liveGame.lineupSpot;
+        if (ref.pitcherHand) newPlay.pitcherHand = ref.pitcherHand;
+        if (hitLocation) newPlay.hitLocation = hitLocation;
+      } else if (mode === 'fielding') {
+        newPlay.defensivePosition = liveGame.fieldingPositions?.[inning] || ref.defensivePosition;
+      }
+      const plays = [...liveGame.plays.slice(0, i + 1), newPlay, ...liveGame.plays.slice(i + 1)];
+      const nextGame = { ...liveGame, plays };
+      if (commitLiveGame(nextGame)) setLiveGame(nextGame);
     },
-    [liveGame, storageWritesBlocked]
+    [liveGame, storageWritesBlocked, commitLiveGame]
   );
+
   const editPlay = useCallback(
     (
       playId: string,
@@ -365,32 +352,25 @@ export function useGamePlayActions({
       newHitLocation?: HitLocation | null,
       newThrowTo?: string
     ) => {
-      if (storageWritesBlocked || !liveGame) return;
-      setLiveGame((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          plays: prev.plays.map((p) => {
-            if (p.id !== playId) return p;
-            return {
-              ...p,
-              inning: newInning,
-              mode: newMode,
-              code: newCode,
-              lineupSpot: newLineupSpot !== undefined ? newLineupSpot : p.lineupSpot,
-              hitLocation:
-                newHitLocation !== undefined
-                  ? newHitLocation === null
-                    ? undefined
-                    : newHitLocation
-                  : p.hitLocation,
-              throwTo: newThrowTo !== undefined ? (newThrowTo === '' ? undefined : newThrowTo) : p.throwTo,
-            };
-          }),
-        };
-      });
+      if (storageWritesBlocked || !liveGame || !liveGame.plays.some((play) => play.id === playId)) return;
+      const nextGame = {
+        ...liveGame,
+        plays: liveGame.plays.map((p) => {
+          if (p.id !== playId) return p;
+          return {
+            ...p,
+            inning: newInning,
+            mode: newMode,
+            code: newCode,
+            lineupSpot: newLineupSpot !== undefined ? newLineupSpot : p.lineupSpot,
+            hitLocation: newHitLocation !== undefined ? (newHitLocation === null ? undefined : newHitLocation) : p.hitLocation,
+            throwTo: newThrowTo !== undefined ? (newThrowTo === '' ? undefined : newThrowTo) : p.throwTo,
+          };
+        }),
+      };
+      if (commitLiveGame(nextGame)) setLiveGame(nextGame);
     },
-    [liveGame, storageWritesBlocked]
+    [liveGame, storageWritesBlocked, commitLiveGame]
   );
 
   return {
