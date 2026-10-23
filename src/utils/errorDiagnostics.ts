@@ -279,7 +279,14 @@ export function recordDiagnosticError(category: string, error: unknown, addition
     ? pendingReactHookDiagnostic.details
     : undefined;
   if (normalisedCategory === 'react_render') pendingReactHookDiagnostic = undefined;
-  const diagnosticDetails = [hookDiagnostic, additionalDetails]
+  const errorStack = error && typeof error === 'object' && 'stack' in error && typeof error.stack === 'string'
+    ? error.stack
+    : '';
+  const diagnosticDetails = [
+    errorStack,
+    normalisedCategory === 'react_render' ? hookDiagnostic : undefined,
+    additionalDetails,
+  ]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     .map(safeDiagnosticDetail)
     .filter(Boolean)
@@ -293,10 +300,7 @@ export function recordDiagnosticError(category: string, error: unknown, addition
     errorMessage: safeErrorMessage(error),
     userMessage: friendlyErrorMessage(normalisedCategory),
     frames: safeStackFrames(error),
-    ...((error && typeof error === 'object' && 'stack' in error && typeof error.stack === 'string')
-      ? { details: safeDiagnosticDetail(error.stack) }
-      : {}),
-    ...(normalisedCategory === 'react_render' && diagnosticDetails ? { details: diagnosticDetails } : {}),
+    ...(diagnosticDetails ? { details: diagnosticDetails } : {}),
     platform: getPlatform(),
     build: getBuild(),
   };
