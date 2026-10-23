@@ -100,7 +100,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       const detail = (event as CustomEvent<{ oldName: string; newName: string }>).detail;
       if (!detail?.oldName || !detail?.newName) return;
       if (restoreFailed) {
-        setMessage('Storage recovery is required before scheduled games can be changed.');
+        setMessage('');
+        setFailureAlert('Dugout Pulse has paused saved-data changes because storage recovery is required. Review the recovery points and diagnostic report before trying again.');
         return;
       }
       const next = games.map((game) =>
@@ -145,7 +146,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
 
   const persist = (next: ScheduledGame[]) => {
     if (restoreFailed) {
-      setMessage('Storage recovery is required before scheduled games can be changed.');
+      setMessage('');
+      setFailureAlert('Dugout Pulse has paused saved-data changes because storage recovery is required. Review the recovery points and diagnostic report before trying again.');
       return;
     }
     try {
