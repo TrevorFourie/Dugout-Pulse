@@ -49,6 +49,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     activeProfile,
     updateActiveProfile,
     games,
+    oppositionTeams,
+    savedOpponents,
+    savedTournaments,
+    savedAgeGroups,
+    savedSeasons,
+    hiddenTournaments,
+    hiddenAgeGroups,
+    hiddenSeasons,
     importJsonData,
     resetAllData,
   } = useGame();
@@ -114,7 +122,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleExportBackup = async () => {
     try {
-      const result = await exportJsonBackup({ games, profiles, settings });
+      const result = await exportJsonBackup({
+        games, profiles, settings,
+        liveState: {
+          oppositionTeams, savedOpponents, savedTournaments, savedAgeGroups,
+          savedSeasons, hiddenTournaments, hiddenAgeGroups, hiddenSeasons,
+        },
+      });
       setBackupStatusTick((tick) => tick + 1);
       if (result.outcome === 'failed') {
         setStatusMessage(null);
