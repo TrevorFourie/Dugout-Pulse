@@ -32,6 +32,7 @@ This document describes the diagnostic/error-handling paths present in the sourc
 - Setup-screen backup import catches both reader failures and asynchronous import exceptions. Failed imports use a modal; when a verified pre-import checkpoint exists, automatic persistence is paused.
 - Scheduled-game data is shape-validated before filtering. Saved-game reopen failures use a modal with a diagnostic reference.
 - Scheduled-game storage/recovery failures and opposition-team write failures use modal alerts. Notification-permission retry feedback remains inside its active permission dialog.
+- When automatic saving is paused, the recovery alert offers a direct route to Settings → Data & About → Recovery Journal, including when the separate localStorage snapshot is unavailable or does not cover the affected files.
 - Inline errors remain for ordinary form validation. Brief success confirmations may use status banners/toasts.
 - The app entry point now wraps the app in an outer error boundary in addition to the app-level boundary, so an error thrown by the inner boundary's fallback can be caught by a parent boundary.
 
