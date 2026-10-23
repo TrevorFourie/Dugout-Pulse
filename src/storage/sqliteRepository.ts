@@ -774,7 +774,7 @@ export async function saveLiveSQLiteState(
         throw new Error('SQLite cutover marker mirror failed read-back verification.');
       }
     } catch (error) {
-      throw new Error('SQLite was committed for cutover, but the local cutover marker could not be verified. Startup must reconcile storage before continuing.', { cause: error });
+      throw new Error('SQLite was committed for cutover, but the local cutover marker could not be verified. Startup must reconcile storage before continuing. ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 }
