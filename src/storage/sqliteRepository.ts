@@ -65,6 +65,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+function serializeJson(value: unknown): string {
+  const serialized = serializeJson(value);
+  if (typeof serialized !== 'string') {
+    throw new Error('A saved value could not be serialised for SQLite.');
+  }
+  return serialized;
+}
+
 function parseStoredJson(entry: LegacyStorageEntry): unknown {
   try {
     return JSON.parse(entry.value) as unknown;
@@ -148,7 +156,7 @@ function canonicalStringify(value: unknown): string {
     }
     return input;
   };
-  return JSON.stringify(normalise(value));
+  return serializeJson(normalise(value));
 }
 
 function sourceFingerprint(entries: LegacyStorageEntry[]): string {
@@ -321,7 +329,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const gameExpected = new Map<string, string>();
     for (const game of snapshot.games) {
-      const json = JSON.stringify(game);
+      const json = serializeJson(game);
       await database.run(
         'INSERT INTO games (id, value_json, updated_at) VALUES (?, ?, ?)',
         [game.id, json, typeof game.date === 'string' ? game.date : null],
@@ -332,7 +340,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const profileExpected = new Map<string, string>();
     for (const profile of snapshot.profiles) {
-      const json = JSON.stringify(profile);
+      const json = serializeJson(profile);
       await database.run(
         'INSERT INTO profiles (id, value_json) VALUES (?, ?)',
         [profile.id, json],
@@ -343,7 +351,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const namedListExpected = new Map<string, string>();
     for (const [key, list] of snapshot.namedLists) {
-      const json = JSON.stringify(list);
+      const json = serializeJson(list);
       await database.run(
         'INSERT INTO named_lists (key, value_json) VALUES (?, ?)',
         [key, json],
@@ -354,7 +362,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const oppositionExpected = new Map<string, string>();
     for (const team of snapshot.oppositionTeams) {
-      const json = JSON.stringify(team);
+      const json = serializeJson(team);
       await database.run(
         'INSERT INTO opposition_teams (id, value_json) VALUES (?, ?)',
         [team.id, json],
@@ -365,7 +373,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const upcomingExpected = new Map<string, string>();
     for (const game of snapshot.upcomingGames) {
-      const json = JSON.stringify(game);
+      const json = serializeJson(game);
       await database.run(
         'INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)',
         [String(game.id), json],
@@ -376,7 +384,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const logoExpected = new Map<string, string>();
     for (const logo of snapshot.logoLibrary) {
-      const json = JSON.stringify(logo);
+      const json = serializeJson(logo);
       await database.run(
         'INSERT INTO logo_library (id, value_json) VALUES (?, ?)',
         [logo.id, json],
@@ -387,7 +395,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     const appStateExpected = new Map<string, string>();
     for (const [key, value] of snapshot.appState) {
-      const json = JSON.stringify(value);
+      const json = serializeJson(value);
       await database.run(
         'INSERT INTO app_state (key, value_json) VALUES (?, ?)',
         [key, json],
@@ -482,13 +490,13 @@ export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapsh
   }
 
   const snapshot = validateSnapshot(legacyValues);
-  const gameExpected = new Map(snapshot.games.map((game) => [game.id, JSON.stringify(game)]));
-  const profileExpected = new Map(snapshot.profiles.map((profile) => [profile.id, JSON.stringify(profile)]));
-  const namedListExpected = new Map(Array.from(snapshot.namedLists, ([key, list]) => [key, JSON.stringify(list)]));
-  const oppositionExpected = new Map(snapshot.oppositionTeams.map((team) => [team.id, JSON.stringify(team)]));
-  const upcomingExpected = new Map(snapshot.upcomingGames.map((game) => [game.id, JSON.stringify(game)]));
-  const logoExpected = new Map(snapshot.logoLibrary.map((logo) => [logo.id, JSON.stringify(logo)]));
-  const appStateExpected = new Map(Array.from(snapshot.appState, ([key, value]) => [key, JSON.stringify(value)]));
+  const gameExpected = new Map(snapshot.games.map((game) => [game.id, serializeJson(game)]));
+  const profileExpected = new Map(snapshot.profiles.map((profile) => [profile.id, serializeJson(profile)]));
+  const namedListExpected = new Map(Array.from(snapshot.namedLists, ([key, list]) => [key, serializeJson(list)]));
+  const oppositionExpected = new Map(snapshot.oppositionTeams.map((team) => [team.id, serializeJson(team)]));
+  const upcomingExpected = new Map(snapshot.upcomingGames.map((game) => [game.id, serializeJson(game)]));
+  const logoExpected = new Map(snapshot.logoLibrary.map((logo) => [logo.id, serializeJson(logo)]));
+  const appStateExpected = new Map(Array.from(snapshot.appState, ([key, value]) => [key, serializeJson(value)]));
 
   await verifyRows(database, 'games', 'id', 'value_json', gameExpected);
   await verifyRows(database, 'profiles', 'id', 'value_json', profileExpected);
