@@ -3,7 +3,7 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import type { OppositionTeam } from '../context/gameContextTypes';
 import type { TeamLogoItem } from '../utils/teamLogoLibrary';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
-import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteTransaction } from './sqliteDatabase';
+import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteRead, withSQLiteTransaction } from './sqliteDatabase';
 
 const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
 const CUTOVER_MARKER = 'legacy_storage_import_v1';
@@ -863,7 +863,7 @@ function parseLiveRows<T>(
 
 /** Reads the last complete live-state transaction; never falls back to empty defaults. */
 export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
-  const database = await initializeSQLiteDatabase();
+  return withSQLiteRead(async (database) => {
   const marker = await database.query(
     'SELECT value FROM app_meta WHERE key = ?',
     [LIVE_STATE_MARKER],
@@ -945,6 +945,7 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
     upcomingGames,
     logoLibrary,
   };
+  });
 }
 
 
