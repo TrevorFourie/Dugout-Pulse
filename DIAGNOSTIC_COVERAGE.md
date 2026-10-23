@@ -25,6 +25,20 @@ This document describes the diagnostic/error-handling paths present in the sourc
 - Diagnostic storage can itself be blocked, unavailable or full. The implementation falls back to session storage and then in-memory events where possible. In-memory events cannot survive a page reload or process termination.
 - Sanitisation is a safeguard, not a guarantee that every arbitrary third-party error string is free of user-supplied text. Review a report before sharing it.
 
+## User-facing failure presentation
+
+- Critical, persistent or actionable failures use the established `ConfirmationModal` pattern rather than disappearing toast notifications.
+- Settings backup creation/cancellation, logo processing, and errors reported by the settings child panels are routed through the settings modal alert.
+- Setup-screen backup import catches both reader failures and asynchronous import exceptions. Failed imports use a modal; when a verified pre-import checkpoint exists, automatic persistence is paused.
+- Scheduled-game data is shape-validated before filtering. Saved-game reopen failures use a modal with a diagnostic reference.
+- Scheduled-game storage/recovery failures and opposition-team write failures use modal alerts. Notification-permission retry feedback remains inside its active permission dialog.
+- Inline errors remain for ordinary form validation. Brief success confirmations may use status banners/toasts.
+- The app entry point now wraps the app in an outer error boundary in addition to the app-level boundary, so an error thrown by the inner boundary's fallback can be caught by a parent boundary.
+
+## Source-audit scope
+
+The source review scanned all 78 TypeScript React component files under `src/components` for common alert, toast, status, error and catch patterns. Deeper path inspection covered the startup bootstrap, diagnostic recorder, app and settings boundaries, storage persistence/restore, private recovery journal, JSON backup import/export, scheduled games, opposition-team management, notification failures and recap export.
+
 ## Unavoidable coverage gaps
 
 1. The browser cannot capture a native process crash, operating-system termination, device power loss or a WebView failure that occurs before any HTML/JavaScript diagnostic bootstrap executes.
@@ -36,6 +50,8 @@ This document describes the diagnostic/error-handling paths present in the sourc
 
 ## Verification status
 
-- Source files and call paths were inspected on `main`; source-level checks were made for the diagnostic handlers, report sanitisation, startup fallback, error-boundary fallback, recovery dropdown and modal severity.
-- No build was triggered, in accordance with the required workflow.
-- This source inspection does not prove runtime behaviour in every browser/WebView. Local runtime regression testing remains necessary for actual uncaught errors, Hook-order failures, unavailable storage, Vite multi-error output and fallback rendering.
+- The current `main` sources were fetched again after the changes and checked for the expected hook order, modal routing, scheduled-game validation, import failure handling and outer error-boundary placement.
+- The reported `SettingsModal` Hook-order defect was fixed by moving all hooks before the closed-modal early return. The earlier `App.tsx` hook-order correction remains in place.
+- Source-level checks are not compile or runtime tests. No build was triggered, in accordance with the required workflow; the existing `userMessages.test.ts` test file was not executed in this remote-source review.
+- Local regression testing is still required for React Hook order, startup/module failures, restricted/full storage, recovery restore and rollback, backup imports, and native WebView behaviour.
+- A failed backup import after a verified pre-import checkpoint pauses automatic persistence and does not publish the imported game/profile/settings state before direct scheduled-game/opposition-team/setup-flag writes succeed. Logo files or the logo-library key may already have been written before a later operation fails; the pre-import checkpoint is retained for explicit recovery, but those earlier logo writes are not automatically rolled back by the import handler.
