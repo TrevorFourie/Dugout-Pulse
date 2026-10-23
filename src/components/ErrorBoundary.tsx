@@ -1,10 +1,11 @@
 import React from 'react';
-import { recordDiagnosticError, showDiagnosticScreen } from '../utils/errorDiagnostics';
+import { createDiagnosticReport, recordDiagnosticError, showDiagnosticScreen } from '../utils/errorDiagnostics';
 
 interface ErrorBoundaryState {
   hasError: boolean;
   errorReference: string;
   showLocalFallback: boolean;
+  showReport: boolean;
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBoundaryState> {
@@ -12,10 +13,19 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
     hasError: false,
     errorReference: '',
     showLocalFallback: false,
+    showReport: false,
   };
 
   static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
-    return { hasError: true, showLocalFallback: false };
+    return { hasError: true, showLocalFallback: false, showReport: false };
+  }
+
+  private getDiagnosticReport(): string {
+    try {
+      return createDiagnosticReport(this.state.errorReference || undefined);
+    } catch {
+      return 'The diagnostic report could not be prepared. Please share error reference ' + (this.state.errorReference || 'unavailable') + ' if you need help.';
+    }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
@@ -38,6 +48,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
     this.setState({
       errorReference: reference,
       showLocalFallback: !screenShown,
+      showReport: false,
     });
   }
 
@@ -71,21 +82,53 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
           the app installed and avoid clearing its data for now.
         </p>
         <p style={{ margin: 0, fontSize: '13px' }}>Error reference: {this.state.errorReference || 'unavailable'}</p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          style={{
-            border: 0,
-            borderRadius: '12px',
-            padding: '12px 20px',
-            background: '#00BFA5',
-            color: '#18212D',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Restart app
-        </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{
+              border: 0,
+              borderRadius: '12px',
+              padding: '12px 20px',
+              background: '#00BFA5',
+              color: '#18212D',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Restart app
+          </button>
+          <button
+            type="button"
+            aria-expanded={this.state.showReport}
+            aria-controls="dugout-pulse-fallback-report"
+            onClick={() => this.setState((state) => ({ showReport: !state.showReport }))}
+            style={{
+              border: '1px solid #64748B',
+              borderRadius: '12px',
+              padding: '12px 20px',
+              background: 'transparent',
+              color: 'inherit',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {this.state.showReport ? 'Hide diagnostic report' : 'Show diagnostic report'}
+          </button>
+        </div>
+        {this.state.showReport && (
+          <div id="dugout-pulse-fallback-report" style={{ width: '100%', maxWidth: '640px', textAlign: 'left' }}>
+            <p style={{ fontSize: '13px', lineHeight: 1.5 }}>Review this report before sharing it. Select and copy the text if you need to send it for help.</p>
+            <textarea
+              aria-label="Sanitised diagnostic report"
+              readOnly
+              value={this.getDiagnosticReport()}
+              rows={12}
+              onFocus={(event) => event.currentTarget.select()}
+              style={{ boxSizing: 'border-box', width: '100%', padding: '12px', border: '1px solid #94A3B8', borderRadius: '8px', background: '#FFFFFF', color: '#18212D', fontFamily: 'monospace', fontSize: '12px' }}
+            />
+          </div>
+        )}
       </main>
     );
   }
