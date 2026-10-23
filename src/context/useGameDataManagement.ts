@@ -12,7 +12,7 @@ import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles 
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
 import { explainFailure, reportFailure } from '../utils/userMessages';
-import { isLegacyStorageImportComplete, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -163,6 +163,7 @@ export function useGameDataManagement({
         // Before cutover, localStorage remains authoritative.
       }
       if (sqliteCutoverComplete) {
+        const persistedState = await readLiveSQLiteState();
         originalSQLiteState = {
           games,
           profiles,
@@ -170,7 +171,7 @@ export function useGameDataManagement({
           liveGame,
           editingGameId,
           reopenedGameId,
-          setupCompleted: localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+          setupCompleted: persistedState.setupCompleted || localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
           savedOpponents,
           savedTournaments,
           savedAgeGroups,
@@ -179,8 +180,8 @@ export function useGameDataManagement({
           hiddenAgeGroups,
           hiddenSeasons,
           oppositionTeams,
-          upcomingGames: readUpcomingGamesForSQLite(),
-          logoLibrary: readTeamLogoLibraryStrict(),
+          upcomingGames: persistedState.upcomingGames,
+          logoLibrary: persistedState.logoLibrary,
         };
         // Drain any pending context edits before taking the rollback baseline.
         // This makes the recovery target match the state the user currently sees.
@@ -517,6 +518,7 @@ export function useGameDataManagement({
       let beforeResetSQLiteState: SQLiteLiveState | null = null;
       if (sqliteCutoverComplete) {
         try {
+          const persistedState = await readLiveSQLiteState();
           beforeResetSQLiteState = {
             games,
             profiles,
@@ -524,7 +526,7 @@ export function useGameDataManagement({
             liveGame,
             editingGameId,
             reopenedGameId,
-            setupCompleted: localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+            setupCompleted: persistedState.setupCompleted || localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
             savedOpponents,
             savedTournaments,
             savedAgeGroups,
@@ -533,8 +535,8 @@ export function useGameDataManagement({
             hiddenAgeGroups,
             hiddenSeasons,
             oppositionTeams,
-            upcomingGames: readUpcomingGamesForSQLite(),
-            logoLibrary: readTeamLogoLibraryStrict(),
+            upcomingGames: persistedState.upcomingGames,
+            logoLibrary: persistedState.logoLibrary,
           };
           await saveLiveSQLiteState(beforeResetSQLiteState, { includeAuxiliary: true });
         } catch (error) {
