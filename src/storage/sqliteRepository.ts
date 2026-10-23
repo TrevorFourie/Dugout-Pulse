@@ -8,6 +8,7 @@ import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteTransaction } fr
 const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
 const CUTOVER_MARKER = 'legacy_storage_import_v1';
 const LIVE_STATE_MARKER = 'live_state_snapshot_v1';
+const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
 
 const ARRAY_LIST_KEYS = [
   STORAGE_KEYS.SAVED_OPPONENTS,
@@ -765,6 +766,17 @@ export async function saveLiveSQLiteState(
       );
     }
   });
+
+  if (options.completeCutover === true) {
+    try {
+      localStorage.setItem(LOCAL_CUTOVER_MARKER, 'complete');
+      if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
+        throw new Error('SQLite cutover marker mirror failed read-back verification.');
+      }
+    } catch (error) {
+      throw new Error('SQLite was committed for cutover, but the local cutover marker could not be verified. Startup must reconcile storage before continuing.', { cause: error });
+    }
+  }
 }
 
 function parseLiveRows<T>(
