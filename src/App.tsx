@@ -264,14 +264,6 @@ const MainApp: React.FC = () => {
   // Keep the complete app shell hidden until persisted data has loaded. Rendering
   // Navigation/dashboard first and replacing them after localStorage loads caused
   // visible startup movement and layout shifts on slower Android WebViews.
-  // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
-  useEffect(() => {
-    if (!isFirstTimeUser) return;
-    setIsSettingsOpen(false);
-    setIsSettingsMenuOpen(false);
-    setActiveTab('dashboard');
-  }, [isFirstTimeUser]);
-
   if (showSplash) {
     // Android: render nothing, so the native splash artwork stays visible.
     if (isNativeLaunch) return null;
@@ -298,6 +290,14 @@ const MainApp: React.FC = () => {
       </div>
     );
   }
+
+  // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
+  useEffect(() => {
+    if (!isFirstTimeUser) return;
+    setIsSettingsOpen(false);
+    setIsSettingsMenuOpen(false);
+    setActiveTab('dashboard');
+  }, [isFirstTimeUser]);
 
   // The app hamburger opens only the sliding drawer. A settings page is opened only after selection.
   const handleOpenSettings = () => {
