@@ -682,7 +682,7 @@ export function installGlobalDiagnosticHandlers(): void {
   const originalFetch = window.fetch.bind(window);
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const isDiagnosticFetch = /\\/src\\/App\\.tsx\\?diagnostic=/i.test(requestUrl);
+    const isDiagnosticFetch = requestUrl.includes('/src/App.tsx?diagnostic=');
     let request: Promise<Response>;
     try {
       request = originalFetch(input, init);
