@@ -63,17 +63,18 @@ export const readTeamLogoLibrary = (): TeamLogoItem[] => {
     return [];
   }
 };
-const writeTeamLogoLibrary = (items: TeamLogoItem[]): void => {
+const writeTeamLogoLibrary = async (items: TeamLogoItem[]): Promise<void> => {
+  await saveSQLiteLogoLibrary(items);
   if (!protectedStorageSetItem(KEY, JSON.stringify(items))) throw new Error('Could not safely update the saved team logo library.');
   changed();
 };
 
-export function renameTeamLogo(id: string, name: string): void {
+export async function renameTeamLogo(id: string, name: string): Promise<void> {
   const current = readTeamLogoLibraryStrict();
   if (!current.some((item) => item.id === id)) {
     throw new Error('The selected logo could not be found in the saved library.');
   }
-  writeTeamLogoLibrary(current.map((item) => item.id === id ? { ...item, name } : item));
+  await writeTeamLogoLibrary(current.map((item) => item.id === id ? { ...item, name } : item));
 }
 const extensionForMime = (mime: string) => mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
 export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
@@ -95,7 +96,7 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   const fileUri = await Filesystem.getUri({ path: DIR + '/' + fileName, directory: Directory.Data });
   const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
   const item: TeamLogoItem = { id, name: file.name.replace(/\.[^.]+$/, '') || 'Team logo', fileName, uri, mimeType, sizeBytes: Math.floor(base64.length * 3 / 4) };
-  writeTeamLogoLibrary([item, ...existingLibrary]);
+  await writeTeamLogoLibrary([item, ...existingLibrary]);
   return item;
 }
 export async function deleteTeamLogo(item: TeamLogoItem): Promise<void> {
@@ -105,7 +106,7 @@ export async function deleteTeamLogo(item: TeamLogoItem): Promise<void> {
   // Validate metadata before mutation, then update protected metadata before deleting the file.
   // An unreadable library must never be treated as empty and overwritten.
   const existingLibrary = readTeamLogoLibraryStrict();
-  writeTeamLogoLibrary(existingLibrary.filter((entry) => entry.id !== item.id));
+  await writeTeamLogoLibrary(existingLibrary.filter((entry) => entry.id !== item.id));
   try { await Filesystem.deleteFile({ path: DIR + '/' + item.fileName, directory: Directory.Data }); } catch { /* Preserve an orphaned file rather than risk deleting referenced data. */ }
 }
 export const TEAM_LOGO_LIBRARY_EVENT = 'dugout-pulse-logo-library-changed';
