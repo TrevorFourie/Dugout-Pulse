@@ -661,7 +661,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   );
 
   const handleThirdOut = useCallback(
-    (fromMode: PlayMode, opts?: { allowExtraInning?: boolean }) => {
+    (fromMode: PlayMode, opts?: { allowExtraInning?: boolean; allowModeSwitch?: boolean }) => {
       if (typeof window !== 'undefined' && window.navigator?.vibrate) {
         try {
           window.navigator.vibrate(20);
