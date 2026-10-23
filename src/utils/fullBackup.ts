@@ -4,7 +4,7 @@ import type { Game, PlayerProfile } from '../types/baseball';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
-import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibrary, type TeamLogoItem } from './teamLogoLibrary';
+import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
 import { recordDiagnosticError } from './errorDiagnostics';
 
@@ -91,7 +91,7 @@ export async function buildFullBackup(data: {
   // Inline (data URL) logos are kept inside the data itself; library logos are referenced by id and their
   // image files are embedded below. Nothing is replaced by a bare hash, so no logo bytes are lost.
 
-  const library = readTeamLogoLibrary();
+  const library = readTeamLogoLibraryStrict();
   const logoFiles: Record<string, string> = {};
   const missingLogos: string[] = [];
   for (const item of library) {
@@ -141,6 +141,9 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
   const fileMap = files as Record<string, string>;
   const usable = (library as TeamLogoItem[]).filter((entry) => typeof fileMap[entry.fileName] === 'string');
   if (usable.length === 0) return 0;
+  // Validate the current library before writing any restored logo file. A corrupt
+  // library must not be treated as empty and then overwritten by the imported subset.
+  const existingLibrary = readTeamLogoLibraryStrict();
 
   const toWrite: Record<string, string> = {};
   for (const entry of usable) toWrite[entry.fileName] = fileMap[entry.fileName];
@@ -153,7 +156,7 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
     restored.push({ ...entry, uri });
   }
   const restoredIds = new Set(restored.map((entry) => entry.id));
-  const merged = [...restored, ...readTeamLogoLibrary().filter((entry) => !restoredIds.has(entry.id))];
+  const merged = [...restored, ...existingLibrary.filter((entry) => !restoredIds.has(entry.id))];
   if (!protectedStorageSetItem(LOGO_LIBRARY_KEY, JSON.stringify(merged))) {
     throw new Error('Could not safely update the logo library while restoring the backup.');
   }
