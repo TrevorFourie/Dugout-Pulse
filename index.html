@@ -190,6 +190,15 @@
                   .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
                   .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
                   .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+                  .replace(/(["'])([^"'\r\n]{1,100})\1/g, function (match, _quote, inner) {
+                    var token = inner.trim();
+                    if (token.indexOf('/') !== -1 || token.indexOf('\\') !== -1 || token.indexOf('@') !== -1 ||
+                        /\.(?:tsx?|jsx?|mjs|cjs|json|css|svg|png|jpe?g|webp)$/i.test(token) ||
+                        /^[{}()[\].,:;!?]$/.test(token) ||
+                        /^(?:undefined|null|NaN|true|false|length|map|filter|find|then|catch|default|useState|useEffect|useMemo|useCallback|useRef|useContext|useReducer|useLayoutEffect)$/i.test(token)) return match;
+                    return '[redacted value]';
+                  })
+                  .replace(/\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\s*[:=]\s*[^,;\n]+/gi, '$1: [redacted]')
                   .replace(/[^\x20-\x7E\n]/g, ' ')
                   .slice(0, limit);
               };
