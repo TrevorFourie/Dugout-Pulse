@@ -286,8 +286,15 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
       'SELECT value FROM app_meta WHERE key = ?',
       [IMPORT_MARKER],
     );
-    if (marker.values?.[0]?.value === fingerprint) {
-      // Same exact source snapshot: a repeat call is a verified no-op.
+    const existingFingerprint = marker.values?.[0]?.value;
+    if (typeof existingFingerprint === 'string') {
+      if (existingFingerprint !== fingerprint) {
+        throw new Error(
+          'A SQLite legacy snapshot already exists, but the current local storage has changed. No data was changed; an explicit recovery/reconciliation decision is required before retrying.',
+        );
+      }
+      // The prior transaction verified every projection before recording this exact
+      // fingerprint. A retry is a no-op, including after a web-store flush error.
       return;
     }
 
