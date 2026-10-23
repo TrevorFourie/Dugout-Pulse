@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
-import { readTeamLogoLibrary } from '../utils/teamLogoLibrary';
+import { readTeamLogoLibrary, readTeamLogoLibraryStrict } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
@@ -13,11 +13,25 @@ import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
 import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
 import { explainFailure, reportFailure } from '../utils/userMessages';
-import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
 interface GameDataManagementOptions {
+  games: Game[];
+  liveGame: Game | null;
+  editingGameId: string | null;
+  reopenedGameId: string | null;
+  profiles: PlayerProfile[];
+  settings: AppSettings;
+  oppositionTeams: OppositionTeam[];
+  savedOpponents: string[];
+  savedTournaments: string[];
+  savedAgeGroups: string[];
+  savedSeasons: string[];
+  hiddenTournaments: string[];
+  hiddenAgeGroups: string[];
+  hiddenSeasons: string[];
   setGames: StateSetter<Game[]>;
   setLiveGame: StateSetter<Game | null>;
   setEditingGameId: StateSetter<string | null>;
@@ -44,6 +58,20 @@ interface GameDataManagementOptions {
 
 /** Owns settings updates, backup import/reset, and first-time setup completion. */
 export function useGameDataManagement({
+  games,
+  liveGame,
+  editingGameId,
+  reopenedGameId,
+  profiles,
+  settings,
+  oppositionTeams,
+  savedOpponents,
+  savedTournaments,
+  savedAgeGroups,
+  savedSeasons,
+  hiddenTournaments,
+  hiddenAgeGroups,
+  hiddenSeasons,
   setGames,
   setLiveGame,
   setEditingGameId,
