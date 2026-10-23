@@ -34,38 +34,38 @@ export interface DiagnosticEvent {
 export function friendlyErrorMessage(category: string): string {
   switch (safeCategory(category)) {
     case 'app_startup':
-      return "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.";
+      return "Dugout Pulse ran into a problem while starting. You can open the recovery tools to review your available recovery points. If the problem continues, please share the diagnostic report. Please keep the app installed and avoid clearing its data while we look into this.";
     case 'react_render':
-      return "Dugout Pulse encountered a screen error. Stop making changes until you have checked the recovery tools. Export the diagnostic report if the problem persists. Do not clear app data or reinstall the app.";
+      return "Dugout Pulse had trouble displaying this screen. You can open the recovery tools to review your available recovery points. If the problem happens again, please share the diagnostic report. For now, please keep the app installed and avoid clearing its data.";
     case 'storage_load':
     case 'storage_read':
     case 'data_corruption':
-      return "Dugout Pulse couldn't safely read some saved data. Don't reset or reinstall the app. Open recovery tools and check your recovery points.";
+      return "Dugout Pulse had trouble reading some saved data. Please open the recovery tools to review your available recovery points. If you need help, the diagnostic report can provide more detail. Please keep the app installed and avoid clearing its data.";
     case 'storage_write':
     case 'storage_write_opposition_teams':
     case 'storage_write_games':
     case 'storage_write_profiles':
-      return "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.";
+      return "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.";
     case 'backup_import':
-      return "Dugout Pulse couldn't safely import that backup. Don't reset the app. Review the diagnostic report before trying another import.";
+      return "Dugout Pulse couldn't complete the backup import. Your existing information has not been verified as part of this attempt. Please review the recovery tools and diagnostic report before trying again.";
     case 'recovery_checkpoint':
-      return "Dugout Pulse couldn't verify a recovery point. Avoid resetting or reinstalling the app; check for another verified recovery point.";
+      return "Dugout Pulse couldn't verify that recovery point. Please check whether another verified recovery point is available. Keep the app installed and avoid clearing its data while you review your options.";
     case 'recovery_restore':
-      return "Dugout Pulse couldn't complete the restore. Do not clear app data or reinstall. Review the diagnostic report before another attempt.";
+      return "Dugout Pulse couldn't complete the restore. Please review the available recovery points and diagnostic report before trying again. Keep the app installed and avoid clearing its data for now.";
     case 'data_reset':
-      return "Dugout Pulse couldn't complete the data reset safely. Do not repeat the reset yet. Review the diagnostic report and check your recovery points.";
+      return "Dugout Pulse couldn't complete the data reset. Please check the recovery tools and diagnostic report before trying again, so you can review the available options first.";
     case 'window_error':
     case 'unhandled_rejection':
     case 'network_failure':
-      return "A network request made by Dugout Pulse failed. This may be expected while offline; review the diagnostic report if the operation did not complete.";
+      return "Dugout Pulse couldn't complete a network request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.";
     case 'module_load_failure':
-      return "An optional part of Dugout Pulse could not load. Other features may still work; review the diagnostic report if you notice a problem.";
+      return "One part of Dugout Pulse couldn't load. Other features may still be available. If something isn't working as expected, please share the diagnostic report so the issue can be investigated.";
     case 'runtime_error':
     case 'native_failure':
     case 'app_lifecycle':
-      return "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling while the cause is unknown.";
+      return "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.";
     default:
-      return "Dugout Pulse couldn't complete an operation because of an unexpected problem. Keep the app installed, avoid clearing app data, and review the diagnostic report or recovery tools.";
+      return "Dugout Pulse couldn't complete that action. You can review the recovery tools for available options, and share the diagnostic report if you need help. Please keep the app installed and avoid clearing its data for now.";
   }
 }
 
