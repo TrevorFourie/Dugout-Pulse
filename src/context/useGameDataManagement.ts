@@ -157,6 +157,9 @@ export function useGameDataManagement({
           upcomingGames: readUpcomingGamesForSQLite(),
           logoLibrary: readTeamLogoLibraryStrict(),
         };
+        // Drain any pending context edits before taking the rollback baseline.
+        // This makes the recovery target match the state the user currently sees.
+        await saveLiveSQLiteState(originalSQLiteState);
         // Logo-file restoration may update SQLite metadata before the full import
         // transaction. If anything later fails, the previous live state is restored.
         sqliteStateMayHaveChanged = true;
