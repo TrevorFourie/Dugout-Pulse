@@ -255,15 +255,26 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
     for (const fileName of writtenFiles) {
       try {
         if (filesNotPreviouslyPresent.has(fileName)) {
-          await Filesystem.deleteFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+          try {
+            await Filesystem.deleteFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+          } catch (deleteError) {
+            try {
+              await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
+              rollbackError = rollbackError || deleteError;
+            } catch {
+              // The file is already absent; no cleanup remains.
+            }
+          }
           try {
             await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
             rollbackError = rollbackError || new Error('A newly restored logo file still exists after rollback.');
           } catch {
-            // File absence confirmed after deletion.
+            // File absence confirmed after cleanup.
           }
         } else {
-          await writeLogoFiles({ [fileName]: previousFiles[fileName] });
+          const previous = previousFiles[fileName];
+          if (typeof previous !== 'string') throw new Error('The previous custom logo bytes were not captured.');
+          await writeLogoFiles({ [fileName]: previous });
         }
       } catch (error) {
         rollbackError = rollbackError || error;
