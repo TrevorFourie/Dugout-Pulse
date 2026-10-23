@@ -312,6 +312,23 @@ export function getRecoverySnapshotInfo(): RecoverySnapshotInfo {
  * the current state before restoring, and retain both snapshots for verification.
  */
 export function restoreRecoverySnapshot(): boolean {
+  try {
+    if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+      recordDiagnosticError(
+        'recovery_restore',
+        new Error('A completed-game save is awaiting recovery.'),
+        'Local recovery restore was stopped so an interrupted completed-game save can be recovered first.',
+      );
+      return false;
+    }
+  } catch (error) {
+    try {
+      recordDiagnosticError('recovery_restore', error, 'Local recovery restore was stopped because pending completed-game save status could not be checked.');
+    } catch {
+      // A failure to inspect the journal must never allow an older snapshot to overwrite it.
+    }
+    return false;
+  }
   const snapshot = selectRecoverySnapshot();
   if (!snapshot) return false;
 
