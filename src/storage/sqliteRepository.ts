@@ -437,3 +437,75 @@ export async function isLegacyStorageImportComplete(): Promise<boolean> {
 
 /** Exposed for a future startup gate to make the marker name stable and explicit. */
 export const LEGACY_STORAGE_IMPORT_MARKER = CUTOVER_MARKER;
+
+
+export interface VerifiedSQLiteSnapshot {
+  audit: LegacyStorageAudit;
+  games: Game[];
+  profiles: PlayerProfile[];
+  settings: AppSettings | Record<string, unknown> | null;
+  liveGame: Game | null;
+  upcomingGames: Record<string, unknown>[];
+  oppositionTeams: OppositionTeam[];
+  logoLibrary: TeamLogoItem[];
+  namedLists: Record<string, string[]>;
+  appState: Record<string, unknown>;
+  legacyValues: LegacyStorageEntry[];
+}
+
+/**
+ * Reads a previously imported snapshot and verifies that every typed projection
+ * still matches its preserved source values. This is a read-only API for the
+ * future startup gate; it does not make SQLite authoritative or mutate localStorage.
+ */
+export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapshot> {
+  const database = await initializeSQLiteDatabase();
+  const marker = await database.query(
+    'SELECT value FROM app_meta WHERE key = ?',
+    [SNAPSHOT_MARKER],
+  );
+  if (typeof marker.values?.[0]?.value !== 'string' || marker.values[0].value.length === 0) {
+    throw new Error('No verified legacy storage snapshot exists in SQLite yet.');
+  }
+
+  const legacyRows = await readRows(database, 'SELECT key, value FROM legacy_values');
+  const legacyValues: LegacyStorageEntry[] = legacyRows.map((row) => {
+    if (typeof row.key !== 'string' || typeof row.value !== 'string') {
+      throw new Error('SQLite legacy snapshot contains a malformed source row.');
+    }
+    return { key: row.key, value: row.value };
+  }).sort((left, right) => left.key.localeCompare(right.key));
+
+  const snapshot = validateSnapshot(legacyValues);
+  const gameExpected = new Map(snapshot.games.map((game) => [game.id, JSON.stringify(game)]));
+  const profileExpected = new Map(snapshot.profiles.map((profile) => [profile.id, JSON.stringify(profile)]));
+  const namedListExpected = new Map(Array.from(snapshot.namedLists, ([key, list]) => [key, JSON.stringify(list)]));
+  const oppositionExpected = new Map(snapshot.oppositionTeams.map((team) => [team.id, JSON.stringify(team)]));
+  const upcomingExpected = new Map(snapshot.upcomingGames.map((game) => [game.id, JSON.stringify(game)]));
+  const logoExpected = new Map(snapshot.logoLibrary.map((logo) => [logo.id, JSON.stringify(logo)]));
+  const appStateExpected = new Map(Array.from(snapshot.appState, ([key, value]) => [key, JSON.stringify(value)]));
+
+  await verifyRows(database, 'games', 'id', 'value_json', gameExpected);
+  await verifyRows(database, 'profiles', 'id', 'value_json', profileExpected);
+  await verifyRows(database, 'named_lists', 'key', 'value_json', namedListExpected);
+  await verifyRows(database, 'opposition_teams', 'id', 'value_json', oppositionExpected);
+  await verifyRows(database, 'upcoming_games', 'id', 'value_json', upcomingExpected);
+  await verifyRows(database, 'logo_library', 'id', 'value_json', logoExpected);
+  await verifyRows(database, 'app_state', 'key', 'value_json', appStateExpected);
+
+  const namedLists = Object.fromEntries(snapshot.namedLists.entries());
+  const appState = Object.fromEntries(snapshot.appState.entries());
+  return {
+    audit: snapshot.audit,
+    games: snapshot.games,
+    profiles: snapshot.profiles,
+    settings: snapshot.settings,
+    liveGame: snapshot.liveGame,
+    upcomingGames: snapshot.upcomingGames,
+    oppositionTeams: snapshot.oppositionTeams,
+    logoLibrary: snapshot.logoLibrary,
+    namedLists,
+    appState,
+    legacyValues,
+  };
+}
