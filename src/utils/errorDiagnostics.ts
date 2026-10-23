@@ -3,7 +3,7 @@ const MAX_EVENTS = 40;
 const MAX_STORAGE_CHARS = 48_000;
 // The diagnostic report must show the TRUE error, so keep enough of it to be useful.
 const MAX_MESSAGE_CHARS = 400;
-const MAX_DETAIL_CHARS = 2400;
+const MAX_DETAIL_CHARS = 12000;
 let lastReference = '';
 let lastRecordedAt = 0;
 let pendingReactHookDiagnostic: { time: number; details: string } | undefined;
@@ -283,10 +283,12 @@ export function recordDiagnosticError(category: string, error: unknown, addition
   const errorStack = error && typeof error === 'object' && 'stack' in error && typeof error.stack === 'string'
     ? error.stack
     : '';
+  // The Hook comparison is the root-cause evidence. Keep it before the repetitive
+  // React exception stack so it cannot be truncated out of the exported report.
   const diagnosticDetails = [
-    errorStack,
     normalisedCategory === 'react_render' ? hookDiagnostic : undefined,
     additionalDetails,
+    errorStack,
   ]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     .map(safeDiagnosticDetail)
@@ -492,7 +494,12 @@ export function installGlobalDiagnosticHandlers(): void {
       // Catch handled failures that are only written to the console (storage,
       // recovery, import/export, and other caught errors) without forcing a modal
       // over an operation that already has its own user-facing handling.
-      if (!isHookOrderDiagnostic && Date.now() - lastRecordedAt > 1500 &&
+      const isReactCaughtRenderError =
+        /The above error occurred in the <[^>]+> component/i.test(detail) ||
+        /Rendered (?:more|fewer) hooks than during the previous render/i.test(detail) ||
+        /React has detected a change in the order of Hooks called/i.test(detail) ||
+        /useGame must be used within a GameProvider/i.test(detail);
+      if (!isHookOrderDiagnostic && !isReactCaughtRenderError && Date.now() - lastRecordedAt > 1500 &&
           /error|failed|failure|could not|unable|corrupt|invalid|denied|quota|exception|verification/i.test(detail)) {
         const errorArgument = args.find((arg): arg is Error => arg instanceof Error);
         recordDiagnosticError(classifyConsoleFailure(detail), errorArgument || new Error(detail.slice(0, MAX_MESSAGE_CHARS)), detail);
