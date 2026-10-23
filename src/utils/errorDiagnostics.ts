@@ -518,13 +518,20 @@ function preferredDiagnosticReference(reference: string): string {
 }
 
 /** Route every user-visible failure through the single diagnostic screen in index.html. */
-export function showDiagnosticScreen(reference: string): void {
-  if (typeof window === 'undefined') return;
-  const preferredReference = preferredDiagnosticReference(reference);
-  const host = window as Window & {
-    __dugoutPulseShowDiagnostic?: (errorReference: string) => void;
-  };
-  host.__dugoutPulseShowDiagnostic?.(preferredReference);
+export function showDiagnosticScreen(reference: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const preferredReference = preferredDiagnosticReference(reference);
+    const host = window as Window & {
+      __dugoutPulseShowDiagnostic?: (errorReference: string) => void;
+    };
+    if (typeof host.__dugoutPulseShowDiagnostic !== 'function') return false;
+    host.__dugoutPulseShowDiagnostic(preferredReference);
+    return true;
+  } catch {
+    // The diagnostic UI must not replace or compound the original application error.
+    return false;
+  }
 }
 
 /** Install once at bootstrap, before React or the rest of the app is loaded. */
