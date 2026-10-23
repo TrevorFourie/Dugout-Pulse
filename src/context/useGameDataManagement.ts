@@ -185,7 +185,7 @@ export function useGameDataManagement({
     }
   }, []);
 
-  // Resolves true once the reset has been applied, false when it was blocked (no verified checkpoint).
+  // Resolves true only after a verified checkpoint exists and app-data removal is confirmed.
   const resetAllData = useCallback(async (): Promise<boolean> => {
       // Reset is destructive: require a verified private checkpoint immediately before it.
       if (!(await createVerifiedRecoveryCheckpoint('Before user-requested reset of app data'))) {
