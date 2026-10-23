@@ -579,7 +579,10 @@ export interface SQLiteLiveState {
  *
  * Callers must create the established recovery checkpoint before invoking this.
  */
-export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void> {
+export async function saveLiveSQLiteState(
+  state: SQLiteLiveState,
+  options: { completeCutover?: boolean } = {},
+): Promise<void> {
   if (!Array.isArray(state.games) || !state.games.every(isGame)) {
     throw new Error('SQLite save stopped because saved games failed validation.');
   }
@@ -714,6 +717,13 @@ export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void>
       [LIVE_STATE_MARKER, '1'],
       false,
     );
+    if (options.completeCutover === true) {
+      await database.run(
+        'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+        [CUTOVER_MARKER, 'complete'],
+        false,
+      );
+    }
   });
 }
 
@@ -821,19 +831,3 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
   };
 }
 
-
-/**
- * Finalizes cutover only after a complete live-state snapshot has been written and
- * read back successfully. The startup gate must verify the original source snapshot
- * against current localStorage before writing that live state.
- */
-export async function markSQLiteLiveCutoverComplete(): Promise<void> {
-  await readLiveSQLiteState();
-  await withSQLiteTransaction(async (database) => {
-    await database.run(
-      'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-      [CUTOVER_MARKER, 'complete'],
-      false,
-    );
-  });
-}
