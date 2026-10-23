@@ -624,7 +624,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         const value = localStorage.getItem(key);
         if (value !== null) after[key] = value;
       }
-      const expectedKeys = Object.keys(payload.values);
+      const expectedKeys = Object.keys(payload.values).filter((key) => !preserved.has(key));
       const actualKeys = Object.keys(after);
       if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key) => after[key] !== payload.values[key])) {
         throw new Error('Restored values failed read-back verification.');
