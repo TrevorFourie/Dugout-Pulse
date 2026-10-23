@@ -11,6 +11,13 @@ export type TeamLogoItem = { id: string; name: string; fileName: string; uri: st
 const KEY = 'dugoutPulse.logoLibrary.v1';
 const DIR = 'team-logos';
 const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-library-changed'));
+
+/** Only a confirmed not-found response permits treating a logo path as absent. */
+export function isMissingTeamLogoFileError(error: unknown): boolean {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return name === 'NotFoundError' || /file (?:does not exist|not found)|no such file|not found/i.test(message);
+}
 let logoLibraryReadFailureReported = false;
 
 function isTeamLogoItem(value: unknown): value is TeamLogoItem {
