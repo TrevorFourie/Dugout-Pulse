@@ -139,7 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setOperationAlert({
           title: 'Backup file created — save a copy outside the app',
           message: 'Dugout Pulse handed the backup file off, but that does not guarantee you kept a separate copy. Save it to a location outside the app, such as Drive, Files, email or a computer. A backup left only in this app’s local storage may be lost if the app is uninstalled or the phone is lost.',
-          variant: 'warning',
+          variant: 'primary',
         });
       }
     } catch (error) {
