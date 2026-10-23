@@ -90,14 +90,20 @@ function isIdentifiedRecord(value: unknown): value is Record<string, unknown> & 
 }
 
 function isGame(value: unknown): value is Game {
-  return isIdentifiedRecord(value) && typeof value.date === 'string' &&
-    typeof value.teamName === 'string' && typeof value.innings === 'number' &&
-    Array.isArray(value.plays) && value.plays.every(isIdentifiedRecord);
+  // Preserve older saved-game shapes as-is. Require only the stable identifier
+  // plus basic checks for fields when present; do not "repair" history here.
+  return isIdentifiedRecord(value) &&
+    (value.date === undefined || typeof value.date === 'string') &&
+    (value.teamName === undefined || typeof value.teamName === 'string') &&
+    (value.innings === undefined || typeof value.innings === 'number') &&
+    (value.plays === undefined || Array.isArray(value.plays));
 }
 
 function isProfile(value: unknown): value is PlayerProfile {
-  return isIdentifiedRecord(value) && typeof value.playerName === 'string' &&
-    typeof value.teamName === 'string';
+  // Historical profiles may omit fields introduced in later app versions.
+  return isIdentifiedRecord(value) &&
+    (value.playerName === undefined || typeof value.playerName === 'string') &&
+    (value.teamName === undefined || typeof value.teamName === 'string');
 }
 
 function isOppositionTeam(value: unknown): value is OppositionTeam {
@@ -142,6 +148,16 @@ function canonicalStringify(value: unknown): string {
     return input;
   };
   return JSON.stringify(normalise(value));
+}
+
+function sourceFingerprint(entries: LegacyStorageEntry[]): string {
+  const source = canonicalStringify(entries);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${entries.length}:${source.length}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
 function validateSnapshot(entries: LegacyStorageEntry[]): ValidatedSnapshot {
@@ -262,6 +278,7 @@ export function auditLegacyStorage(): LegacyStorageAudit {
  */
 export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit> {
   const snapshot = validateSnapshot(readAllLocalStorage());
+  const fingerprint = sourceFingerprint(snapshot.entries);
   await initializeSQLiteDatabase();
 
   await withSQLiteTransaction(async (database) => {
@@ -269,8 +286,9 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
       'SELECT value FROM app_meta WHERE key = ?',
       [IMPORT_MARKER],
     );
-    if (marker.values?.length) {
-      throw new Error('A legacy SQLite import has already been marked complete. No data was changed.');
+    if (marker.values?.[0]?.value === fingerprint) {
+      // Same exact source snapshot: a repeat call is a verified no-op.
+      return;
     }
 
     for (const table of [
@@ -385,8 +403,8 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
     }
 
     await database.run(
-      'INSERT INTO app_meta (key, value) VALUES (?, ?)',
-      [IMPORT_MARKER, 'complete'],
+      'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      [IMPORT_MARKER, fingerprint],
       false,
     );
   });
@@ -401,7 +419,7 @@ export async function isLegacyStorageImportComplete(): Promise<boolean> {
     'SELECT value FROM app_meta WHERE key = ?',
     [IMPORT_MARKER],
   );
-  return result.values?.[0]?.value === 'complete';
+  return typeof result.values?.[0]?.value === 'string' && result.values[0].value.length > 0;
 }
 
 /** Exposed for a future startup gate to make the marker name stable and explicit. */
