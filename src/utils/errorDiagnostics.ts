@@ -375,12 +375,42 @@ export function installGlobalDiagnosticHandlers(): void {
   target[marker] = true;
 
   const captureHookOrderDiagnostic = (args: unknown[]) => {
-    const strings = args.map((arg) => {
-      if (typeof arg === 'string') return arg;
-      if (arg instanceof Error) return arg.name + ': ' + arg.message;
-      return '';
-    }).filter(Boolean);
-    const detail = strings.join('\n');
+    const describe = (value: unknown): string => {
+      if (typeof value === 'string') return value;
+      if (value instanceof Error) return value.name + ': ' + value.message + (value.stack ? '\n' + value.stack : '');
+      if (value === undefined) return 'undefined';
+      if (value === null || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+      try {
+        const seen = new WeakSet<object>();
+        return JSON.stringify(value, (_key, item: unknown) => {
+          if (item && typeof item === 'object') {
+            if (seen.has(item)) return '[Circular]';
+            seen.add(item);
+          }
+          return item;
+        }, 2) ?? String(value);
+      } catch {
+        return Object.prototype.toString.call(value);
+      }
+    };
+    const formatConsoleArguments = (values: unknown[]): string => {
+      if (!values.length) return '';
+      if (typeof values[0] !== 'string') return values.map(describe).join('\n');
+      let argIndex = 1;
+      const formatted = values[0].replace(/%([%sdifocO])/g, (match, token: string) => {
+        if (token === '%') return '%';
+        if (argIndex >= values.length) return match;
+        const value = values[argIndex++];
+        if (token === 'c') return '';
+        if (token === 'd' || token === 'i' || token === 'f') {
+          const number = Number(value);
+          return Number.isFinite(number) ? String(number) : describe(value);
+        }
+        return describe(value);
+      });
+      return [formatted, ...values.slice(argIndex).map(describe)].filter(Boolean).join('\n');
+    };
+    const detail = formatConsoleArguments(args);
     if (!/change in the order of Hooks called|Rendered (?:more|fewer) hooks than during the previous render/i.test(detail)) return;
     pendingReactHookDiagnostic = {
       time: Date.now(),
