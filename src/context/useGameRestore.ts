@@ -79,6 +79,14 @@ export function useGameRestore({
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           throw new Error('A pending live-game write has an invalid shape; SQLite reconciliation was stopped to protect scoring data.');
         }
+        const game = parsed as Record<string, unknown>;
+        if (typeof game.id !== 'string' || game.id.length === 0 ||
+            (game.date !== undefined && typeof game.date !== 'string') ||
+            (game.teamName !== undefined && typeof game.teamName !== 'string') ||
+            (game.innings !== undefined && typeof game.innings !== 'number') ||
+            (game.plays !== undefined && !Array.isArray(game.plays))) {
+          throw new Error('A pending live-game write failed validation; SQLite reconciliation was stopped to protect scoring data.');
+        }
         return parsed as Game;
       };
       const clearPendingLiveGame = () => {
