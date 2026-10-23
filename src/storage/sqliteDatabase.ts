@@ -12,6 +12,7 @@ const SCHEMA_VERSION = 1;
 let sqliteConnection: SQLiteConnection | null = null;
 let databaseConnection: SQLiteDBConnection | null = null;
 let initialization: Promise<SQLiteDBConnection> | null = null;
+let transactionQueue: Promise<void> = Promise.resolve();
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS app_meta (
@@ -198,33 +199,40 @@ export function getSQLiteDatabase(): SQLiteDBConnection {
  * Executes a database transaction and flushes it to IndexedDB on web before
  * reporting success. A web-store flush failure is propagated to the caller.
  */
-export async function withSQLiteTransaction<T>(
+export function withSQLiteTransaction<T>(
   operation: (database: SQLiteDBConnection) => Promise<T>,
 ): Promise<T> {
-  const database = await initializeSQLiteDatabase();
-  await database.beginTransaction();
-  let committed = false;
+  const run = transactionQueue.then(async () => {
+    const database = await initializeSQLiteDatabase();
+    await database.beginTransaction();
+    let committed = false;
 
-  try {
-    const result = await operation(database);
-    await database.commitTransaction();
-    committed = true;
+    try {
+      const result = await operation(database);
+      await database.commitTransaction();
+      committed = true;
 
-    if (isWebPlatform() && sqliteConnection) {
-      await sqliteConnection.saveToStore(DATABASE_NAME);
-    }
-
-    return result;
-  } catch (error) {
-    if (!committed) {
-      try {
-        await database.rollbackTransaction();
-      } catch {
-        // Keep the original transaction error for diagnostics.
+      if (isWebPlatform() && sqliteConnection) {
+        await sqliteConnection.saveToStore(DATABASE_NAME);
       }
+
+      return result;
+    } catch (error) {
+      if (!committed) {
+        try {
+          await database.rollbackTransaction();
+        } catch {
+          // Keep the original transaction error for diagnostics.
+        }
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
+
+  // Keep the queue usable after a failed operation without swallowing that
+  // operation's rejection for its caller.
+  transactionQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 /** Closes the connection cleanly; web data is saved before the connection closes. */
