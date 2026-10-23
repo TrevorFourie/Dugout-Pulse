@@ -66,7 +66,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function serializeJson(value: unknown): string {
-  const serialized = serializeJson(value);
+  const serialized = JSON.stringify(value);
   if (typeof serialized !== 'string') {
     throw new Error('A saved value could not be serialised for SQLite.');
   }
