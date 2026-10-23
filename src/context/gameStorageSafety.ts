@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from './gameContextDefaults';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 export const RECOVERY_STORAGE_KEY = 'dugoutPulse.recoverySnapshot.v1';
 const PREVIOUS_RECOVERY_KEY = 'dugoutPulse.recoverySnapshot.previous.v1';
@@ -110,6 +111,7 @@ export function snapshotBeforeGameWrite(): boolean {
     snapshotTakenForPage = true;
     return true;
   } catch (error) {
+    recordDiagnosticError('recovery_checkpoint', error, 'A pre-write recovery snapshot could not be created.');
     console.error('Could not create a recovery snapshot; saved data was not changed.', error);
     return false;
   }
@@ -188,6 +190,7 @@ export function restoreRecoverySnapshot(): boolean {
     snapshotTakenForPage = true;
     return true;
   } catch (error) {
+    recordDiagnosticError('recovery_restore', error, 'A recovery snapshot could not be fully restored.');
     console.error('Recovery snapshot could not be fully restored. The recovery copies were retained.', error);
     return false;
   }
@@ -256,6 +259,7 @@ export function hasOrphanedGameReferences(): boolean {
       if (value && gameIdPattern.test(value)) return true;
     }
   } catch (error) {
+    recordDiagnosticError('data_corruption', error, 'Saved-game storage integrity could not be verified.');
     console.error('Could not verify saved-game storage integrity.', error);
     return true;
   }
