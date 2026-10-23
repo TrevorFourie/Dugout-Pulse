@@ -278,9 +278,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <PresetSettingsPanel
               isActive={settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups'}
               settingsSection={settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups' ? settingsSection : 'teamLists'}
-              onStatusMessage={setStatusMessage}
+              onStatusMessage={handleSettingsStatusMessage}
             />
-            <VenuesSettingsPanel isActive={settingsSection === 'venue'} onStatusMessage={setStatusMessage} />
+            <VenuesSettingsPanel isActive={settingsSection === 'venue'} onStatusMessage={handleSettingsStatusMessage} />
             {settingsSection === 'scoring' && <ScoringSettingsPanel settings={settings} updateSettings={updateSettings} />}
 
             {settingsSection === 'displayTheme' && <ThemeSettingsPanel settings={settings} updateSettings={updateSettings} />}
@@ -288,10 +288,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {settingsSection === 'notifications' && <NotificationsSettingsPanel />}
 
             {/* Player management */}
-            <PlayerProfilesPanel isActive={settingsSection === 'players'} onStatusMessage={setStatusMessage} />
+            <PlayerProfilesPanel isActive={settingsSection === 'players'} onStatusMessage={handleSettingsStatusMessage} />
             {settingsSection === 'oppositionTeams' && <OppositionTeamsSettings />}
 
-            <LogoLibraryPanel isActive={settingsSection === 'logoLibrary'} onStatusMessage={setStatusMessage} />
+            <LogoLibraryPanel isActive={settingsSection === 'logoLibrary'} onStatusMessage={handleSettingsStatusMessage} />
 
             {settingsSection === 'data' && (
               <DataManagementPanel
