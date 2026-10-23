@@ -17,6 +17,22 @@ import { isLegacyStorageImportComplete, saveLiveSQLiteState, type SQLiteLiveStat
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
+function readUpcomingGamesForSQLite(): SQLiteLiveState['upcomingGames'] {
+  const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
+  if (raw === null) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed) || !parsed.every((value) =>
+    !!value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { opponent?: unknown }).opponent === 'string' &&
+    typeof (value as { date?: unknown }).date === 'string' &&
+    typeof (value as { isHome?: unknown }).isHome === 'boolean'
+  )) {
+    throw new Error('Scheduled games could not be validated before backup import.');
+  }
+  return parsed as SQLiteLiveState['upcomingGames'];
+}
+
 interface GameDataManagementOptions {
   games: Game[];
   liveGame: Game | null;
@@ -102,6 +118,9 @@ export function useGameDataManagement({
   // older backups only hold logo references, which are resolved against images still on this device.
   const importJsonData = useCallback(async (jsonStr: string) => {
     let recoveryCheckpointCreated = false;
+    let sqliteCutoverComplete = false;
+    let originalSQLiteState: SQLiteLiveState | null = null;
+    let sqliteStateMayHaveChanged = false;
     try {
       const parsedData = JSON.parse(jsonStr);
       // Validate before anything is changed: a damaged, truncated or unrelated file is rejected outright.
@@ -111,6 +130,37 @@ export function useGameDataManagement({
         return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
       recoveryCheckpointCreated = true;
+      try {
+        sqliteCutoverComplete = await isLegacyStorageImportComplete();
+      } catch (error) {
+        const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+        if (marker === 'complete' || marker === 'pending') throw error;
+        // Before cutover, localStorage remains authoritative.
+      }
+      if (sqliteCutoverComplete) {
+        originalSQLiteState = {
+          games,
+          profiles,
+          settings,
+          liveGame,
+          editingGameId,
+          reopenedGameId,
+          setupCompleted: localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+          savedOpponents,
+          savedTournaments,
+          savedAgeGroups,
+          savedSeasons,
+          hiddenTournaments,
+          hiddenAgeGroups,
+          hiddenSeasons,
+          oppositionTeams,
+          upcomingGames: readUpcomingGamesForSQLite(),
+          logoLibrary: readTeamLogoLibraryStrict(),
+        };
+        // Logo-file restoration may update SQLite metadata before the full import
+        // transaction. If anything later fails, the previous live state is restored.
+        sqliteStateMayHaveChanged = true;
+      }
       // Restore logo images + library first so logo references in games/profiles resolve below.
       const restoredLogoCount = await restoreLogosFromBackup(parsedData as Record<string, unknown>);
       const localLogos = new Map<string, string>();
