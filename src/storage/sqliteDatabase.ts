@@ -164,9 +164,10 @@ async function applySchema(database: SQLiteDBConnection): Promise<void> {
 /**
  * Opens the single application database and applies the initial schema.
  *
- * This foundation is deliberately not connected to GameContext yet. Existing
- * localStorage reads/writes remain authoritative until the complete importer,
- * read-back verification, recovery integration, and startup gate are ready.
+ * The guarded GameContext startup path uses this shared connection for snapshot
+ * verification and live-state hydration. Existing localStorage keys remain a
+ * compatibility mirror and recovery source; the database cutover marker controls
+ * which store is authoritative.
  */
 export function initializeSQLiteDatabase(): Promise<SQLiteDBConnection> {
   if (databaseConnection) return Promise.resolve(databaseConnection);
