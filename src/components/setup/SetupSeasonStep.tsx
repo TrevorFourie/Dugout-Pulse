@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Calendar, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { PRESET_SEASONS } from '../setupScreenConstants';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;

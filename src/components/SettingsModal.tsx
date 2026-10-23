@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { ScoringSettingsPanel } from './settings/ScoringSettingsPanel';
 import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
 import { exportJsonBackup } from '../utils/backup';
+import { describeBackupAge, getBackupStatus } from '../utils/backupReminder';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
   ArrowLeft,
@@ -26,6 +27,8 @@ interface SettingsModalProps {
   onClose: () => void;
   initialSection?: SettingsSectionId;
   onOpenSetupWizard?: () => void;
+  /** Called after a backup was restored successfully (partial = restored, but something could not be). */
+  onRestoreComplete?: (message: string, partial: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -33,6 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   initialSection = 'playerDetails',
   onOpenSetupWizard,
+  onRestoreComplete,
 }) => {
   const {
     settings,
@@ -79,17 +83,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const [backupStatusTick, setBackupStatusTick] = useState(0);
+  const backupStatus = React.useMemo(
+    () => getBackupStatus(games.length > 0 || profiles.some((p) => p.playerName || p.teamName)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [games.length, profiles, backupStatusTick],
+  );
+
   const handleExportBackup = async () => {
-    const ok = await exportJsonBackup({
+    const result = await exportJsonBackup({
       games,
       profiles,
       settings,
     });
-    setStatusMessage(
-      ok
-        ? { text: 'Backup exported successfully!', isError: false }
-        : { text: 'Backup export failed. Please try again.', isError: true },
-    );
+    setBackupStatusTick((tick) => tick + 1);
+    if (result.outcome === 'failed') {
+      setStatusMessage({ text: `Backup export failed${result.error ? ` (${result.error})` : ''}. Nothing was saved. Please try again.`, isError: true });
+    } else if (result.outcome === 'cancelled') {
+      setStatusMessage({ text: 'Backup was not saved. Choose a place to keep the file (Drive, Files, email) to complete the backup.', isError: true });
+    } else {
+      const logoNote = result.missingLogos.length > 0
+        ? ` Warning: ${result.missingLogos.length} custom logo image(s) could not be read and are not in this backup.`
+        : '';
+      setStatusMessage({
+        text: `Backup file created. Make sure you saved it somewhere outside the app (Drive, Files, email or a computer) - a backup that stays only on this phone is lost if the app is uninstalled or the phone is lost.${logoNote}`,
+        isError: result.missingLogos.length > 0,
+      });
+    }
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,6 +122,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (content) {
         const result = await importJsonData(content);
         setStatusMessage({ text: result.message, isError: !result.success });
+        if (result.success) onRestoreComplete?.(result.message, Boolean(result.partial));
       }
     };
     reader.onerror = () => setStatusMessage({ text: 'Could not read the selected backup file. No data was changed.', isError: true });
@@ -199,6 +220,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <DataManagementPanel
                 fileInputRef={fileInputRef}
                 onExportBackup={handleExportBackup}
+                backupStatus={{ text: describeBackupAge(backupStatus), due: backupStatus.due }}
                 onImportFile={handleImportFile}
                 onOpenResetConfirm={() => setIsResetConfirmOpen(true)}
               />

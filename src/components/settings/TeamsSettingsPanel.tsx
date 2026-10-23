@@ -23,6 +23,11 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
   const [newTeamInputTournament, setNewTeamInputTournament] = useState('');
 
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editTeamInputName, setEditTeamInputName] = useState('');
+  const [editTeamInputJersey, setEditTeamInputJersey] = useState('');
+  const [editTeamInputAge, setEditTeamInputAge] = useState('');
+  const [editTeamInputSeason, setEditTeamInputSeason] = useState('');
+  const [editTeamInputTournament, setEditTeamInputTournament] = useState('');
 
   // Preserve existing data URLs unless the private-file migration succeeds.
   useEffect(() => {

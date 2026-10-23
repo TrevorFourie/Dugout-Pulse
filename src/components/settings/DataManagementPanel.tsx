@@ -6,6 +6,8 @@ import { createVerifiedRecoveryCheckpoint, getRecoveryJournalStorageInfo, listVe
 interface DataManagementPanelProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onExportBackup: () => void | Promise<void>;
+  /** Optional: when the last backup was exported, and whether a reminder is due. */
+  backupStatus?: { text: string; due: boolean };
   onImportFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenResetConfirm: () => void;
 }
@@ -131,7 +133,7 @@ const RecoveryJournalPanel: React.FC = () => {
 };
 
 export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
-  fileInputRef, onExportBackup, onImportFile, onOpenResetConfirm,
+  fileInputRef, onExportBackup, backupStatus, onImportFile, onOpenResetConfirm,
 }) => (
               <div className="space-y-6">
             {/* Backup & Restore */}
@@ -141,6 +143,16 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                 Data Backup & Restore
               </h3>
 
+              {backupStatus && (
+                <p
+                  role="status"
+                  className={`mb-3 rounded-lg border px-3 py-2 text-[11px] leading-relaxed ${backupStatus.due
+                    ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200'
+                    : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#9CA3AF]'}`}
+                >
+                  {backupStatus.text}{backupStatus.due ? ' Export a backup and save it outside this device (Drive, Files or email).' : ''}
+                </p>
+              )}
               <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                 <button
                   type="button"
@@ -152,7 +164,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                     Export Full JSON
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
-                    Saves games, profiles and settings. Custom logo images stay on this device; the JSON stores references only.
+                    Saves games, profiles, settings, preset lists and your custom logo images in one file. Save it outside this device.
                   </div>
                 </button>
 
@@ -174,7 +186,7 @@ export const DataManagementPanel: React.FC<DataManagementPanelProps> = ({
                 </label>
               </div>
               <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-[#9CA3AF]">
-                Dugout Pulse works offline. Custom logos are kept locally and are lost if you reset app data or uninstall the app. JSON backups contain logo references, not the images themselves; a logo can be restored only if its matching image is still available on this device.
+                Dugout Pulse works offline and keeps your data only on this device. It is lost if you uninstall the app, clear its data or lose the phone. A backup file includes your logo images and a built-in integrity check; keep a copy somewhere you control (Drive, Files, email or a computer).
               </p>
             </div>
 

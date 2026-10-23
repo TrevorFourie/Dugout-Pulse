@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ interface ConfirmationModalProps {
   cancelLabel?: string;
   showCancelButton?: boolean;
   closeOnBackdrop?: boolean;
-  variant?: 'danger' | 'primary' | 'warning';
+  variant?: 'danger' | 'primary' | 'warning' | 'success';
   onConfirm: () => void;
   onCancel: () => void;
   secondaryLabel?: string;
@@ -44,6 +44,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       ? 'bg-red-100 text-red-600 dark:bg-[#FF5252]/15 dark:text-[#D4626D]'
       : variant === 'warning'
       ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+      : variant === 'success'
+      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
       : 'bg-blue-100 text-[#18212D] dark:bg-[#252D38] dark:text-blue-400';
 
   const secondaryBtn =
@@ -63,7 +65,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       >
         <div className="flex items-start gap-3">
           <div className={`p-2.5 rounded-xl shrink-0 ${iconStyle}`}>
-            <AlertTriangle className="w-5 h-5" />
+            {variant === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">{title}</h3>

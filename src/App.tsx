@@ -12,6 +12,7 @@ import { GamesTab } from './components/GamesTab';
 import { Navigation, TabId } from './components/Navigation';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal, SettingsSectionId } from './components/SettingsModal';
+import { BackupReminderBanner } from './components/BackupReminderBanner';
 import { SetupScreen } from './components/SetupScreen';
 import { PlayMode } from './types/baseball';
 import { exportStatsPdf } from './utils/pdfReport';
@@ -94,6 +95,7 @@ const MainApp: React.FC = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [helpInitialMode, setHelpInitialMode] = useState<PlayMode>('batting');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<{ message: string; partial: boolean } | null>(null);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [expandedMenuGroup, setExpandedMenuGroup] = useState<'profile' | 'matches' | 'setup' | 'preferences' | 'legal' | null>(null);
   const [gamesView, setGamesView] = useState<'schedule' | 'past'>('past');
@@ -295,6 +297,14 @@ const MainApp: React.FC = () => {
     setIsSettingsMenuOpen(true);
   };
 
+  // After a successful restore, leave Settings, land on the dashboard and confirm with a modal.
+  const handleRestoreComplete = (message: string, partial: boolean) => {
+    setIsSettingsOpen(false);
+    setIsSettingsMenuOpen(false);
+    setActiveTab('dashboard');
+    setRestoreResult({ message, partial });
+  };
+
   const handleSelectSettingsSection = (section: SettingsSectionId) => {
     setSettingsInitialSection(section);
     setIsSettingsMenuOpen(false);
@@ -396,6 +406,16 @@ const MainApp: React.FC = () => {
           }
         }}
       />
+      <ConfirmationModal
+        isOpen={restoreResult !== null}
+        title={restoreResult?.partial ? 'Restore completed with a warning' : 'Restore successful'}
+        message={restoreResult?.message ?? ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        variant={restoreResult?.partial ? 'warning' : 'success'}
+        onCancel={() => setRestoreResult(null)}
+        onConfirm={() => setRestoreResult(null)}
+      />
       <NotificationBlockedModal
         isOpen={showBlocked}
         onClose={() => {
@@ -415,6 +435,13 @@ const MainApp: React.FC = () => {
       />
 
       <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+        {activeTab !== 'settings' && (
+          <BackupReminderBanner
+            hasData={games.length > 0}
+            suppressed={Boolean(liveGame) || isFirstTimeUser}
+            onBackUp={() => handleSelectSettingsSection('data')}
+          />
+        )}
         {activeTab === 'settings' && (
           <SettingsModal
             isOpen={isSettingsOpen}
@@ -426,6 +453,7 @@ const MainApp: React.FC = () => {
               }
             }}
             onOpenSetupWizard={() => setIsManualSetupOpen(true)}
+            onRestoreComplete={handleRestoreComplete}
           />
         )}
         {activeTab === 'dashboard' && (
@@ -508,6 +536,11 @@ const MainApp: React.FC = () => {
 
       {((isFirstTimeUser || isManualSetupOpen) && !restoreFailed) && (
         <SetupScreen
+          onRestoreComplete={(message, partial) => {
+            setIsManualSetupOpen(false);
+            setIsFirstTimeUser(false);
+            handleRestoreComplete(message, partial);
+          }}
           onComplete={() => {
             setIsManualSetupOpen(false);
             setIsFirstTimeUser(false);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Check, Link, Trophy } from 'lucide-react';
+import { ArrowLeft, Check, Link, Shield, Trophy } from 'lucide-react';
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
 

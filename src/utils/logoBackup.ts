@@ -72,6 +72,7 @@ export function collectLocalLogoDataUrls(value: unknown, output = new Map<string
 export function restoreLocalLogoReferences<T>(
   value: T,
   localLogos: Map<string, string>,
+  options: { keepInlineImages?: boolean } = {},
 ): { data: T; missingReferences: Set<string> } {
   const missingReferences = new Set<string>();
   const visit = (current: unknown): unknown => {
@@ -84,13 +85,16 @@ export function restoreLocalLogoReferences<T>(
           const local = localLogos.get(child);
           if (local) result.logo = local;
           else missingReferences.add(child);
+        } else if (isLogoDataUrl(child) && options.keepInlineImages) {
+          // Verified v3 backups embed the image itself (png/jpeg/webp data URL only), so keep it as-is.
+          result.logo = child;
         } else if (isLogoDataUrl(child)) {
           // Legacy backups embedded image bytes. Reuse only an identical image already stored locally.
           const reference = logoReferenceForDataUrl(child);
           const local = localLogos.get(reference);
           if (local) result.logo = local;
           else missingReferences.add(reference);
-        } else if (child.trim()) {
+        } else if ((child as string).trim()) {
           // Never trust arbitrary paths, URLs, or inline content supplied by a JSON backup.
           missingReferences.add(child);
         }

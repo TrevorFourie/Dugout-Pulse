@@ -18,6 +18,24 @@ export async function saveTextFile(
   content: string,
   mimeType: string,
 ): Promise<boolean> {
+  const outcome = await saveTextFileDetailed(filename, content, mimeType);
+  return outcome !== 'failed';
+}
+
+export type SaveOutcome = 'handed-off' | 'cancelled' | 'failed';
+
+/**
+ * Same as saveTextFile but reports what happened:
+ * - 'handed-off': the file was created and given to the share sheet / browser download. The OS does not
+ *   tell us which destination (if any) the user chose, so this is NOT proof the file was stored safely.
+ * - 'cancelled': the user dismissed the share sheet and the platform reported it as a cancel.
+ * - 'failed': the file could not be created or shared.
+ */
+export async function saveTextFileDetailed(
+  filename: string,
+  content: string,
+  mimeType: string,
+): Promise<SaveOutcome> {
   if (Capacitor.isNativePlatform()) {
     try {
       const written = await Filesystem.writeFile({
@@ -29,19 +47,20 @@ export async function saveTextFile(
       try {
         await Share.share({
           title: filename,
-          dialogTitle: 'Save or share export',
+          dialogTitle: 'Save your backup (Drive, Files, email...)',
           url: written.uri,
         });
       } catch (shareErr) {
         const msg = String((shareErr as Error)?.message ?? shareErr);
-        // Cancelling the share sheet is not an error
-        if (!/cancel/i.test(msg)) throw shareErr;
+        // Cancelling the share sheet is not an error, but it is not a saved backup either.
+        if (/cancel/i.test(msg)) return 'cancelled';
+        throw shareErr;
       }
-      return true;
+      return 'handed-off';
     } catch (err) {
       recordDiagnosticError('native_text_export', err);
       console.error('Native file export failed:', err);
-      return false;
+      return 'failed';
     }
   }
 
@@ -57,11 +76,11 @@ export async function saveTextFile(
     document.body.removeChild(link);
     // Revoke later; revoking immediately can cancel the download in some browsers
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    return true;
+    return 'handed-off';
   } catch (err) {
     recordDiagnosticError('browser_text_export', err);
     console.error('Browser file export failed:', err);
-    return false;
+    return 'failed';
   }
 }
 

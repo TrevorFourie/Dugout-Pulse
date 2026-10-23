@@ -1,4 +1,4 @@
-import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 
 const RECOVERY_DIR = 'dugout-pulse-recovery';
 const INDEX_FILE = RECOVERY_DIR + '/index.json';
@@ -56,7 +56,7 @@ function captureStorage(): Record<string, string> {
 
 async function readIndex(): Promise<RecoveryIndex> {
   try {
-    const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: 'utf8' });
+    const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: Encoding.UTF8 });
     const parsed = JSON.parse(result.data as string) as RecoveryIndex;
     if (parsed.version === 1 && Array.isArray(parsed.checkpoints)) return parsed;
   } catch {
@@ -69,7 +69,7 @@ async function writeIndexSafely(index: RecoveryIndex): Promise<void> {
   const content = JSON.stringify(index);
   await writeAndVerify(INDEX_TEMP_FILE, content);
   await Filesystem.rename({ from: INDEX_TEMP_FILE, to: INDEX_FILE, directory: Directory.Data });
-  const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: 'utf8' });
+  const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: Encoding.UTF8 });
   if (result.data !== content) throw new Error('Recovery index verification failed after promotion.');
 }
 
@@ -155,7 +155,7 @@ async function reconcileRecoveryJournal(): Promise<void> {
       const path = RECOVERY_DIR + '/' + name;
       if (known.has(path)) continue;
       try {
-        const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: 'utf8' });
+        const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: Encoding.UTF8 });
         const raw = result.data as string;
         const parsed: unknown = JSON.parse(raw);
         if (!validateCheckpointPayload(parsed)) {
@@ -233,8 +233,8 @@ export async function setRecoveryCheckpointPinned(id: string, pinned: boolean): 
 }
 
 async function writeAndVerify(path: string, content: string): Promise<void> {
-  await Filesystem.writeFile({ path, data: content, directory: Directory.Data, encoding: 'utf8', recursive: true });
-  const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: 'utf8' });
+  await Filesystem.writeFile({ path, data: content, directory: Directory.Data, encoding: Encoding.UTF8, recursive: true });
+  const result = await Filesystem.readFile({ path, directory: Directory.Data, encoding: Encoding.UTF8 });
   if (result.data !== content) throw new Error('Recovery checkpoint verification failed after writing.');
 }
 
@@ -324,7 +324,7 @@ export async function getRecoveryJournalStatus(): Promise<{ available: boolean; 
   const index = await readIndex();
   for (const entry of [...index.checkpoints].reverse()) {
     try {
-      const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
+      const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: Encoding.UTF8 });
       const raw = result.data as string;
       if (raw.length === entry.byteLength && checksum(raw) === entry.checksum && validateCheckpointPayload(JSON.parse(raw))) {
         return { available: true, count: index.checkpoints.length, latest: entry.createdAt };
@@ -349,7 +349,7 @@ export type RecoveryCheckpointSummary = {
 
 type RecoveryPayload = { version: 1; createdAt: string; reason: string; values: Record<string, string>; logoFiles?: Record<string, string> };
 
-async function readLogoFileAsBase64(fileName: string): Promise<string> {
+export async function readLogoFileAsBase64(fileName: string): Promise<string> {
   const result = await Filesystem.readFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
   if (typeof result.data === 'string') return result.data;
   if (result.data instanceof Blob) {
@@ -409,7 +409,7 @@ function validateCheckpointPayload(value: unknown): value is RecoveryPayload {
   return true;
 }
 
-async function writeLogoFiles(files: Record<string, string>): Promise<void> {
+export async function writeLogoFiles(files: Record<string, string>): Promise<void> {
   // writeFile uses recursive:true below, which creates the directory when needed.
   // Avoid mkdir here: some Capacitor platforms reject mkdir when the directory already exists.
   for (const [fileName, base64] of Object.entries(files)) {
@@ -467,7 +467,7 @@ function validateRecoveryValues(values: unknown): values is Record<string, strin
 }
 
 async function readVerifiedCheckpoint(entry: Checkpoint): Promise<RecoveryPayload> {
-  const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: 'utf8' });
+  const result = await Filesystem.readFile({ path: entry.file, directory: Directory.Data, encoding: Encoding.UTF8 });
   const raw = result.data as string;
   if (raw.length !== entry.byteLength || checksum(raw) !== entry.checksum) throw new Error('Checkpoint integrity check failed.');
   const parsed: unknown = JSON.parse(raw);

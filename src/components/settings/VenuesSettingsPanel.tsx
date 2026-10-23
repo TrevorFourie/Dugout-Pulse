@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
+import { Check, Edit2, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 
 interface VenuesSettingsPanelProps {

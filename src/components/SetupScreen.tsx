@@ -12,12 +12,15 @@ import { currentYear } from './setupScreenConstants';
 
 interface SetupScreenProps {
   onComplete?: () => void;
+  /** Called after a backup was restored from the setup screen (partial = restored with a warning). */
+  onRestoreComplete?: (message: string, partial: boolean) => void;
 }
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
   onComplete,
+  onRestoreComplete,
 }) => {
   const { completeFirstTimeSetup, setIsFirstTimeUser, importJsonData } = useGame();
 
@@ -126,24 +129,31 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     const file = pendingBackupFile;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = event.target?.result as string;
       if (content) {
-        const result = importJsonData(content);
+        // importJsonData is async: it must be awaited, otherwise success/message are read from a pending Promise.
+        const result = await importJsonData(content);
         if (result.success) {
           setImportMessage({ text: result.message, isError: false });
-          if (result.message !== 'Season data successfully restored!') {
+          setIsFirstTimeUser(false);
+          if (onRestoreComplete) {
+            // The app lands on the dashboard and shows the "Restore successful" modal.
+            onRestoreComplete(result.message, Boolean(result.partial));
+            return;
+          }
+          if (result.partial) {
             // Keep the setup screen open until the in-app warning has been acknowledged.
             setImportWarning(result.message);
             return;
           }
-          setIsFirstTimeUser(false);
           if (onComplete) onComplete();
         } else {
           setImportMessage({ text: result.message, isError: true });
         }
       }
     };
+    reader.onerror = () => setImportMessage({ text: 'Could not read the selected backup file. No data was changed.', isError: true });
     reader.readAsText(file);
     setPendingBackupFile(null);
   };
