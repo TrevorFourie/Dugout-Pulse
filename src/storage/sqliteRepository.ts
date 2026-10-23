@@ -1070,7 +1070,15 @@ export async function saveSQLiteLiveGame(game: Game | null): Promise<boolean> {
       'SELECT value FROM app_meta WHERE key = ?',
       [CUTOVER_MARKER],
     );
-    if (cutover.values?.[0]?.value !== 'complete') return false;
+    if (cutover.values?.[0]?.value !== 'complete') {
+      // Before cutover, localStorage is intentionally authoritative. Once a local
+      // cutover signal exists, a missing database marker is a split-brain condition;
+      // fail closed and retain the scoring journal for startup reconciliation.
+      if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== null) {
+        throw new Error('SQLite and local storage disagree about cutover; the live-game write was stopped for recovery.');
+      }
+      return false;
+    }
 
     const liveState = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
