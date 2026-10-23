@@ -420,7 +420,7 @@ const MainApp: React.FC = () => {
         confirmLabel={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? 'Review restore options' : 'OK'}
         showCancelButton={false}
         closeOnBackdrop={false}
-        variant="warning"
+        variant="danger"
         onCancel={() => setIsRecoveryAlertDismissed(true)}
         onConfirm={() => {
           setIsRecoveryAlertDismissed(true);
