@@ -1,4 +1,4 @@
-import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { Game } from '../types/baseball';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
@@ -7,6 +7,39 @@ const PREVIOUS_RECOVERY_KEY = 'dugoutPulse.recoverySnapshot.previous.v1';
 const BEFORE_RECOVERY_KEY = 'dugoutPulse.beforeRecovery.v1';
 const DIAGNOSTICS_KEY = 'dugoutPulse.diagnostics.v1';
 const RECOVERY_VERSION = 1;
+
+/**
+ * Read and validate the write-ahead marker for a completed-game save. It remains
+ * durable until the full React snapshot is committed, allowing startup to finish a
+ * save if the page closes between the game transaction and the state update.
+ */
+export function readPendingCompletedGameSaveFromStorage(): Game | undefined {
+  const raw = localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY);
+  if (raw === null) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error('A pending completed-game save could not be parsed; SQLite reconciliation was stopped to protect saved data.');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('A pending completed-game save has an invalid structure; SQLite reconciliation was stopped to protect saved data.');
+  }
+  const candidate = parsed as Record<string, unknown>;
+  const game = candidate.game;
+  if (candidate.version !== 1 || !game || typeof game !== 'object' || Array.isArray(game)) {
+    throw new Error('A pending completed-game save has an invalid payload; SQLite reconciliation was stopped to protect saved data.');
+  }
+  const value = game as Record<string, unknown>;
+  if (typeof value.id !== 'string' || value.id.length === 0 ||
+      (value.date !== undefined && typeof value.date !== 'string') ||
+      (value.teamName !== undefined && typeof value.teamName !== 'string') ||
+      (value.innings !== undefined && typeof value.innings !== 'number') ||
+      (value.plays !== undefined && !Array.isArray(value.plays))) {
+    throw new Error('A pending completed-game save failed validation; SQLite reconciliation was stopped to protect saved data.');
+  }
+  return game as Game;
+}
 
 /**
  * Read and validate the write-ahead live-game marker used by scoring actions.
@@ -169,7 +202,7 @@ export function snapshotBeforeGameWrite(): boolean {
       const key = localStorage.key(index);
       if (!key || key === RECOVERY_STORAGE_KEY || key === PREVIOUS_RECOVERY_KEY ||
           key === BEFORE_RECOVERY_KEY || key === DIAGNOSTICS_KEY ||
-          key === PENDING_LIVE_GAME_WRITE_KEY) continue;
+          key === PENDING_LIVE_GAME_WRITE_KEY || key === PENDING_COMPLETED_GAME_SAVE_KEY) continue;
       const value = localStorage.getItem(key);
       if (value !== null) values[key] = value;
     }
@@ -282,7 +315,7 @@ export function restoreRecoverySnapshot(): boolean {
   const snapshot = selectRecoverySnapshot();
   if (!snapshot) return false;
 
-  const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY, PENDING_LIVE_GAME_WRITE_KEY]);
+  const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY, PENDING_LIVE_GAME_WRITE_KEY, PENDING_COMPLETED_GAME_SAVE_KEY]);
   const captureCurrentValues = (): Record<string, string> => {
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
