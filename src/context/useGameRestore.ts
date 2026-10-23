@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { hasOrphanedGameReferences } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
+import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
+import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -28,6 +30,7 @@ interface GameRestoreOptions {
   setIsLoading: StateSetter<boolean>;
   setResumePromptPending: StateSetter<boolean>;
   setRestoreFailed: StateSetter<boolean>;
+  setIsFirstTimeUser: StateSetter<boolean>;
 }
 
 /**
@@ -52,6 +55,7 @@ export function useGameRestore({
   setIsLoading,
   setResumePromptPending,
   setRestoreFailed,
+  setIsFirstTimeUser,
 }: GameRestoreOptions): void {
   useEffect(() => {
     void (async () => {
@@ -62,6 +66,127 @@ export function useGameRestore({
         recordDiagnosticError('storage_load', new Error('Private recovery baseline could not be verified; automatic persistence is paused'));
         return;
       }
+
+      const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
+      const isMeaningfullyConfigured = (profiles: PlayerProfile[], setupCompleted: boolean) => {
+        const first = profiles[0];
+        return setupCompleted || Boolean(
+          first?.playerName?.trim() &&
+          (first?.teamName?.trim() || (first?.teams && first.teams.length > 0))
+        );
+      };
+      const applyLiveState = (state: SQLiteLiveState) => {
+        setGames(sortGames(state.games, 'oldestFirst'));
+        setProfiles(state.profiles.length > 0 ? state.profiles.map(withTeams) : [DEFAULT_PROFILE]);
+        setSettings((previous) => ({ ...DEFAULT_SETTINGS, ...previous, ...state.settings }));
+        setLiveGame(state.liveGame);
+        if (state.liveGame) setResumePromptPending(true);
+        setEditingGameId(state.editingGameId);
+        setReopenedGameId(state.reopenedGameId);
+        setOppositionTeams(state.oppositionTeams);
+        setSavedOpponents(state.savedOpponents);
+        setSavedTournaments(state.savedTournaments);
+        setSavedAgeGroups(state.savedAgeGroups);
+        setSavedSeasons(state.savedSeasons);
+        setHiddenTournaments(state.hiddenTournaments);
+        setHiddenAgeGroups(state.hiddenAgeGroups);
+        setHiddenSeasons(state.hiddenSeasons);
+        setIsFirstTimeUser(!isMeaningfullyConfigured(state.profiles, state.setupCompleted));
+      };
+      const mirrorLiveState = async (state: SQLiteLiveState) => {
+        const entries: [string, string | null][] = [
+          [STORAGE_KEYS.GAMES, JSON.stringify(state.games)],
+          [STORAGE_KEYS.PROFILES, JSON.stringify(state.profiles)],
+          [STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings)],
+          ['dugoutPulse.oppositionTeams.v1', JSON.stringify(state.oppositionTeams)],
+          [STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(state.savedOpponents)],
+          [STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(state.savedTournaments)],
+          [STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(state.savedAgeGroups)],
+          [STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(state.savedSeasons)],
+          [STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(state.hiddenTournaments)],
+          [STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(state.hiddenAgeGroups)],
+          [STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(state.hiddenSeasons)],
+          ['dugoutPulse.upcomingGames.v1', JSON.stringify(state.upcomingGames)],
+          ['dugoutPulse.logoLibrary.v1', JSON.stringify(state.logoLibrary)],
+          [STORAGE_KEYS.SETUP_COMPLETED, JSON.stringify(state.setupCompleted)],
+          [STORAGE_KEYS.LIVE_GAME, state.liveGame ? JSON.stringify(state.liveGame) : null],
+          [STORAGE_KEYS.EDITING_GAME_ID, state.editingGameId ? JSON.stringify(state.editingGameId) : null],
+          [STORAGE_KEYS.REOPENED_GAME_ID, state.reopenedGameId ? JSON.stringify(state.reopenedGameId) : null],
+        ];
+        const changed = entries.some(([key, value]) => localStorage.getItem(key) !== value);
+        if (changed && !(await createVerifiedRecoveryCheckpoint('Before restoring the verified SQLite state to the compatibility store'))) {
+          throw new Error('A verified recovery checkpoint could not be created before synchronising saved data from SQLite.');
+        }
+        for (const [key, value] of entries) {
+          if (localStorage.getItem(key) === value) continue;
+          const success = value === null
+            ? protectedStorageRemoveItem(key)
+            : protectedStorageSetItem(key, value);
+          if (!success) throw new Error('The SQLite state was read, but a compatibility-store value could not be safely synchronised.');
+        }
+        localStorage.setItem(LOCAL_CUTOVER_MARKER, 'complete');
+        if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
+          throw new Error('The local SQLite cutover marker could not be reconciled.');
+        }
+      };
+      const makeInitialLiveState = (snapshot: Awaited<ReturnType<typeof readVerifiedSQLiteSnapshot>>): SQLiteLiveState => {
+        const appState = snapshot.appState;
+        return {
+          games: sortGames(snapshot.games, 'oldestFirst'),
+          profiles: snapshot.profiles.length > 0 ? snapshot.profiles.map(withTeams) : [DEFAULT_PROFILE],
+          settings: { ...DEFAULT_SETTINGS, ...(snapshot.settings || {}) } as AppSettings,
+          liveGame: snapshot.liveGame,
+          editingGameId: typeof appState[STORAGE_KEYS.EDITING_GAME_ID] === 'string' ? appState[STORAGE_KEYS.EDITING_GAME_ID] as string : null,
+          reopenedGameId: typeof appState[STORAGE_KEYS.REOPENED_GAME_ID] === 'string' ? appState[STORAGE_KEYS.REOPENED_GAME_ID] as string : null,
+          setupCompleted: appState[STORAGE_KEYS.SETUP_COMPLETED] === true,
+          savedOpponents: snapshot.namedLists[STORAGE_KEYS.SAVED_OPPONENTS] || [],
+          savedTournaments: snapshot.namedLists[STORAGE_KEYS.SAVED_TOURNAMENTS] || [],
+          savedAgeGroups: snapshot.namedLists[STORAGE_KEYS.SAVED_AGE_GROUPS] || [],
+          savedSeasons: snapshot.namedLists[STORAGE_KEYS.SAVED_SEASONS] || [],
+          hiddenTournaments: snapshot.namedLists[STORAGE_KEYS.HIDDEN_TOURNAMENTS] || [],
+          hiddenAgeGroups: snapshot.namedLists[STORAGE_KEYS.HIDDEN_AGE_GROUPS] || [],
+          hiddenSeasons: snapshot.namedLists[STORAGE_KEYS.HIDDEN_SEASONS] || [],
+          oppositionTeams: snapshot.oppositionTeams,
+          upcomingGames: snapshot.upcomingGames as SQLiteLiveState['upcomingGames'],
+          logoLibrary: snapshot.logoLibrary,
+        };
+      };
+
+      let cutoverComplete = false;
+      try {
+        cutoverComplete = await isLegacyStorageImportComplete();
+      } catch (error) {
+        const localMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+        if (localMarker === 'complete' || localMarker === 'pending') {
+          setRestoreFailed(true);
+          setIsLoading(false);
+          recordDiagnosticError('storage_load', error, 'SQLite cutover state could not be inspected; saved-data restoration was stopped to protect the newer store.');
+          return;
+        }
+        // Before cutover, a SQLite initialisation failure must not prevent the existing
+        // localStorage-based app from starting.
+      }
+
+      const localCutoverMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+      if (cutoverComplete || localCutoverMarker === 'complete' || localCutoverMarker === 'pending') {
+        try {
+          if (!cutoverComplete) {
+            throw new Error('The local cutover marker exists, but SQLite does not confirm a completed cutover.');
+          }
+          const state = await readLiveSQLiteState();
+          await mirrorLiveState(state);
+          applyLiveState(state);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          setRestoreFailed(true);
+          setIsLoading(false);
+          recordDiagnosticError('storage_load', error, 'The SQLite live state could not be restored and verified; automatic saving is paused to protect saved data.');
+          console.error('SQLite live-state restoration failed; automatic saving is paused.', error);
+          return;
+        }
+      }
+
     // Merge legacy records by ID instead of letting one legacy key overwrite another.
     // Current-schema records win on ID conflicts; legacy keys are never deleted.
     const migrateLegacyArrays = async (
@@ -148,6 +273,41 @@ export function useGameRestore({
         setIsLoading(false);
         return;
       }
+    }
+
+    // Create and verify the source snapshot only after established legacy-array merges
+    // have completed. Until the database transaction commits its cutover marker,
+    // localStorage remains authoritative and the existing restore path remains available.
+    try {
+      await importLegacyStorageSnapshot();
+      const snapshot = await readVerifiedSQLiteSnapshot();
+      const initialState = makeInitialLiveState(snapshot);
+      if (!(await createVerifiedRecoveryCheckpoint('Before switching saved application state to SQLite'))) {
+        throw new Error('A verified recovery checkpoint could not be created before switching storage.');
+      }
+      await saveLiveSQLiteState(initialState, { completeCutover: true });
+      await mirrorLiveState(initialState);
+      applyLiveState(initialState);
+      setIsLoading(false);
+      return;
+    } catch (error) {
+      let databaseCutoverComplete = false;
+      try {
+        databaseCutoverComplete = await isLegacyStorageImportComplete();
+      } catch {
+        // An unreadable database status is not evidence that cutover did not commit.
+      }
+      const localMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+      if (databaseCutoverComplete || localMarker === 'complete' || localMarker === 'pending') {
+        setRestoreFailed(true);
+        setIsLoading(false);
+        recordDiagnosticError('storage_load', error, 'SQLite cutover or startup reconciliation could not be verified; automatic saving is paused to protect saved data.');
+        console.error('SQLite cutover requires recovery; automatic saving is paused.', error);
+        return;
+      }
+      // Cutover did not commit and the pending marker was cleared. Continue the
+      // existing localStorage restore path rather than blocking the app unnecessarily.
+      recordDiagnosticError('storage_load', error, 'SQLite cutover did not complete; the app is continuing with its original localStorage state.');
     }
 
     // Restore each key independently. A malformed game record must not abort
