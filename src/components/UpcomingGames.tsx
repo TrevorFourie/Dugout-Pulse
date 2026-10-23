@@ -10,6 +10,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoImage } from './TeamLogoImage';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { saveSQLiteUpcomingGames } from '../storage/sqliteRepository';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -138,22 +139,24 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
           ? { ...game, venue: detail.newName }
           : game
       );
-      try {
-        if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-          setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No scheduled-game changes were saved.');
-          return;
+      void (async () => {
+        try {
+          await saveSQLiteUpcomingGames(next);
+          if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
+            setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No scheduled-game changes were saved.');
+            return;
+          }
+          setGames(next);
+          setVenue((current) =>
+            current.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
+              ? detail.newName
+              : current
+          );
+        } catch (error) {
+          recordDiagnosticError('storage_write', error, 'Scheduled games could not be saved after a venue rename.');
+          setFailureAlert('The venue was renamed, but scheduled games could not be saved. Review the diagnostic report before trying again.');
         }
-      } catch (error) {
-        recordDiagnosticError('storage_write', error, 'Scheduled games could not be saved after a venue rename.');
-        setFailureAlert('The venue was renamed, but scheduled games could not be saved. Review the diagnostic report before trying again.');
-        return;
-      }
-      setGames(next);
-      setVenue((current) =>
-        current.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
-          ? detail.newName
-          : current
-      );
+      })();
     };
     window.addEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
     return () => window.removeEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
@@ -184,17 +187,20 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       setFailureAlert('Dugout Pulse has paused saved-data changes because storage recovery is required. Review the recovery points and diagnostic report before trying again.');
       return;
     }
-    try {
-      if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-        setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No scheduled-game changes were saved.');
-        return;
+    void (async () => {
+      try {
+        await saveSQLiteUpcomingGames(next);
+        if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
+          setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No scheduled-game changes were saved.');
+          return;
+        }
+        setGames(next);
+        setMessage('');
+      } catch (error) {
+        recordDiagnosticError('storage_write', error, 'A scheduled-game write failed. The app did not confirm that the change was saved.');
+        setFailureAlert('Dugout Pulse could not save this game on the device. Do not assume the change was saved; review the diagnostic report before retrying.');
       }
-      setGames(next);
-      setMessage('');
-    } catch (error) {
-      recordDiagnosticError('storage_write', error, 'A scheduled-game write failed. The app did not confirm that the change was saved.');
-      setFailureAlert('Dugout Pulse could not save this game on the device. Do not assume the change was saved; review the diagnostic report before retrying.');
-    }
+    })();
   };
 
   const toggleGameReminder = async (game: ScheduledGame) => {
