@@ -476,6 +476,11 @@ export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapsh
     return { key: row.key, value: row.value };
   }).sort((left, right) => left.key.localeCompare(right.key));
 
+  const fingerprint = sourceFingerprint(legacyValues);
+  if (marker.values[0].value !== fingerprint) {
+    throw new Error('SQLite legacy source values no longer match the recorded snapshot fingerprint.');
+  }
+
   const snapshot = validateSnapshot(legacyValues);
   const gameExpected = new Map(snapshot.games.map((game) => [game.id, JSON.stringify(game)]));
   const profileExpected = new Map(snapshot.profiles.map((profile) => [profile.id, JSON.stringify(profile)]));
