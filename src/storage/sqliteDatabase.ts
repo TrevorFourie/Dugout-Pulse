@@ -111,7 +111,7 @@ async function applySchema(database: SQLiteDBConnection): Promise<void> {
 
   try {
     for (const statement of SCHEMA_STATEMENTS) {
-      await database.execute(statement);
+      await database.execute(statement, false);
     }
 
     const versionResult = await database.query(
@@ -138,6 +138,7 @@ async function applySchema(database: SQLiteDBConnection): Promise<void> {
     await database.run(
       'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
       ['schema_version', String(SCHEMA_VERSION)],
+      false,
     );
     await database.commitTransaction();
     committed = true;
