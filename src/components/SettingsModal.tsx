@@ -141,7 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         // Handoff is not proof of an external save. Use a non-blocking toast and never claim the file was saved.
         setStatusMessage(null);
         setOperationAlert(null);
-        setToastMessage('Backup export started. Verify the file was saved outside Dugout Pulse before relying on it.');
+        setToastMessage('Make sure the file was saved outside Dugout Pulse before relying on it.');
       }
     } catch (error) {
       setStatusMessage(null);
@@ -320,7 +320,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      <ToastMessage message={toastMessage} onDismiss={dismissToast} />
+      <ToastMessage durationMs={0} title="Backup exported" message={toastMessage} onDismiss={dismissToast} />
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}

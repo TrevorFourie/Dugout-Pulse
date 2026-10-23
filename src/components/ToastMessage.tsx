@@ -1,23 +1,26 @@
 import React, { useEffect } from 'react';
-import { Info } from 'lucide-react';
 
 interface ToastMessageProps {
   message: string | null;
   onDismiss: () => void;
+  title?: string;
   durationMs?: number;
 }
 
 /**
- * Shared, non-blocking status toast. Uses the app's existing slate surfaces,
- * borders, typography and Pulse Teal theme tokens in both light and dark mode.
+ * Shared, non-blocking success toast. Matches the established site toast used for logo uploads and
+ * opposition-team actions: top-centred card, emerald check badge, title + message, dismiss button,
+ * slate/Pulse Teal tokens in light and dark mode, and an auto-dismiss (default 5s; durationMs={0} keeps it until dismissed).
  */
 export const ToastMessage: React.FC<ToastMessageProps> = ({
   message,
   onDismiss,
+  title = 'Done',
   durationMs = 5000,
 }) => {
   useEffect(() => {
-    if (!message) return;
+    // durationMs <= 0 means no automatic close: the user dismisses it with the × button.
+    if (!message || durationMs <= 0) return;
     const timeout = window.setTimeout(onDismiss, durationMs);
     return () => window.clearTimeout(timeout);
   }, [message, onDismiss, durationMs]);
@@ -28,10 +31,23 @@ export const ToastMessage: React.FC<ToastMessageProps> = ({
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] z-[100] mx-auto flex w-auto max-w-md items-start gap-2.5 rounded-xl border border-slate-200 border-l-4 border-l-[#00BFA5] bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-xl dark:border-[#354050] dark:border-l-[#00D7BC] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
+      className="fixed left-1/2 top-5 z-[110] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 animate-in fade-in slide-in-from-top-3 duration-200 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-xl dark:border-[#236B60] dark:bg-[#1A2028]"
     >
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#00806E] dark:text-[#00D7BC]" aria-hidden="true" />
-      <span className="min-w-0 leading-relaxed">{message}</span>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-[#00D7BC]/15 dark:text-[#00D7BC]">✓</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]">{title}</p>
+          <p className="mt-0.5 text-xs text-slate-600 dark:text-[#D1D5DB]">{message}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss notification"
+          className="rounded-md px-1 text-lg leading-5 text-slate-400 hover:bg-slate-100 dark:hover:bg-[#354050]"
+        >
+          ×
+        </button>
+      </div>
     </div>
   );
 };

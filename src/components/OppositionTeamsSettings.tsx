@@ -23,7 +23,7 @@ export const OppositionTeamsSettings: React.FC = () => {
   const showSuccess = (message: string) => {
     if (successTimer.current) clearTimeout(successTimer.current);
     setSuccess(message);
-    successTimer.current = setTimeout(() => setSuccess(''), 3200);
+    successTimer.current = setTimeout(() => setSuccess(''), 5000);
   };
   useEffect(() => {
     let cancelled = false;

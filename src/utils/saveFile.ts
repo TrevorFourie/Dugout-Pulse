@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { App } from '@capacitor/app';
 import { recordDiagnosticError } from './errorDiagnostics';
 
 /**
@@ -20,6 +21,95 @@ export async function saveTextFile(
 ): Promise<boolean> {
   const outcome = await saveTextFileDetailed(filename, content, mimeType);
   return outcome !== 'failed';
+}
+
+/**
+ * Runs the share action, then waits until the user has closed the share sheet / external app and focus
+ * has returned to Dugout Pulse.
+ *
+ * On Android the share sheet is a translucent activity on top of the app: the app is PAUSED (not
+ * stopped), so `appStateChange` alone never fires. `pause`/`resume` are used as well, and there is
+ * deliberately no timeout: finishing early would show the success toast behind the open share sheet.
+ *
+ * The `isExporting` flag is true only while this export is in flight, so ordinary minimising of the
+ * app at any other time can never trigger it. Listeners are always removed.
+ */
+async function shareAndWaitForReturn(share: () => Promise<unknown>): Promise<void> {
+  // Native platforms other than Android: Share.share resolves once the sheet has been dismissed.
+  if (Capacitor.getPlatform() !== 'android') {
+    await share();
+    return;
+  }
+
+  let isExporting = true;
+  let leftApp = false;
+  let markReturned: () => void = () => {};
+  const returned = new Promise<void>((resolve) => { markReturned = resolve; });
+
+  const onLeave = () => {
+    if (isExporting) leftApp = true;
+  };
+  const onReturn = () => {
+    if (isExporting && leftApp) {
+      isExporting = false;
+      markReturned();
+    }
+  };
+
+  const listeners = await Promise.all([
+    App.addListener('pause', onLeave),
+    App.addListener('resume', onReturn),
+    App.addListener('appStateChange', ({ isActive }) => (isActive ? onReturn() : onLeave())),
+  ]);
+
+  try {
+    // Rejects if the user cancels or sharing fails; the caller handles that exactly as before.
+    await share();
+    // Share.share can resolve as the sheet opens. Wait for the user to leave and come back.
+    await returned;
+  } finally {
+    isExporting = false;
+    await Promise.all(listeners.map((listener) => listener.remove()));
+  }
+}
+
+interface SaveFilePickerHandle {
+  createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>;
+}
+type SaveFilePickerFn = (options: {
+  suggestedName: string;
+  types?: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<SaveFilePickerHandle>;
+
+/**
+ * Browser "Save as" via the File System Access API. Unlike a download link, its promise settles only
+ * after the user has chosen a location (and the file is written) or cancelled, so the caller can wait
+ * for the real outcome. Returns 'unavailable' when the browser cannot do this and the caller should
+ * fall back to a normal download.
+ */
+async function saveWithBrowserPicker(
+  filename: string,
+  content: string,
+  mimeType: string,
+): Promise<'saved' | 'cancelled' | 'unavailable'> {
+  const picker = (window as unknown as { showSaveFilePicker?: SaveFilePickerFn }).showSaveFilePicker;
+  if (typeof picker !== 'function') return 'unavailable';
+  const dot = filename.lastIndexOf('.');
+  let handle: SaveFilePickerHandle;
+  try {
+    handle = await picker.call(window, {
+      suggestedName: filename,
+      ...(dot > 0 ? { types: [{ description: 'Backup file', accept: { [mimeType]: [filename.slice(dot)] } }] } : {}),
+    });
+  } catch (err) {
+    if ((err as DOMException)?.name === 'AbortError') return 'cancelled';
+    // e.g. no user activation or a blocked frame: use the regular download instead.
+    return 'unavailable';
+  }
+  const writable = await handle.createWritable();
+  await writable.write(content);
+  await writable.close();
+  return 'saved';
 }
 
 export type SaveOutcome = 'handed-off' | 'cancelled' | 'failed';
@@ -45,11 +135,11 @@ export async function saveTextFileDetailed(
         encoding: Encoding.UTF8,
       });
       try {
-        await Share.share({
+        await shareAndWaitForReturn(() => Share.share({
           title: filename,
           dialogTitle: 'Save your backup (Drive, Files, email...)',
           url: written.uri,
-        });
+        }));
       } catch (shareErr) {
         const msg = String((shareErr as Error)?.message ?? shareErr);
         // Cancelling the share sheet is not an error, but it is not a saved backup either.
@@ -65,6 +155,9 @@ export async function saveTextFileDetailed(
   }
 
   try {
+    const picked = await saveWithBrowserPicker(filename, content, mimeType);
+    if (picked === 'saved') return 'handed-off';
+    if (picked === 'cancelled') return 'cancelled';
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

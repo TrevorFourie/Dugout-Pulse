@@ -81,7 +81,7 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
     throw new UserFacingError(explainFailure('Your logo could not be added because the app could not first make a safety copy of your data. Nothing was changed.', getLastDiagnosticReference()));
   }
   const existingLibrary = readTeamLogoLibraryStrict();
-  const dataUrl = await processLogoImage(file, 512);
+  const dataUrl = await processLogoImage(file, 256);
   const mimeType = dataUrl.slice(5, dataUrl.indexOf(';'));
   const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
   const id = 'logo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
