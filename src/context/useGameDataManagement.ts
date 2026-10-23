@@ -3,12 +3,12 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
-import { readTeamLogoLibrary, readTeamLogoLibraryStrict } from '../utils/teamLogoLibrary';
+import { readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
-import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
-import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
+import { protectedStorageRemoveItem, protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
+import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
 import { explainFailure, reportFailure } from '../utils/userMessages';
@@ -120,6 +120,9 @@ export function useGameDataManagement({
     let sqliteCutoverComplete = false;
     let originalSQLiteState: SQLiteLiveState | null = null;
     let sqliteStateMayHaveChanged = false;
+    let beforeLocalStorage: Record<string, string> | null = null;
+    const beforeLogoFiles: Record<string, string> = {};
+    let logoRestoreStarted = false;
     try {
       const parsedData = JSON.parse(jsonStr);
       // Validate before anything is changed: a damaged, truncated or unrelated file is rejected outright.
@@ -129,6 +132,29 @@ export function useGameDataManagement({
         return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
       recoveryCheckpointCreated = true;
+      const preservedStorageKeys = new Set([
+        'dugoutPulse.diagnostics.v1',
+        'dugoutPulse.recoverySnapshot.v1',
+        'dugoutPulse.recoverySnapshot.previous.v1',
+        'dugoutPulse.beforeRecovery.v1',
+        'dugoutPulse.sqliteCutover.v1',
+      ]);
+      const capturedValues: Record<string, string> = {};
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || preservedStorageKeys.has(key)) continue;
+        const value = localStorage.getItem(key);
+        if (value !== null) capturedValues[key] = value;
+      }
+      beforeLocalStorage = capturedValues;
+      for (const item of readTeamLogoLibraryStrict()) {
+        try {
+          const bytes = await readLogoFileAsBase64(item.fileName);
+          if (bytes) beforeLogoFiles[item.fileName] = bytes;
+        } catch {
+          // An already-missing logo file has no previous bytes to restore.
+        }
+      }
       try {
         sqliteCutoverComplete = await isLegacyStorageImportComplete();
       } catch (error) {
@@ -164,6 +190,7 @@ export function useGameDataManagement({
         sqliteStateMayHaveChanged = true;
       }
       // Restore logo images + library first so logo references in games/profiles resolve below.
+      logoRestoreStarted = true;
       const restoredLogoCount = await restoreLogosFromBackup(parsedData as Record<string, unknown>);
       const localLogos = new Map<string, string>();
       readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
@@ -334,12 +361,55 @@ export function useGameDataManagement({
       // Logo restoration can touch SQLite metadata before the complete import commits.
       // Restore the previous verified live snapshot on failure; localStorage is
       // reconciled from SQLite on the next startup if any compatibility write failed.
+      let rollbackFailure: unknown = null;
       if (sqliteStateMayHaveChanged && originalSQLiteState) {
         try {
           await saveLiveSQLiteState(originalSQLiteState, { includeAuxiliary: true });
         } catch (rollbackError) {
-          recordDiagnosticError('storage_write', rollbackError, 'Backup import failed and the previous SQLite state could not be restored automatically. The verified recovery checkpoint was retained.');
+          rollbackFailure = rollbackError;
         }
+      }
+      if (beforeLocalStorage) {
+        try {
+          for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+            const key = localStorage.key(index);
+            if (key && !preservedStorageKeys.has(key) && !(key in beforeLocalStorage)) localStorage.removeItem(key);
+          }
+          for (const [key, value] of Object.entries(beforeLocalStorage)) {
+            if (!preservedStorageKeys.has(key)) localStorage.setItem(key, value);
+          }
+          const restoredValues: Record<string, string> = {};
+          for (let index = 0; index < localStorage.length; index += 1) {
+            const key = localStorage.key(index);
+            if (!key || preservedStorageKeys.has(key)) continue;
+            const value = localStorage.getItem(key);
+            if (value !== null) restoredValues[key] = value;
+          }
+          const expectedKeys = Object.keys(beforeLocalStorage);
+          const actualKeys = Object.keys(restoredValues);
+          if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key) => restoredValues[key] !== beforeLocalStorage?.[key])) {
+            throw new Error('Pre-import localStorage values failed rollback verification.');
+          }
+        } catch (localRollbackError) {
+          rollbackFailure = rollbackFailure || localRollbackError;
+        }
+      }
+      if (logoRestoreStarted && Object.keys(beforeLogoFiles).length > 0) {
+        try {
+          await writeLogoFiles(beforeLogoFiles);
+        } catch (logoRollbackError) {
+          rollbackFailure = rollbackFailure || logoRollbackError;
+        }
+      }
+      if (logoRestoreStarted) {
+        try {
+          window.dispatchEvent(new CustomEvent(TEAM_LOGO_LIBRARY_EVENT));
+        } catch {
+          // Storage and file rollback must not be concealed by an event-dispatch failure.
+        }
+      }
+      if (rollbackFailure) {
+        recordDiagnosticError('storage_write', rollbackFailure, 'Backup import failed and one or more parts of the previous state could not be fully restored. The verified recovery checkpoint was retained.');
       }
       // If any import mutation may have started, pause automatic persistence. The
       // verified pre-import checkpoint remains available for explicit recovery.
