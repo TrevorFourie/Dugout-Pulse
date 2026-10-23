@@ -67,6 +67,14 @@ const writeTeamLogoLibrary = (items: TeamLogoItem[]): void => {
   if (!protectedStorageSetItem(KEY, JSON.stringify(items))) throw new Error('Could not safely update the saved team logo library.');
   changed();
 };
+
+export function renameTeamLogo(id: string, name: string): void {
+  const current = readTeamLogoLibraryStrict();
+  if (!current.some((item) => item.id === id)) {
+    throw new Error('The selected logo could not be found in the saved library.');
+  }
+  writeTeamLogoLibrary(current.map((item) => item.id === id ? { ...item, name } : item));
+}
 const extensionForMime = (mime: string) => mime === 'image/webp' ? 'webp' : mime === 'image/png' ? 'png' : 'jpg';
 export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   if (!(await createVerifiedRecoveryCheckpoint('Before adding a custom team logo'))) {
