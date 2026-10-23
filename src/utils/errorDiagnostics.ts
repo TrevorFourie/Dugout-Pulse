@@ -154,17 +154,19 @@ function redactLikelyUserValues(value: string): string {
   return value
     // Quoted free-form values may contain player, team, venue or other user-entered names.
     // Keep obvious technical tokens and module/source paths so compiler diagnostics remain useful.
-    .replace(/(["'])([^"'\\r\\n]{1,100})\\1/g, (match, _quote: string, inner: string) => {
+    .replace(/(["'])([^"'\r\n]{1,100})\1/g, (match, _quote: string, inner: string) => {
       const token = inner.trim();
       if (
-        /[\\/@]/.test(token) ||
-        /\\.(?:tsx?|jsx?|mjs|cjs|json|css|svg|png|jpe?g|webp)$/i.test(token) ||
-        /^[{}()[\\].,:;!?]$/.test(token) ||
+        token.includes('/') ||
+        token.includes('\\') ||
+        token.includes('@') ||
+        /\.(?:tsx?|jsx?|mjs|cjs|json|css|svg|png|jpe?g|webp)$/i.test(token) ||
+        /^[{}()[\].,:;!?]$/.test(token) ||
         /^(?:undefined|null|NaN|true|false|length|map|filter|find|then|catch|default|useState|useEffect|useMemo|useCallback|useRef|useContext|useReducer|useLayoutEffect)$/i.test(token)
       ) return match;
       return '[redacted value]';
     })
-    .replace(/\\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\\s*[:=]\\s*[^,;\\n]+/gi, '$1: [redacted]');
+    .replace(/\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\s*[:=]\s*[^,;\n]+/gi, '$1: [redacted]');
 }
 
 function safeErrorMessage(error: unknown): string | undefined {
