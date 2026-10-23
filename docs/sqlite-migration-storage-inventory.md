@@ -67,11 +67,12 @@ The repository backup `Migrate-Data/dugout-pulse-backup-2026-10-23.json` was pre
 - Source inspected: yes, for the paths listed above; the repository-wide direct storage inventory remains incomplete.
 - Backup integrity: verified for the committed repository backup.
 - SQLite foundation: `src/storage/sqliteDatabase.ts` is committed. It defines the initial schema, single-connection lifecycle, transaction helper, and explicit web-store flush. It is not connected to GameContext.
-- Repository/importer groundwork: `src/storage/sqliteRepository.ts` is committed. It audits recognised localStorage values, validates before writing, copies every raw key/value to `legacy_values`, stores typed projections transactionally, verifies row contents/counts, and keeps the live cutover marker separate. The import function is not called automatically.
+- Repository/importer groundwork: `src/storage/sqliteRepository.ts` is committed. It audits recognised localStorage values, validates before writing, copies every raw key/value to `legacy_values`, stores typed projections transactionally, verifies row contents/counts, and keeps the live cutover marker separate. A read-only `readVerifiedSQLiteSnapshot()` API now checks the stored source fingerprint and every typed projection before returning data. These functions are not called automatically by app startup.
 - Dependency lock updated: yes, by commit `12bdff1`.
 - Browser WASM asset: present at `public/assets/sql-wasm.wasm`.
 - Chrome runtime evidence: schema initialization and 10-table query passed; transaction write/read-back passed; the marker survived page reload; the temporary marker was then removed and verified absent.
 - Static checks: not run. Build: intentionally not run per repository rules.
-- Actual localStorage import, app-level SQLite read/write integration, backup/recovery regression, and native platform checks: not yet verified.
+- Actual localStorage snapshot import: runtime call returned audit/import results, the source-key comparison was true, and the snapshot marker was present. The new full typed-projection read-back API has not yet been runtime-tested.
+- App-level SQLite read/write integration, backup/recovery regression, and native platform checks: not yet verified.
 
 The next user test should be one combined, non-destructive Chrome import check. Do not describe the migration as ready for normal use until the source import, startup gate, live persistence cutover, backup/recovery integration, and regression checks are complete.
