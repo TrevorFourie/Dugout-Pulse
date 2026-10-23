@@ -259,7 +259,7 @@ export function useGameRestore({
       isIdentifiedRecord(item) &&
       typeof (item as { opponent?: unknown }).opponent === 'string' &&
       typeof (item as { date?: unknown }).date === 'string' &&
-      typeof (item as { isHome?: unknown }).isHome === 'boolean';
+      ((item as { isHome?: unknown }).isHome === undefined || typeof (item as { isHome?: unknown }).isHome === 'boolean');
     const isLegacyOppositionTeam = (item: unknown): item is { id: string } =>
       isIdentifiedRecord(item) && typeof (item as { name?: unknown }).name === 'string';
 
