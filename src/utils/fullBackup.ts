@@ -35,14 +35,27 @@ function readStoredArray(key: string): unknown[] {
 }
 
 function readStoredStrings(key: string): string[] {
-  return readStoredArray(key).filter((item): item is string => typeof item === 'string');
+  const value = readStoredArray(key);
+  if (!value.every((item): item is string => typeof item === 'string')) {
+    const error = new Error('A saved preset list contains values in an unexpected format.');
+    recordDiagnosticError('data_corruption', error, 'A saved preset list contains non-text entries. The backup was stopped rather than silently omitting values.');
+    throw error;
+  }
+  return value;
 }
 
 /** Preset lists and flags that live outside games/profiles/settings but are needed for a complete restore. */
 export function readBackupExtras(): BackupExtras {
-  let setupCompleted = false;
-  try { setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true'; } catch (error) {
-    recordDiagnosticError('storage_read', error, 'The setup-completed flag could not be read while preparing a backup.');
+  let setupCompleted: boolean;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED);
+    if (raw !== null && raw !== 'true' && raw !== 'false') {
+      throw new Error('The setup-completed flag has an unexpected value.');
+    }
+    setupCompleted = raw === 'true';
+  } catch (error) {
+    recordDiagnosticError('storage_read', error, 'The setup-completed flag could not be read or validated while preparing a backup. The backup was stopped rather than using a default value.');
+    throw error;
   }
   return {
     savedTournaments: readStoredStrings(STORAGE_KEYS.SAVED_TOURNAMENTS),
