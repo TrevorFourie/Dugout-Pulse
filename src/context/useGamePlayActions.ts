@@ -6,6 +6,7 @@ import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { protectedStorageSetItem } from './gameStorageSafety';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { saveSQLiteLiveGame } from '../storage/sqliteRepository';
 
 interface GamePlayActionsOptions {
   liveGame: Game | null;
@@ -48,6 +49,31 @@ export function useGamePlayActions({
         onStorageProtectionFailure();
         return false;
       }
+
+      // Once SQLite is authoritative, start the matching database transaction at
+      // the scoring action itself instead of waiting for React's persistence effect.
+      // SQLite's shared transaction queue orders this with whole-context snapshots.
+      // Before cutover the existing localStorage-first importer path remains intact.
+      void saveSQLiteLiveGame(nextGame).then((persisted) => {
+        if (!persisted || localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized) return;
+        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+            throw new Error('The scoring journal could not be cleared after SQLite confirmed the live game.');
+          }
+        }
+      }).catch((error) => {
+        try {
+          recordDiagnosticError(
+            'storage_write_games',
+            error,
+            'A scoring change could not be confirmed in SQLite. The pending journal was retained for startup recovery and further scoring was paused.',
+          );
+        } catch {
+          // Keep the storage write blocked even if diagnostic recording fails.
+        }
+        onStorageProtectionFailure();
+      });
       return true;
     } catch (error) {
       try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be saved and verified.'); } catch { /* Preserve the blocked write outcome. */ }
