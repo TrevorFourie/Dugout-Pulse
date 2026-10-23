@@ -632,10 +632,12 @@ export interface SQLiteLiveState {
 }
 
 /**
- * Persists one complete live-state snapshot in a single SQLite transaction.
- * The legacy_values table is intentionally immutable: it remains the exact
- * source copy from the initial migration and is not a live mirror.
+ * Persists core GameContext state in one SQLite transaction. The separate scheduled-
+ * game and logo-library tables are included only for initial cutover or explicit
+ * whole-state operations, so routine context writes cannot overwrite their own
+ * independently serialized write paths.
  *
+ * The legacy_values table remains the preserved source snapshot, not a live mirror.
  * Callers must create the established recovery checkpoint before invoking this.
  */
 export async function saveLiveSQLiteState(
