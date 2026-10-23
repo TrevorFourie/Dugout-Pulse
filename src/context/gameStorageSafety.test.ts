@@ -7,6 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  protectedStorageRemoveItem,
   protectedStorageSetItem,
   restoreRecoverySnapshot,
   snapshotBeforeGameWrite,
@@ -64,7 +65,6 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
   assert.equal(values.get('existing-value'), 'keep-this-value', 'a failed write preserves the previous value');
 
   failNextRemoveForKey = 'existing-value';
-  const { protectedStorageRemoveItem } = await import('./gameStorageSafety');
   assert.equal(protectedStorageRemoveItem('existing-value'), false);
   assert.equal(values.get('existing-value'), 'keep-this-value', 'a failed removal preserves the previous value');
 
