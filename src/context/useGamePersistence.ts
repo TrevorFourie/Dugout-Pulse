@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
-import { STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
@@ -115,6 +115,21 @@ export function useGamePersistence({
         if (results.some((success) => !success)) {
           onStorageProtectionFailure();
           recordDiagnosticError('storage_write', new Error('One or more compatibility-mirror writes failed verification.'));
+          return;
+        }
+
+        // Clear the scoring write-ahead journal only after SQLite (when active)
+        // and every compatibility mirror write have been verified.
+        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+          try {
+            localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+            if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+              throw new Error('The pending live-game journal could not be cleared after persistence.');
+            }
+          } catch (error) {
+            onStorageProtectionFailure();
+            recordDiagnosticError('storage_write_games', error, 'The live game was saved, but its pending journal could not be cleared. Saving has been paused so startup can safely reconcile it.');
+          }
         }
       } catch (error) {
         onStorageProtectionFailure();
