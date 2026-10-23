@@ -86,6 +86,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [reminderMinutes, setReminderMinutes] = useState(0);
   const [message, setMessage] = useState('');
   const [permissionPromptGame, setPermissionPromptGame] = useState<ScheduledGame | null>(null);
+  const [permissionPromptError, setPermissionPromptError] = useState<string | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -174,6 +175,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     if (!currentlyEnabled) {
       const alreadyGranted = await checkGameNotificationPermission();
       if (!alreadyGranted) {
+        setPermissionPromptError(null);
         setPermissionPromptGame(game);
         return;
       }
@@ -292,18 +294,20 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     <ConfirmationModal
       isOpen={Boolean(permissionPromptGame)}
       title="Allow game notifications"
-      message="Dugout Pulse needs Android notification permission to send this game reminder. Tap Try Again to show the permission request. If Android no longer shows the request, open your phone's Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here."
+      message={permissionPromptError || "Dugout Pulse needs Android notification permission to send this game reminder. Tap Try Again to show the permission request. If Android no longer shows the request, open your phone's Settings → Apps → Dugout Pulse → Notifications and allow notifications, then return here."}
       confirmLabel="Try Again"
       cancelLabel="Not Now"
-      onCancel={() => setPermissionPromptGame(null)}
+      onCancel={() => { setPermissionPromptGame(null); setPermissionPromptError(null); }}
       onConfirm={async () => {
         const target = permissionPromptGame;
+        setPermissionPromptError(null);
         const granted = await requestGameNotificationPermission();
         if (!granted) {
-          setMessage('Notifications are still blocked. Allow them in Android Settings, then tap the game bell again.');
+          setPermissionPromptError('Notifications are still blocked. Allow them in Android Settings, then tap Try Again.');
           return;
         }
         setPermissionPromptGame(null);
+        setPermissionPromptError(null);
         if (target) await toggleGameReminder(target);
       }}
     />
