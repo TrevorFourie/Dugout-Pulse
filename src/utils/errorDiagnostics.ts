@@ -150,6 +150,23 @@ function safeErrorType(error: unknown): string {
   return error === null ? 'NullError' : `${typeof error}Rejection`.slice(0, 40);
 }
 
+function redactLikelyUserValues(value: string): string {
+  return value
+    // Quoted free-form values may contain player, team, venue or other user-entered names.
+    // Keep obvious technical tokens and module/source paths so compiler diagnostics remain useful.
+    .replace(/(["'])([^"'\\r\\n]{1,100})\\1/g, (match, _quote: string, inner: string) => {
+      const token = inner.trim();
+      if (
+        /[\\/@]/.test(token) ||
+        /\\.(?:tsx?|jsx?|mjs|cjs|json|css|svg|png|jpe?g|webp)$/i.test(token) ||
+        /^[{}()[\\].,:;!?]$/.test(token) ||
+        /^(?:undefined|null|NaN|true|false|length|map|filter|find|then|catch|default|useState|useEffect|useMemo|useCallback|useRef|useContext|useReducer|useLayoutEffect)$/i.test(token)
+      ) return match;
+      return '[redacted value]';
+    })
+    .replace(/\\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\\s*[:=]\\s*[^,;\\n]+/gi, '$1: [redacted]');
+}
+
 function safeErrorMessage(error: unknown): string | undefined {
   let message = '';
   if (error instanceof Error) message = error.message;
@@ -157,11 +174,9 @@ function safeErrorMessage(error: unknown): string | undefined {
   else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') message = error.message;
   if (!message) return undefined;
 
-  // Preserve actionable details while stripping query strings, full paths, and likely personal data.
+  // Preserve actionable technical details while stripping identifiers and user-entered values.
   message = message
     .replace(/https?:\/\/[^\s)]+/gi, (url) => {
-      // React component stacks can encode source locations inside a URL. Keep the
-      // basename and line/column while removing origin, full path and Vite query.
       const sourceLocation = url.match(/\/([^/?#]+\.(?:tsx?|jsx?|mjs|cjs|json))(?:\?[^:]*)?:(\d+):(\d+)$/i);
       if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
       try {
@@ -173,7 +188,8 @@ function safeErrorMessage(error: unknown): string | undefined {
     })
     .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
-    .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]');
+  message = redactLikelyUserValues(message)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_MESSAGE_CHARS);
@@ -196,10 +212,8 @@ function safeStackFrames(error: unknown): string[] {
     .slice(0, 8);
 }
 function safeDiagnosticDetail(value: string): string {
-  return value
+  const sanitised = value
     .replace(/https?:\/\/[^\s)]+/gi, (url) => {
-      // React component stacks can encode source locations inside a URL. Keep the
-      // basename and line/column while removing origin, full path and Vite query.
       const sourceLocation = url.match(/\/([^/?#]+\.(?:tsx?|jsx?|mjs|cjs|json))(?:\?[^:]*)?:(\d+):(\d+)$/i);
       if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
       try {
@@ -216,8 +230,8 @@ function safeDiagnosticDetail(value: string): string {
     .split('\n')
     .map((line) => line.replace(/[ \t]+/g, ' ').trim())
     .filter(Boolean)
-    .join('\n')
-    .slice(0, MAX_DETAIL_CHARS);
+    .join('\n');
+  return redactLikelyUserValues(sanitised).slice(0, MAX_DETAIL_CHARS);
 }
 
 function readEvents(): DiagnosticEvent[] {
