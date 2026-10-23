@@ -56,6 +56,12 @@ export function useGamePersistence({
         if (localStorage.getItem(LOCAL_CUTOVER_MARKER) === 'complete' && !cutoverComplete) {
           throw new Error('The local and database cutover markers disagree; persistence was paused for recovery.');
         }
+        if (cutoverComplete && localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
+          localStorage.setItem(LOCAL_CUTOVER_MARKER, 'complete');
+          if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
+            throw new Error('SQLite is authoritative, but its local cutover marker could not be reconciled.');
+          }
+        }
 
         if (cutoverComplete) {
           const setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true';
