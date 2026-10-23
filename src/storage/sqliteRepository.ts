@@ -962,15 +962,10 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
   }
   const snapshot = validateSnapshot(readAllLocalStorage());
   const appState = snapshot.appState;
-  const setupCompleted = appState.get(STORAGE_KEYS.SETUP_COMPLETED);
+  const setupCompleted = appState.get(STORAGE_KEYS.SETUP_COMPLETED) === true;
   const editingGameId = appState.get(STORAGE_KEYS.EDITING_GAME_ID);
   const reopenedGameId = appState.get(STORAGE_KEYS.REOPENED_GAME_ID);
   const settings = snapshot.settings;
-  if (typeof setupCompleted !== 'boolean' ||
-      (editingGameId !== undefined && editingGameId !== null && typeof editingGameId !== 'string') ||
-      (reopenedGameId !== undefined && reopenedGameId !== null && typeof reopenedGameId !== 'string')) {
-    throw new Error('The restored local state is missing valid setup or game-reference values.');
-  }
   await saveLiveSQLiteState({
     games: sortGames(snapshot.games, 'oldestFirst'),
     profiles: snapshot.profiles.length > 0 ? snapshot.profiles.map(withTeams) : [DEFAULT_PROFILE],
