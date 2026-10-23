@@ -34,7 +34,7 @@ IDs must be derived from validated existing records. If a recognised dataset can
 5. Persist the migration marker only after validation succeeds and the web store save succeeds on web.
 6. Keep the old localStorage values indefinitely during the first test release. Do not enable destructive cleanup in this migration.
 7. On any error, roll back, do not mark the live-storage cutover complete, keep legacy data untouched, block writes to the new repository, and surface an actionable failure instead of silently falling back to empty defaults.
-8. Make snapshot retries idempotent. Before cutover, an identical source fingerprint is a no-op and a changed source can be re-snapshotted transactionally. Once SQLite is marked authoritative, the legacy snapshot importer must refuse to run so stale localStorage cannot overwrite newer SQLite data.
+8. Make snapshot retries idempotent and non-destructive. An identical source fingerprint is a no-op. If a snapshot marker already exists with a different fingerprint, stop without changing SQLite; do not overwrite the existing snapshot automatically. If no snapshot marker exists but destination tables already contain rows, stop and require explicit reconciliation. Once SQLite is marked authoritative, the legacy snapshot importer must refuse to run so stale localStorage cannot overwrite newer SQLite data.
 
 ## Startup and write ordering
 
@@ -59,8 +59,9 @@ IDs must be derived from validated existing records. If a recognised dataset can
 
 - Dependency commit: `12bdff1` added `@capacitor-community/sqlite@7.0.3` and `jeep-sqlite@2.8.0` with the locally generated lockfile.
 - Source foundation: `src/storage/sqliteDatabase.ts` is committed. It creates the initial tables transactionally, checks the schema version, holds one shared connection, and flushes web transactions through `saveToStore`.
-- Repository groundwork: `src/storage/sqliteRepository.ts` now includes a read-only source audit and a transaction-based snapshot importer. It preserves exact source strings in `legacy_values`, validates recognised datasets before writes, verifies typed projections, and uses a separate marker reserved for the future live-storage cutover.
-- The repository is intentionally not connected to GameContext yet. Existing localStorage remains authoritative. The importer has not yet been runtime-tested against the user's actual local data.
+- Repository groundwork: `src/storage/sqliteRepository.ts` includes a read-only source audit, a transaction-based snapshot importer, and `readVerifiedSQLiteSnapshot()` for read-only integrity verification. It preserves exact source strings in `legacy_values`, validates recognised datasets before writes, verifies typed projections, and uses a separate marker reserved for the future live-storage cutover. The importer now refuses to overwrite a different existing snapshot and refuses to clear unmarked tables that already contain rows; it also rechecks localStorage before writing the snapshot marker.
+- Runtime evidence from the user's Chrome session: the snapshot import returned successfully, the snapshot marker was present, `sourceKeysUnchanged` was true, and a later `readVerifiedSQLiteSnapshot()` returned `integrityVerified: true` with `localStorageUnchanged: true`. Exact count values were collapsed by the console output and were not available for independent review here.
+- The repository is intentionally not connected to GameContext yet. Existing localStorage remains authoritative. Full app persistence, backup/recovery integration, and native checks remain unverified.
 - The web WASM asset is committed at `public/assets/sql-wasm.wasm`. Chrome runtime checks confirmed schema initialization (10 tables), a write/read-back, persistence across page reload, and removal of the temporary smoke-test marker.
 - Static checks, the source-import runtime test, full app persistence/backup/recovery integration, and native checks remain unverified. Builds must not be triggered.
 
