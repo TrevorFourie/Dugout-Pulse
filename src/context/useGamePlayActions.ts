@@ -287,7 +287,9 @@ export function useGamePlayActions({
       });
     },
     [liveGame, storageWritesBlocked]
-  ); (used by drag and drop)
+  );
+
+  // Drop a play right before / after another play (used by drag and drop)
   const movePlayTo = useCallback((playId: string, targetId: string, position: 'before' | 'after') => {
     if (storageWritesBlocked || !liveGame) return;
     setLiveGame((prev) => {
@@ -390,6 +392,8 @@ export function useGamePlayActions({
     },
     [liveGame, storageWritesBlocked]
   );
+
+  return {
     addPlay,
     addPlays,
     undoLastPlay,
