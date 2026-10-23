@@ -687,7 +687,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       const isDefense = fromMode === 'pitching' || fromMode === 'fielding';
       // Scoring from the Fielding tab must never switch tabs.
       const switchMode = (mode: PlayMode) => {
-        if (fromMode !== 'fielding') setActiveMode(mode);
+        // Automatic third-outs recorded from the Fielding tab stay on that tab, but an
+        // explicit End Half button press must be able to switch to the next half's mode.
+        if (fromMode !== 'fielding' || opts?.allowModeSwitch) setActiveMode(mode);
       };
 
       // Record half-inning status
@@ -1303,7 +1305,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         runnerAdvanceCause: activeRunnerChip.cause,
       });
     }
-    handleThirdOut(activeMode, opts);
+    // This is the explicit End Half / Add Another Inning action, so mode changes
+    // should be honoured even when the current mode is Fielding. Automatic third-outs
+    // still call handleThirdOut directly and retain the Fielding-tab behaviour.
+    handleThirdOut(activeMode, { ...opts, allowModeSwitch: true });
   };
 
   // Furthest inning reached so far; the inning chevron can browse up to it but never add one.
