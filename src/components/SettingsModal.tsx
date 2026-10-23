@@ -9,6 +9,7 @@ import { explainFailure, reportFailure } from '../utils/userMessages';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
   ArrowLeft,
+  AlertTriangle,
   CheckCircle2,
 } from 'lucide-react';
 import { processLogoImage } from '../utils/logoImage';
@@ -208,6 +209,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Status alert banner */}
           {statusMessage && (
             <div
+              role={statusMessage.isError ? 'alert' : 'status'}
+              aria-live={statusMessage.isError ? 'assertive' : 'polite'}
               className={`px-4 py-2.5 text-xs font-semibold flex items-center justify-between ${
                 statusMessage.isError
                   ? 'bg-red-50 text-red-700 dark:bg-[#FF5252]/15 dark:text-[#D4626D]'
@@ -215,7 +218,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                {statusMessage.isError
+                  ? <AlertTriangle className="w-4 h-4 shrink-0" />
+                  : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                 <span>{statusMessage.text}</span>
               </div>
               <button
