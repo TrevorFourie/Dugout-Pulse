@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { processLogoImage } from './logoImage';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
-import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
+import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64 } from '../context/recoveryJournal';
 import { UserFacingError, explainFailure } from './userMessages';
 import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagnostics';
 
@@ -45,6 +45,10 @@ export async function addTeamLogo(file: File): Promise<TeamLogoItem> {
   const fileName = id + '.' + extensionForMime(mimeType);
   await Filesystem.mkdir({ path: DIR, directory: Directory.Data, recursive: true }).catch(() => undefined);
   await Filesystem.writeFile({ path: DIR + '/' + fileName, data: base64, directory: Directory.Data, recursive: true });
+  const storedBase64 = await readLogoFileAsBase64(fileName);
+  if (storedBase64 !== base64) {
+    throw new Error('The custom logo file failed read-back verification; its library entry was not saved.');
+  }
   const fileUri = await Filesystem.getUri({ path: DIR + '/' + fileName, directory: Directory.Data });
   const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
   const item: TeamLogoItem = { id, name: file.name.replace(/\.[^.]+$/, '') || 'Team logo', fileName, uri, mimeType, sizeBytes: Math.floor(base64.length * 3 / 4) };
