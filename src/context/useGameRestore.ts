@@ -73,9 +73,9 @@ export function useGameRestore({
         // Older in-progress builds may have stored the full game in the marker;
         // the current marker is compact and reads the write-ahead compatibility value.
         const raw = marker === 'pending' ? localStorage.getItem(STORAGE_KEYS.LIVE_GAME) : marker;
-        if (raw === null) {
-          throw new Error('A pending live-game marker has no saved game to reconcile.');
-        }
+        // A missing live-game key can mean SQLite and its mirror committed a clear
+        // immediately before a crash; the caller will trust the verified SQLite state.
+        if (raw === null) return undefined;
         let parsed: unknown;
         try {
           parsed = JSON.parse(raw) as unknown;
@@ -103,7 +103,10 @@ export function useGameRestore({
       };
       const reconcilePendingLiveGame = async (state: SQLiteLiveState): Promise<SQLiteLiveState> => {
         const pendingGame = readPendingLiveGame();
-        if (!pendingGame) return state;
+        if (!pendingGame) {
+          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) clearPendingLiveGame();
+          return state;
+        }
         if (!(await createVerifiedRecoveryCheckpoint('Before reconciling a pending live-game write to SQLite'))) {
           throw new Error('A recovery checkpoint could not be verified before reconciling the pending live-game write.');
         }
@@ -350,7 +353,7 @@ export function useGameRestore({
         throw new Error('A verified recovery checkpoint could not be created before switching storage.');
       }
       await saveLiveSQLiteState(initialState, { completeCutover: true });
-      if (pendingLiveGame) clearPendingLiveGame();
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) clearPendingLiveGame();
       await mirrorLiveState(initialState);
       applyLiveState(initialState);
       setIsLoading(false);
@@ -396,6 +399,7 @@ export function useGameRestore({
     // If SQLite is unavailable or cutover did not commit, localStorage remains
     // authoritative. Replay a pending scoring journal into that store before hydration.
     try {
+      const hasPendingLiveGameMarker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
       const pendingGame = readPendingLiveGame();
       if (pendingGame) {
         if (!(await createVerifiedRecoveryCheckpoint('Before restoring a pending live-game write to local storage'))) {
@@ -406,6 +410,8 @@ export function useGameRestore({
         if (localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized) {
           throw new Error('The pending live-game write could not be restored to local storage.');
         }
+        clearPendingLiveGame();
+      } else if (hasPendingLiveGameMarker) {
         clearPendingLiveGame();
       }
     } catch (error) {
