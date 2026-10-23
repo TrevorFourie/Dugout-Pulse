@@ -34,7 +34,7 @@ export interface DiagnosticEvent {
 export function friendlyErrorMessage(category: string): string {
   switch (safeCategory(category)) {
     case 'app_startup':
-      return "Dugout Pulse ran into a problem while starting. You can open the recovery tools to review your available recovery points. If the problem continues, please share the diagnostic report. Please keep the app installed and avoid clearing its data while we look into this.";
+      return "Dugout Pulse ran into a problem while starting. Please restart the app to try again. If it still cannot start, share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data while we look into this.";
     case 'react_render':
       return "Dugout Pulse had trouble displaying this screen. Please restart the app to try again. If the problem happens again, please share the diagnostic report so we can investigate. For now, please keep the app installed and avoid clearing its data.";
     case 'storage_load':
@@ -54,10 +54,11 @@ export function friendlyErrorMessage(category: string): string {
       return "Dugout Pulse couldn't complete the restore. Please review the available recovery points and diagnostic report before trying again. Keep the app installed and avoid clearing its data for now.";
     case 'data_reset':
       return "Dugout Pulse couldn't complete the data reset. Please check the recovery tools and diagnostic report before trying again, so you can review the available options first.";
+    case 'network_failure':
+      return "Dugout Pulse couldn't complete a request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.";
     case 'window_error':
     case 'unhandled_rejection':
-    case 'network_failure':
-      return "Dugout Pulse couldn't complete a network request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.";
+      return "Dugout Pulse ran into an unexpected problem. Please restart the app to try again. If it happens again, share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.";
     case 'module_load_failure':
       return "One part of Dugout Pulse couldn't load. Other features may still be available. If something isn't working as expected, please share the diagnostic report so the issue can be investigated.";
     case 'runtime_error':
@@ -65,7 +66,7 @@ export function friendlyErrorMessage(category: string): string {
     case 'app_lifecycle':
       return "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.";
     default:
-      return "Dugout Pulse couldn't complete that action. You can review the recovery tools for available options, and share the diagnostic report if you need help. Please keep the app installed and avoid clearing its data for now.";
+      return "Dugout Pulse couldn't complete that action. If it happens again, please share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.";
   }
 }
 
@@ -278,7 +279,7 @@ function readEvents(): DiagnosticEvent[] {
           category: safeCategory(item.category),
           ...(cleanType ? { errorType: cleanType } : {}),
           ...(typeof item.errorMessage === 'string' && item.errorMessage.length
-            ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, MAX_MESSAGE_CHARS) }
+            ? { errorMessage: safeDiagnosticDetail(item.errorMessage).replace(/[^\x20-\x7E]/g, ' ').slice(0, MAX_MESSAGE_CHARS) }
             : {}),
           userMessage: friendlyErrorMessage(safeCategory(item.category)),
           ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
@@ -347,7 +348,7 @@ export function recordDiagnosticError(category: string, error: unknown, addition
       const extra = safeDiagnosticDetail(additionalDetails);
       const existingEvent = readEvents().find((event) => event.id === existingCapture.reference);
       if (existingEvent && extra && !(existingEvent.details || '').includes(extra)) {
-        const mergedDetails = [existingEvent.details, extra].filter(Boolean).join('\\n\\n').slice(0, MAX_DETAIL_CHARS);
+        const mergedDetails = [existingEvent.details, extra].filter(Boolean).join('\n\n').slice(0, MAX_DETAIL_CHARS);
         replacePersistedEvent({ ...existingEvent, details: mergedDetails });
       }
     }
