@@ -542,6 +542,15 @@ export function useGameDataManagement({
           return false;
         }
       }
+      if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+        setRestoreFailed(true);
+        recordDiagnosticError(
+          'storage_write_games',
+          new Error('A completed-game save became pending during reset preparation.'),
+          'Reset was stopped so the pending completed-game save can be recovered before data removal.',
+        );
+        return false;
+      }
 
       const resetPreservedKeys = new Set([
         'dugoutPulse.diagnostics.v1',
@@ -549,6 +558,7 @@ export function useGameDataManagement({
         'dugoutPulse.recoverySnapshot.previous.v1',
         'dugoutPulse.beforeRecovery.v1',
         'dugoutPulse.sqliteCutover.v1',
+        PENDING_COMPLETED_GAME_SAVE_KEY,
       ]);
       const beforeResetStorage: Record<string, string> = {};
       for (let index = 0; index < localStorage.length; index += 1) {
