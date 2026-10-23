@@ -184,6 +184,26 @@ export function useGameDataManagement({
       const backupFiles = backupRecord.logoFiles && typeof backupRecord.logoFiles === 'object' && !Array.isArray(backupRecord.logoFiles)
         ? backupRecord.logoFiles as Record<string, unknown>
         : {};
+      // Preserve even unreferenced files that happen to share an incoming filename.
+      for (const [fileName, bytes] of Object.entries(backupFiles)) {
+        if (typeof bytes !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(fileName) ||
+            fileName.includes('..') || beforeLogoFileNames.has(fileName)) continue;
+        try {
+          beforeLogoFiles[fileName] = await readLogoFileAsBase64(fileName);
+          beforeLogoFileNames.add(fileName);
+        } catch {
+          let exists = false;
+          try {
+            await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
+            exists = true;
+          } catch {
+            // A file that does not exist can safely be treated as newly imported.
+          }
+          if (exists) {
+            throw new Error('An existing custom logo could not be preserved before backup import. No backup data was changed.');
+          }
+        }
+      }
       const backupLibrary = Array.isArray(backupRecord.logoLibrary) ? backupRecord.logoLibrary : [];
       for (const entry of backupLibrary) {
         if (!entry || typeof entry !== 'object') continue;
