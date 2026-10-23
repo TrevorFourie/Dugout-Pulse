@@ -52,9 +52,9 @@ export function useGamePersistence({
         const expectedLiveGame = liveGame === null ? null : JSON.stringify(liveGame);
         const matchesPendingCompletedSave = (pendingGame: Game) =>
           games.some((game) => game.id === pendingGame.id && JSON.stringify(game) === JSON.stringify(pendingGame)) &&
-          liveGame?.id !== pendingGame.id &&
-          editingGameId !== pendingGame.id &&
-          reopenedGameId !== pendingGame.id;
+          (liveGame?.id !== pendingGame.id ||
+            editingGameId === pendingGame.id ||
+            reopenedGameId === pendingGame.id);
         const shouldAbortForNewerWrite = () => {
           const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
           if (pendingCompletedGame && !matchesPendingCompletedSave(pendingCompletedGame)) return true;
