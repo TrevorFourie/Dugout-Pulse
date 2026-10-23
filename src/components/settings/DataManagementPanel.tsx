@@ -132,7 +132,6 @@ const RecoveryJournalPanel: React.FC = () => {
                 allowClear={false}
                 disabled={busy || loading}
                 className="w-full"
-                buttonClassName="!rounded-lg !py-2 !text-xs !font-normal"
               />
             </label>
             {selected && (
