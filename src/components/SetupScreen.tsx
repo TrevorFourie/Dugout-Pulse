@@ -9,6 +9,7 @@ import { SetupSeasonStep } from './setup/SetupSeasonStep';
 import { SetupTournamentStep } from './setup/SetupTournamentStep';
 import { SetupTeamStep } from './setup/SetupTeamStep';
 import { currentYear } from './setupScreenConstants';
+import { reportFailure } from '../utils/userMessages';
 
 interface SetupScreenProps {
   onComplete?: () => void;
@@ -28,6 +29,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [importMessage, setImportMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [pendingBackupFile, setPendingBackupFile] = useState<File | null>(null);
   const [importWarning, setImportWarning] = useState<string | null>(null);
+  const [importFailureAlert, setImportFailureAlert] = useState<string | null>(null);
 
   // Form states in the exact requested order
   // 1. Player Name
@@ -130,9 +132,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        // importJsonData is async: it must be awaited, otherwise success/message are read from a pending Promise.
+      try {
+        const content = event.target?.result as string;
+        if (!content) throw new Error('The selected backup file was empty or unreadable.');
+        // importJsonData is async: await it so failures are handled here rather than becoming unhandled rejections.
         const result = await importJsonData(content);
         if (result.success) {
           setImportMessage({ text: result.message, isError: false });
@@ -149,12 +152,36 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           }
           if (onComplete) onComplete();
         } else {
-          setImportMessage({ text: result.message, isError: true });
+          setImportMessage(null);
+          setImportFailureAlert(result.message);
         }
+      } catch (error) {
+        setImportMessage(null);
+        setImportFailureAlert(reportFailure(
+          'backup_import',
+          error,
+          'Dugout Pulse could not complete the backup import. Review the diagnostic report before trying again.',
+        ));
       }
     };
-    reader.onerror = () => setImportMessage({ text: 'Could not read the selected backup file. No data was changed.', isError: true });
-    reader.readAsText(file);
+    reader.onerror = () => {
+      setImportMessage(null);
+      setImportFailureAlert(reportFailure(
+        'backup_import',
+        new Error('The selected backup file could not be read.'),
+        'Dugout Pulse could not read the selected backup file.',
+      ));
+    };
+    try {
+      reader.readAsText(file);
+    } catch (error) {
+      setImportMessage(null);
+      setImportFailureAlert(reportFailure(
+        'backup_import',
+        error,
+        'Dugout Pulse could not open the selected backup file.',
+      ));
+    }
     setPendingBackupFile(null);
   };
 
@@ -255,6 +282,17 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         file={pendingBackupFile}
         onCancel={() => setPendingBackupFile(null)}
         onConfirm={handleConfirmImport}
+      />
+      <ConfirmationModal
+        isOpen={importFailureAlert !== null}
+        title="Backup could not be imported"
+        message={importFailureAlert ?? ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="danger"
+        onCancel={() => setImportFailureAlert(null)}
+        onConfirm={() => setImportFailureAlert(null)}
       />
       <ConfirmationModal
         isOpen={importWarning !== null}
