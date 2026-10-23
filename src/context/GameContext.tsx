@@ -85,6 +85,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading,
     setResumePromptPending,
     setRestoreFailed,
+    setIsFirstTimeUser,
   });
 
   // Persistence writes are kept separate from the context's game and profile logic.
@@ -386,7 +387,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         completeFirstTimeSetup,
       }}
     >
-      {children}
+      {!isLoading ? children : null}
     </GameContext.Provider>
   );
 };
