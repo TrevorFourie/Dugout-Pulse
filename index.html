@@ -84,7 +84,7 @@
             category: 'app_startup',
             errorType: 'Error',
             errorMessage: messageText,
-            userMessage: "Dugout Pulse ran into a problem while starting. You can open the diagnostic report and share it if you need help. Please keep the app installed and avoid clearing its data while we look into this.",
+            userMessage: "Dugout Pulse ran into a problem while starting. Please restart the app to try again. If it still cannot start, share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.",
             frames: [],
             platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
             build: 'unknown'
@@ -148,18 +148,18 @@
             recovery_restore: "Dugout Pulse couldn't complete the restore. Please review the available recovery points and diagnostic report before trying again. Keep the app installed and avoid clearing its data for now.",
             recovery_checkpoint: "Dugout Pulse couldn't verify that recovery point. Please check whether another verified recovery point is available. Keep the app installed and avoid clearing its data while you review your options.",
             data_reset: "Dugout Pulse couldn't complete the data reset. Please check the recovery tools and diagnostic report before trying again, so you can review the available options first.",
-            window_error: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
-            unhandled_rejection: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
-            network_failure: "Dugout Pulse couldn't complete a network request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.",
+            window_error: "Dugout Pulse ran into an unexpected problem. Please restart the app to try again. If it happens again, share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.",
+            unhandled_rejection: "Dugout Pulse ran into an unexpected problem. Please restart the app to try again. If it happens again, share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.",
+            network_failure: "Dugout Pulse couldn't complete a request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.",
             module_load_failure: "One part of Dugout Pulse couldn't load. Other features may still be available. If something isn't working as expected, please share the diagnostic report so the issue can be investigated.",
             runtime_error: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
             native_failure: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated."
           };
-          message.textContent = latest && typeof latest.userMessage === 'string'
-            ? latest.userMessage
-            : (latest && friendlyMessages[latest.category]
-              ? friendlyMessages[latest.category]
-              : "Dugout Pulse couldn't complete that action. You can review the recovery tools for available options, and share the diagnostic report if you need help. Please keep the app installed and avoid clearing its data for now.");
+          message.textContent = latest && friendlyMessages[latest.category]
+            ? friendlyMessages[latest.category]
+            : (latest && typeof latest.userMessage === 'string'
+              ? latest.userMessage
+              : "Dugout Pulse couldn't complete that action. If it happens again, please share the diagnostic report so the problem can be investigated. Please keep the app installed and avoid clearing its data for now.");
           message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:' + (darkTheme ? '#FCA5A5' : '#B91C1C') + ';margin:0 0 12px;';
           // Technical types and source frames stay in the opt-in diagnostic report.
           errorKind.textContent = latest
