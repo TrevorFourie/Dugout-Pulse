@@ -13,6 +13,8 @@ import {
 import { BaseballBatIcon, BaseballBallIcon, BaseballGloveIcon } from './BaseballIcons';
 import { AppLogo } from './AppLogo';
 import { saveBase64File, shareText } from '../utils/saveFile';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface ShareRecapModalProps {
   game: Game;
@@ -29,6 +31,7 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [errorAlert, setErrorAlert] = useState<string | null>(null);
 
   const stats = calculateGameStats(game, inningsPerGame);
   const { batting, pitching, fielding } = stats;
@@ -94,22 +97,37 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
   };
 
   const handleCopyText = async () => {
-    const text = generateTextSummary();
-    const result = await shareText(`${teamName} ${opponentDisplay} - ${playerName}`, text);
-    if (result === 'shared') return;
-
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // Fallback
+      const text = generateTextSummary();
+      const result = await shareText(`${teamName} ${opponentDisplay} - ${playerName}`, text);
+      if (result === 'shared') return;
+
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      } catch (error) {
+        try {
+          recordDiagnosticError('browser_text_export', error, 'Copying the recap text to the clipboard failed.');
+        } catch {
+          // Keep the user-facing fallback available if diagnostics cannot be recorded.
+        }
+        setErrorAlert('Dugout Pulse could not copy the recap text. Please try again or use your device’s share option.');
+      }
+    } catch (error) {
+      try {
+        recordDiagnosticError('browser_text_export', error, 'Preparing or sharing the recap text failed.');
+      } catch {
+        // Keep the user-facing fallback available if diagnostics cannot be recorded.
+      }
+      setErrorAlert('Dugout Pulse could not prepare or share the recap text. Please try again.');
     }
   };
 
   // Generate and download High-Res Canvas Card
   const handleDownloadImage = async () => {
     setDownloading(true);
+    try {
     const canvas = document.createElement('canvas');
     const width = 1080;
     const height = 1350;
@@ -117,7 +135,12 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      setDownloading(false);
+      setErrorAlert('Dugout Pulse could not prepare the recap image. Please try again.');
+      try {
+        recordDiagnosticError('browser_binary_export', new Error('Canvas 2D context was unavailable.'), 'Preparing the recap image failed before rendering began.');
+      } catch {
+        // Keep the user-facing fallback available if diagnostics cannot be recorded.
+      }
       return;
     }
 
@@ -316,8 +339,17 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
     const filename = `baseball-recap-${playerName.toLowerCase().replace(/\s+/g, '-')}-${game.date}.png`;
     const base64 = canvas.toDataURL('image/png').split(',')[1];
     const ok = await saveBase64File(filename, base64, 'image/png');
-    setDownloading(false);
-    if (!ok) window.alert('Could not export the recap image. Please try again.');
+    if (!ok) setErrorAlert('Dugout Pulse could not export the recap image. Please try again.');
+    } catch (error) {
+      try {
+        recordDiagnosticError('browser_binary_export', error, 'Generating or exporting the recap image failed.');
+      } catch {
+        // Keep the user-facing fallback available if diagnostics cannot be recorded.
+      }
+      setErrorAlert('Dugout Pulse could not generate the recap image. Please try again. If the problem continues, share the diagnostic report.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -507,6 +539,17 @@ export const ShareRecapModal: React.FC<ShareRecapModalProps> = ({
           </div>
         </div>
       </div>
+      <ConfirmationModal
+        isOpen={errorAlert !== null}
+        title="Could not complete recap action"
+        message={errorAlert || ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="danger"
+        onCancel={() => setErrorAlert(null)}
+        onConfirm={() => setErrorAlert(null)}
+      />
     </div>
   );
 };
