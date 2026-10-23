@@ -41,6 +41,7 @@ const EXCLUDED_KEYS = new Set([
   'dugoutPulse.diagnostics.v1',
   // Transient write-ahead state must never be restored from an older checkpoint.
   'dugoutPulse.pendingLiveGameWrite.v1',
+  'dugoutPulse.pendingCompletedGameSave.v1',
   // Storage authority is system metadata and must not be rolled back with app data.
   'dugoutPulse.sqliteCutover.v1',
 ]);
@@ -568,6 +569,12 @@ export async function listVerifiedRecoveryCheckpoints(): Promise<RecoveryCheckpo
  * rolls back from the in-memory pre-restore state and leaves both journal files intact.
  */
 export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ success: boolean; message: string }> {
+  if (localStorage.getItem('dugoutPulse.pendingCompletedGameSave.v1') !== null) {
+    return {
+      success: false,
+      message: 'A completed-game save is awaiting recovery. Reload the app to recover that game before restoring an older checkpoint.',
+    };
+  }
   try {
     const index = await readIndex();
     const entry = index.checkpoints.find((candidate) => candidate.id === id);
