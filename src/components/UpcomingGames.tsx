@@ -10,7 +10,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoImage } from './TeamLogoImage';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { saveSQLiteUpcomingGames } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, saveSQLiteUpcomingGames } from '../storage/sqliteRepository';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -143,7 +143,18 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
         try {
           await saveSQLiteUpcomingGames(next);
           if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-            setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No scheduled-game changes were saved.');
+            let sqliteIsAuthoritative = false;
+            try {
+              sqliteIsAuthoritative = await isLegacyStorageImportComplete();
+            } catch {
+              // Do not claim SQLite success if its authority cannot be confirmed.
+            }
+            if (sqliteIsAuthoritative) {
+              setGames(next);
+              setFailureAlert('The venue change was saved to SQLite, but the scheduled-game compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
+            } else {
+              setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No change was confirmed; review the diagnostic report before retrying.');
+            }
             return;
           }
           setGames(next);
@@ -191,7 +202,20 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       try {
         await saveSQLiteUpcomingGames(next);
         if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-          setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No scheduled-game changes were saved.');
+          // Once cutover is complete, SQLite has already committed the primary write.
+          // Keep the UI aligned with that committed state and report the mirror failure accurately.
+          let sqliteIsAuthoritative = false;
+          try {
+            sqliteIsAuthoritative = await isLegacyStorageImportComplete();
+          } catch {
+            // Do not claim SQLite success if its authority cannot be confirmed.
+          }
+          if (sqliteIsAuthoritative) {
+            setGames(next);
+            setFailureAlert('The scheduled-game change was saved to SQLite, but its compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
+          } else {
+            setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No change was confirmed; review the diagnostic report before retrying.');
+          }
           return;
         }
         setGames(next);
