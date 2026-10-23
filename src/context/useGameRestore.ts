@@ -82,8 +82,15 @@ export function useGameRestore({
         if (!(await createVerifiedRecoveryCheckpoint('Before reconciling a pending live-game write to SQLite'))) {
           throw new Error('A recovery checkpoint could not be verified before reconciling the pending live-game write.');
         }
-        await saveLiveSQLiteState({ ...state, liveGame: pendingGame });
-        const reconciled = { ...state, liveGame: pendingGame };
+        const savedGameWithSameId = state.games.some((game) => game.id === pendingGame.id);
+        const reconciled: SQLiteLiveState = {
+          ...state,
+          liveGame: pendingGame,
+          ...(savedGameWithSameId && !state.editingGameId && !state.reopenedGameId
+            ? { editingGameId: pendingGame.id }
+            : {}),
+        };
+        await saveLiveSQLiteState(reconciled);
         clearPendingLiveGame();
         return reconciled;
       };
@@ -119,7 +126,14 @@ export function useGameRestore({
         // closes before the completed-save marker is cleared, startup can safely
         // repeat this idempotent reconciliation.
         const pendingLiveGame = readPendingLiveGameFromStorage();
-        if (pendingLiveGame?.id === completedGame.id) clearPendingLiveGame();
+        if (pendingLiveGame?.id === completedGame.id) {
+          const comparable = (game: Game) => JSON.stringify(
+            Object.fromEntries(Object.entries(game).filter(([key]) => key !== 'finalResult' && key !== 'innings')),
+          );
+          // If the pending live game contains later edits, preserve it for the next
+          // reconciliation pass. Only the pre-save scoring snapshot is superseded.
+          if (comparable(pendingLiveGame) === comparable(completedGame)) clearPendingLiveGame();
+        }
         clearPendingCompletedGameSave();
         return reconciled;
       };
