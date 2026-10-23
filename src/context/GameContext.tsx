@@ -246,7 +246,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     movePlayTo,
     insertPlayAfter,
     editPlay,
-  } = useGamePlayActions({ liveGame, setLiveGame, settings, triggerHaptic });
+  } = useGamePlayActions({ liveGame, setLiveGame, settings, triggerHaptic, storageWritesBlocked: restoreFailed, onStorageProtectionFailure: handleStorageProtectionFailure });
 
   const {
     nextInning,
