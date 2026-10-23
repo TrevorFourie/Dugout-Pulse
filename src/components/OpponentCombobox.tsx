@@ -4,6 +4,8 @@ import type { OppositionTeam } from '../context/GameContext';
 import teamIcon from '../assets/TeamIcon.png';
 import { THEMED_DROPDOWN_CONTROL_CLASS } from './ThemedDropdown';
 import { TeamLogoImage } from './TeamLogoImage';
+import { ConfirmationModal } from './ConfirmationModal';
+import { reportFailure } from '../utils/userMessages';
 
 interface OpponentComboboxProps {
   value: string;
@@ -62,7 +64,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
   const [query, setQuery] = useState(value);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
-  const [addError, setAddError] = useState('');
+  const [addFailureAlert, setAddFailureAlert] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const addTeamInputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +116,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
   }, [oppositionTeams, query, isSearching]);
 
   const handleSelect = (team: OppositionTeam) => {
-    setAddError('');
+    setAddFailureAlert(null);
     onChange(team.name);
     setQuery(team.name);
     setIsOpen(false);
@@ -123,7 +125,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
 
   const openAddModal = () => {
     setNewTeamName(query.trim());
-    setAddError('');
+    setAddFailureAlert(null);
     setIsAddModalOpen(true);
   };
 
@@ -146,7 +148,11 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
     const name = newTeamName.trim();
     if (!name || modalMatches.length > 0) return;
     if (!onAddTeam(name)) {
-      setAddError('Could not add this team. Please try again.');
+      setAddFailureAlert(reportFailure(
+        'storage_write',
+        new Error('The new opposition team could not be saved.'),
+        'Dugout Pulse could not save the new opposition team.',
+      ));
       return;
     }
 
@@ -154,7 +160,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
     // the dropdown open so it is immediately available in the normal selection list.
     onChange(name);
     setQuery(name);
-    setAddError('');
+    setAddFailureAlert(null);
     setIsAddModalOpen(false);
     setIsOpen(true);
   };
@@ -187,7 +193,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
             }}
             onChange={(event) => {
               setQuery(event.target.value);
-              setAddError('');
+              setAddFailureAlert(null);
               setIsOpen(true);
             }}
             onBlur={(event) => {
@@ -244,7 +250,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
             className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-[70] w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-[#354050] dark:bg-[#252D38]"
           >
             <div className="max-h-60 overflow-y-auto overscroll-contain p-1">
-              {addError && <p role="alert" className="px-3 py-2 text-[11px] text-red-600 dark:text-[#D4626D]">{addError}</p>}
+              
 
               <button
                 type="button"
@@ -294,6 +300,18 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
         )}
       </div>
 
+      <ConfirmationModal
+        isOpen={addFailureAlert !== null}
+        title="Could not add opposition team"
+        message={addFailureAlert ?? ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="danger"
+        onCancel={() => setAddFailureAlert(null)}
+        onConfirm={() => setAddFailureAlert(null)}
+      />
+
       {isAddModalOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
@@ -301,7 +319,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               setIsAddModalOpen(false);
-              setAddError('');
+              setAddFailureAlert(null);
             }
           }}
         >
@@ -318,7 +336,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => { setIsAddModalOpen(false); setAddError(''); }}
+                onClick={() => { setIsAddModalOpen(false); setAddFailureAlert(null); }}
                 aria-label="Close add opposition team dialog"
                 className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"
               >
@@ -332,7 +350,7 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
               id="new-opposition-team-name"
               type="text"
               value={newTeamName}
-              onChange={(event) => { setNewTeamName(event.target.value); setAddError(''); }}
+              onChange={(event) => { setNewTeamName(event.target.value); setAddFailureAlert(null); }}
               placeholder="Start typing a team name"
               autoComplete="off"
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-[#18212D] outline-none transition-colors placeholder:text-slate-400 focus:border-[#00BFA5] focus:ring-2 focus:ring-[#00BFA5]/25 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:placeholder:text-[#6B7280] dark:focus:border-[#00D7BC] dark:focus:ring-[#00D7BC]/25"
@@ -368,12 +386,12 @@ export const OpponentCombobox: React.FC<OpponentComboboxProps> = ({
               )}
             </div>
 
-            {addError && <p role="alert" className="mt-3 text-xs text-red-600 dark:text-[#D4626D]">{addError}</p>}
+            
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => { setIsAddModalOpen(false); setAddError(''); }}
+                onClick={() => { setIsAddModalOpen(false); setAddFailureAlert(null); }}
                 className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#2D3643]"
               >
                 Cancel
