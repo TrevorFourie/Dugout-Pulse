@@ -81,3 +81,84 @@ Never imply a stronger level than the evidence supports. Be honest about failure
 ## 7. AI instruction files and packaging
 
 Every coding agent must read and follow this `AGENTS.md`. `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are development-time guidance only and must never be packaged into app assets.
+
+
+## 8. Protect unrelated existing functionality — mandatory non-regression rule
+
+- A request authorizes only the change needed to satisfy that request and its necessary dependencies. It is not permission to change adjacent features, workflows, styling, data formats, defaults, navigation, or behavior.
+- Before editing, identify the affected surface and explicitly list nearby behaviors that must remain unchanged. Inspect their implementation and dependencies.
+- Do not remove, replace, simplify, rename, reorder, or silently alter existing behavior unrelated to the request—even if another approach seems cleaner. Do not do opportunistic cleanup or refactoring in the same change.
+- If a necessary change could affect unrelated behavior, trace the impact, add/perform appropriate checks where possible, and preserve compatibility. If safe isolation cannot be established, stop and explain the specific risk before proceeding.
+- Review the complete diff for unrelated changes before committing. Every changed line must have a clear relationship to the request, a required dependency, or a documented fix to a directly discovered defect. Revert incidental changes.
+- Check adjacent workflows and consumers for regressions. Passing a narrow check of the edited line does not establish that unaffected behavior is preserved.
+- Treat existing user data and established user workflows as protected. Never trade their safety or behavior for convenience or visual simplification.
+
+## 9. Dugout Pulse core principle and priorities
+
+Dugout Pulse is an **offline-first baseball scoring and game-record application**. Its primary responsibility is to let users score and manage games reliably on their device, preserve the integrity and availability of their records, and make important state and failures understandable. UI polish and convenience are secondary to correct scoring, dependable local data, and honest status reporting.
+
+Apply these priorities in order:
+1. **Protect user data and scoring integrity.** Do not lose, silently hide, corrupt, duplicate, or misassociate games, player/team records, profiles, settings, schedules, logos, or historical scoring. Treat apparent data disappearance as a serious defect even when the underlying storage keys still exist.
+2. **Preserve reliable offline operation.** Core scoring, saved records, settings, and supported backup/restore workflows must not unexpectedly depend on internet or third-party service availability.
+3. **Be accurate and honest about state.** A handoff, attempted write, queued action, or started operation is not proof of completion. Confirm persisted/read-back state where the existing storage design supports it. Report uncertainty and failures clearly; never manufacture success.
+4. **Keep scoring and game records internally consistent.** Understand downstream effects before changing scoring, inning transitions, player/team identity, schedules, stats, imports/exports, or data migrations. Preserve historical data and expected calculations.
+5. **Make failures recoverable and diagnosable.** Prefer safe failure behavior, clear actionable messages, and evidence that helps locate the real defect without exposing unnecessary personal or sensitive data.
+6. **Only then optimize convenience and appearance**, while respecting established site styles and existing behavior.
+
+A change that improves appearance but risks data integrity, scoring correctness, offline availability, or unrelated workflows is not acceptable.
+
+## 10. Diagnostic accuracy and actionable issue detection
+
+Diagnostics are part of the product's reliability and recovery mechanism, not decorative logging. Accuracy matters more than making the dashboard look healthy.
+
+- Trace the real failure source and record the correct event/category, error type, message, and relevant safe context. Do not report a generic startup/import failure when the underlying error is a syntax error in another module. Do not log a symptom as if it were the root cause.
+- Do not fabricate, infer without evidence, misclassify, suppress, duplicate, or silently downgrade errors and warnings. Preserve original causes and useful stack/context when safe and available.
+- Distinguish clearly between an observed failure, a suspected cause, a recovery action, and an unverified possibility. User-facing diagnostics must not state a hypothesis as a confirmed cause.
+- Test both detection and reporting paths where possible: the defect must be detected, classified correctly, associated with the relevant current build/session where required, and made available to the established diagnostics/export mechanism.
+- Avoid stale errors being presented as current-build errors, and avoid false positives that imply the app is broken when it is not. Respect the project's current-build-only diagnostic requirements where applicable.
+- Keep diagnostics privacy-conscious and offline-compatible. Do not expose user names, account identifiers, game/player/team names, full file paths, network addresses, or full user-agent strings in diagnostic exports unless the user has explicitly approved a justified requirement consistent with the app's privacy rules.
+- Error handling must not conceal a failed operation behind a success toast or success modal. Ensure diagnostic-write/export failures themselves are handled honestly.
+- When changing diagnostics, inspect the producer, storage, filtering, display, export, and error-page consumers. Validate end-to-end consistency rather than checking only the visible message.
+
+## 11. Detect issues and report findings instead of ignoring them
+
+- During relevant code inspection, actively look for directly related defects, broken imports/exports, undefined names, stale or duplicate state, invalid lifecycle handling, incorrect error classification, data compatibility risks, unsafe writes, missing failure paths, accessibility regressions, and obvious performance problems.
+- Follow evidence: reproduce or trace a suspected issue before describing it as confirmed. Separate confirmed defects from risks, hypotheses, and optional improvements.
+- Fix a newly discovered issue only when it is directly within the requested scope or is a necessary prerequisite for a safe implementation. Do not quietly expand the task to fix unrelated findings.
+- If an unrelated but material issue is discovered, do not change it without authorization. Report it separately with evidence, impact, severity/priority, and a recommended next action.
+- Never ignore a directly relevant issue just because it is inconvenient or makes the task larger. Explain the blocker and what is required to complete the requested work safely.
+- Do not claim an audit was performed unless the stated scope was actually inspected. Name the areas checked and the areas not checked.
+
+## 12. Scope discipline: no doing your own thing
+
+- The user's explicit request, constraints, and established project rules define the scope. Do not substitute your own preferred design, interaction, wording, architecture, refactor, or success criteria.
+- Do not invent extra user steps, confirmation dialogs, banners, settings, persistence behavior, data migrations, dependencies, or UI components unless they are requested or demonstrably required. If an extra step seems necessary, explain why and obtain clarification before adding it when it changes user experience or scope.
+- Do not reinterpret a requirement to make implementation easier. For example, do not replace a required toast with an inline banner or blocking modal; do not replace a shared component with a custom lookalike; do not replace a verified data flow with a newly invented flow.
+- Do not declare the task complete based on a partial interpretation. Translate the user's request and relevant prior agreements into acceptance criteria and check each one.
+- If you believe an additional change or improvement would help, separate it from the requested implementation and recommend it rather than silently implementing it.
+
+## 13. Performance and improvement recommendations
+
+- While inspecting code for the requested change, note concrete performance, maintainability, reliability, accessibility, and UX improvements that are clearly supported by the code and relevant to the affected area.
+- Recommendations must be evidence-based and specific: identify the observed pattern/problem, its user or technical impact, the proposed improvement, and any trade-offs or regression risks. Avoid generic advice and speculative “optimizations.”
+- Do not implement optional improvements outside the request without explicit authorization. Required fixes to complete the requested task safely are different from optional enhancements; explain the distinction.
+- Prioritize data integrity, scoring correctness, diagnostic accuracy, offline reliability, and regressions above micro-optimizations.
+- Where useful, include a short “Additional findings / recommendations” section in the completion report. Label each item as confirmed issue, potential risk, or optional improvement. If no material evidence-based recommendation was found in the inspected scope, say so rather than inventing one.
+- Do not perform risky optimizations without measurement or a clear correctness argument. Preserve behavior first; benchmark or validate changes where possible.
+
+## 14. Expanded pre-commit acceptance checklist
+
+Before committing any code change, explicitly check:
+- [ ] The requested behavior is implemented, and all user-stated requirements and prior applicable agreements are represented.
+- [ ] Existing code patterns, architecture, framework versions, and shared components were followed.
+- [ ] Established site styles, themes, interaction rules, and accessibility patterns are respected.
+- [ ] Unrelated existing functionality and data formats are unchanged; the diff contains no opportunistic work.
+- [ ] Core offline operation, scoring correctness, saved data, backup/restore, and historical records are not put at risk.
+- [ ] Success, failure, cancellation, warning, and recovery paths behave honestly and consistently.
+- [ ] Diagnostic events and messages remain accurate, correctly classified, privacy-conscious, and useful where relevant.
+- [ ] Relevant issues were actively investigated; confirmed findings were handled within scope and out-of-scope findings reported separately.
+- [ ] Concrete performance/improvement recommendations were considered without silently expanding scope.
+- [ ] The actual committed files were fetched back and checked.
+- [ ] Unrun checks—including builds, runtime behavior, and regression tests—are clearly marked unverified, not passed.
+
+If any applicable item fails, do not claim completion. If any item cannot be checked, disclose that limitation explicitly.
