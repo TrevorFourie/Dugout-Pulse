@@ -237,6 +237,7 @@ export function withSQLiteTransaction<T>(
 
 /** Closes the connection cleanly; web data is saved before the connection closes. */
 export async function closeSQLiteDatabase(): Promise<void> {
+  await transactionQueue;
   if (!sqliteConnection || !databaseConnection) return;
 
   if (isWebPlatform()) {
