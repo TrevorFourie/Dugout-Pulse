@@ -871,3 +871,50 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
   };
 }
 
+
+
+/** Updates scheduled games transactionally after cutover; before cutover localStorage remains authoritative. */
+export async function saveSQLiteUpcomingGames(
+  games: (Record<string, unknown> & { id: string })[],
+): Promise<void> {
+  if (!Array.isArray(games) || !games.every(isUpcomingGame)) {
+    throw new Error('SQLite save stopped because scheduled games failed validation.');
+  }
+  await withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value !== 'complete') return;
+    await database.run('DELETE FROM upcoming_games', [], false);
+    const expected = new Map<string, string>();
+    for (const game of games) {
+      const value = serializeJson(game);
+      await database.run('INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)', [game.id, value], false);
+      expected.set(game.id, value);
+    }
+    await verifyRows(database, 'upcoming_games', 'id', 'value_json', expected);
+  });
+}
+
+/** Updates logo metadata transactionally after cutover; image bytes remain in Capacitor Filesystem. */
+export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<void> {
+  if (!Array.isArray(library) || !library.every(isLogoItem)) {
+    throw new Error('SQLite save stopped because the logo library failed validation.');
+  }
+  await withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value !== 'complete') return;
+    await database.run('DELETE FROM logo_library', [], false);
+    const expected = new Map<string, string>();
+    for (const logo of library) {
+      const value = serializeJson(logo);
+      await database.run('INSERT INTO logo_library (id, value_json) VALUES (?, ?)', [logo.id, value], false);
+      expected.set(logo.id, value);
+    }
+    await verifyRows(database, 'logo_library', 'id', 'value_json', expected);
+  });
+}
