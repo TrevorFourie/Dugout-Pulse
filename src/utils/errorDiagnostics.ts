@@ -507,11 +507,20 @@ export function installGlobalDiagnosticHandlers(): void {
   };
 
   window.addEventListener('error', (event) => {
-    // Ignore resource-loading events; index.html owns startup/module-load failures.
-    if (event.target && event.target !== window) return;
+    // Resource errors do not bubble, so listen in capture phase. Record failed
+    // resources without putting a disruptive modal over recoverable image failures.
+    if (event.target && event.target !== window) {
+      const target = event.target as Element;
+      const tagName = typeof target.tagName === 'string' ? target.tagName.toUpperCase() : 'RESOURCE';
+      // index.html already owns failed script/module startup presentation.
+      if (tagName !== 'SCRIPT') {
+        recordDiagnosticError('runtime_error', new Error('An app resource failed to load (' + tagName + ').'));
+      }
+      return;
+    }
     const reference = recordDiagnosticError('window_error', event.error ?? new Error(event.message || 'WindowError'));
     showDiagnosticScreen(reference);
-  });
+  }, true);
   window.addEventListener('unhandledrejection', (event) => {
     const reference = recordDiagnosticError('unhandled_rejection', event.reason);
     showDiagnosticScreen(reference);
