@@ -125,7 +125,7 @@ function isOppositionTeam(value: unknown): value is OppositionTeam {
 
 function isUpcomingGame(value: unknown): value is Record<string, unknown> & { id: string } {
   return isIdentifiedRecord(value) && typeof value.opponent === 'string' &&
-    typeof value.date === 'string' && typeof value.isHome === 'boolean';
+    typeof value.date === 'string' && (value.isHome === undefined || typeof value.isHome === 'boolean');
 }
 
 function isLogoItem(value: unknown): value is TeamLogoItem {
