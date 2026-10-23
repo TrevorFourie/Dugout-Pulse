@@ -72,6 +72,7 @@ export function useGameDataManagement({
   // Full backup import. Version 3+ backups embed the logo images and carry an integrity check;
   // older backups only hold logo references, which are resolved against images still on this device.
   const importJsonData = useCallback(async (jsonStr: string) => {
+    let recoveryCheckpointCreated = false;
     try {
       const parsedData = JSON.parse(jsonStr);
       // Validate before anything is changed: a damaged, truncated or unrelated file is rejected outright.
@@ -80,6 +81,7 @@ export function useGameDataManagement({
       if (!(await createVerifiedRecoveryCheckpoint('Before importing a JSON backup'))) {
         return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
+      recoveryCheckpointCreated = true;
       // Restore logo images + library first so logo references in games/profiles resolve below.
       const restoredLogoCount = await restoreLogosFromBackup(parsedData as Record<string, unknown>);
       const localLogos = new Map<string, string>();
@@ -98,6 +100,29 @@ export function useGameDataManagement({
       const restored = restoreLocalLogoReferences(parsedData, localLogos, { keepInlineImages: check.version >= 3 });
       const data = restored.data as typeof parsedData;
 
+      // Complete all direct local-storage writes before publishing imported state to React.
+      // If a write fails, the current in-memory game/profile state remains intact.
+      if (data && Array.isArray(data.upcomingGames)) {
+        if (!protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
+          throw new Error('Could not protect storage before importing upcoming games');
+        }
+      }
+      if (data && Array.isArray(data.oppositionTeams)) {
+        if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
+          throw new Error('Could not protect storage before importing opposition teams');
+        }
+      }
+
+      const extras = (data && typeof data === 'object' ? (data as { extras?: Record<string, unknown> }).extras : undefined);
+      if (extras && typeof extras === 'object' &&
+          extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
+        // A failed setup-flag write must stop the import before the restored state is published.
+        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
+          throw new Error('Could not protect storage before saving setup completion');
+        }
+      }
+
+      // Publish the imported state only after the direct storage writes above have succeeded.
       if (data && Array.isArray(data.games)) {
         setGames(sortGames(data.games, 'oldestFirst'));
       }
@@ -107,19 +132,8 @@ export function useGameDataManagement({
       if (data && data.settings) {
         setSettings((prev) => ({ ...prev, ...data.settings }));
       }
-      if (data && Array.isArray(data.upcomingGames)) {
-        if (!protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
-          throw new Error('Could not protect storage before importing upcoming games');
-        }
-      }
-      if (data && Array.isArray(data.oppositionTeams)) {
-        setOppositionTeams(data.oppositionTeams);
-        if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
-          throw new Error('Could not protect storage before importing opposition teams');
-        }
-      }
+      if (data && Array.isArray(data.oppositionTeams)) setOppositionTeams(data.oppositionTeams);
 
-      const extras = (data && typeof data === 'object' ? (data as { extras?: Record<string, unknown> }).extras : undefined);
       if (extras && typeof extras === 'object') {
         // Saved lists first (these also un-hide), then the hidden lists so they win.
         asStringList(extras.savedTournaments).forEach(saveTournament);
@@ -137,9 +151,8 @@ export function useGameDataManagement({
         if (Array.isArray(extras.hiddenTournaments)) setHiddenTournaments(asStringList(extras.hiddenTournaments));
         if (Array.isArray(extras.hiddenAgeGroups)) setHiddenAgeGroups(asStringList(extras.hiddenAgeGroups));
         if (Array.isArray(extras.hiddenSeasons)) setHiddenSeasons(asStringList(extras.hiddenSeasons));
-        // After a wipe the first-run setup screen would otherwise overwrite the restored profile.
         if (extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
-          if (protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) setIsFirstTimeUser(false);
+          setIsFirstTimeUser(false);
         }
       }
 
@@ -156,17 +169,18 @@ export function useGameDataManagement({
       }
       return { success: true, message: `Season data successfully restored!${logoNote}${unverifiedNote}` };
     } catch (err: unknown) {
-      // True error -> diagnostic report. The user gets plain language and a reference.
+      // If any import mutation may have started, pause automatic persistence. The
+      // verified pre-import checkpoint remains available for explicit recovery.
+      if (recoveryCheckpointCreated) setRestoreFailed(true);
       const unreadable = err instanceof SyntaxError;
+      const userMessage = recoveryCheckpointCreated
+        ? 'The backup import did not complete. Automatic saving has been paused to protect your current state. Review the recovery tools and diagnostic report before trying again.'
+        : unreadable
+          ? 'The selected file could not be read as a valid Dugout Pulse backup. Choose a backup exported from this app.'
+          : 'Dugout Pulse could not import this backup. Review the diagnostic report before trying again.';
       return {
         success: false,
-        message: reportFailure(
-          'backup_import',
-          err,
-          unreadable
-            ? 'This file could not be read as a Dugout Pulse backup. Please choose a backup file that was exported from this app. Nothing was changed.'
-            : 'We could not finish restoring from this backup. Your previous data was kept as a recovery point.',
-        ),
+        message: reportFailure('backup_import', err, userMessage),
       };
     }
   }, []);
