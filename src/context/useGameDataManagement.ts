@@ -7,7 +7,7 @@ import { readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
-import { protectedStorageRemoveItem, protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
+import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
@@ -123,6 +123,13 @@ export function useGameDataManagement({
     let beforeLocalStorage: Record<string, string> | null = null;
     const beforeLogoFiles: Record<string, string> = {};
     let logoRestoreStarted = false;
+    const preservedStorageKeys = new Set([
+      'dugoutPulse.diagnostics.v1',
+      'dugoutPulse.recoverySnapshot.v1',
+      'dugoutPulse.recoverySnapshot.previous.v1',
+      'dugoutPulse.beforeRecovery.v1',
+      'dugoutPulse.sqliteCutover.v1',
+    ]);
     try {
       const parsedData = JSON.parse(jsonStr);
       // Validate before anything is changed: a damaged, truncated or unrelated file is rejected outright.
@@ -132,13 +139,6 @@ export function useGameDataManagement({
         return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
       recoveryCheckpointCreated = true;
-      const preservedStorageKeys = new Set([
-        'dugoutPulse.diagnostics.v1',
-        'dugoutPulse.recoverySnapshot.v1',
-        'dugoutPulse.recoverySnapshot.previous.v1',
-        'dugoutPulse.beforeRecovery.v1',
-        'dugoutPulse.sqliteCutover.v1',
-      ]);
       const capturedValues: Record<string, string> = {};
       for (let index = 0; index < localStorage.length; index += 1) {
         const key = localStorage.key(index);
