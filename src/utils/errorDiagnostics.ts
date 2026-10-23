@@ -36,7 +36,7 @@ export function friendlyErrorMessage(category: string): string {
     case 'app_startup':
       return "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.";
     case 'react_render':
-      return "Dugout Pulse encountered a screen error. This does not by itself mean your saved data was deleted. Restart the app, and share the diagnostic report if the problem returns. Avoid clearing app data.";
+      return "Dugout Pulse encountered a screen error. Stop making changes until you have checked the recovery tools. Export the diagnostic report if the problem persists. Do not clear app data or reinstall the app.";
     case 'storage_load':
     case 'storage_read':
     case 'data_corruption':
