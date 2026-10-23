@@ -18,7 +18,7 @@ function readStoredArray(key: string): unknown[] {
     recordDiagnosticError('storage_read', error, 'A saved list needed for backup could not be read. The backup was stopped rather than omitting saved data.');
     throw error;
   }
-  if (!value) return [];
+  if (value === null) return [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
