@@ -1,5 +1,6 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
 function isMissingRecoveryFile(error: unknown): boolean {
   const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
   const message = error instanceof Error ? error.message : String(error ?? '');
@@ -38,6 +39,8 @@ const EXCLUDED_KEYS = new Set([
   'dugoutPulse.recoverySnapshot.previous.v1',
   'dugoutPulse.beforeRecovery.v1',
   'dugoutPulse.diagnostics.v1',
+  // Storage authority is system metadata and must not be rolled back with app data.
+  'dugoutPulse.sqliteCutover.v1',
 ]);
 
 type Checkpoint = {
@@ -569,6 +572,24 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
       return { success: false, message: explainFailure('That recovery point looks damaged, so it was not used. Nothing was changed. You can try a different recovery point.', ref) };
     }
 
+    let sqliteCutoverComplete = false;
+    let beforeSQLiteState: SQLiteLiveState | null = null;
+    try {
+      sqliteCutoverComplete = await isLegacyStorageImportComplete();
+      if (sqliteCutoverComplete) beforeSQLiteState = await readLiveSQLiteState();
+      const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+      if ((marker === 'complete' || marker === 'pending') && !sqliteCutoverComplete) {
+        throw new Error('The local cutover marker and SQLite database disagree.');
+      }
+    } catch (error) {
+      const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+      if (marker === 'complete' || marker === 'pending') {
+        const ref = recordDiagnosticError('recovery_restore', error, 'Recovery was stopped because the active SQLite store could not be verified.');
+        return { success: false, message: explainFailure('The app could not verify its active saved-data store, so this recovery point was not applied. Your current data and recovery points were left unchanged.', ref) };
+      }
+      // Before cutover, localStorage remains authoritative.
+    }
+
     // Protect the user-selected source checkpoint from pruning while the pre-recovery
     // checkpoint is being written. Keep it pinned so rollback remains possible.
     if (!(await setRecoveryCheckpointPinned(id, true))) {
@@ -610,6 +631,11 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
       }
       if (!validateRecoveryValues(after)) throw new Error('Restored values failed post-write validation.');
       await verifyLogoFilesForValues(after, payload.logoFiles || {});
+      if (sqliteCutoverComplete) {
+        // Keep SQLite and the restored compatibility mirror in sync before claiming
+        // recovery succeeded. The original legacy_values provenance is not changed.
+        await saveLiveSQLiteStateFromCurrentLocalStorage();
+      }
       return { success: true, message: 'Recovery completed and verified, including the restored custom logo files. The app will reload to apply the restored data.' };
     } catch (restoreError) {
       // Roll back all live keys and logo files, then verify the rollback rather than
@@ -637,6 +663,9 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
           throw new Error('Pre-restore values failed read-back verification during rollback.');
         }
         await verifyLogoFilesForValues(rolledBack, beforeLogoFiles);
+        if (sqliteCutoverComplete && beforeSQLiteState) {
+          await saveLiveSQLiteState(beforeSQLiteState);
+        }
         rollbackVerified = true;
       } catch (rollbackError) {
         console.error('Recovery rollback failed verification; pre-restore journal checkpoint is retained.', rollbackError);
