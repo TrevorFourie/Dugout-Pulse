@@ -50,9 +50,15 @@ export const DiagnosticsPanel: React.FC = () => {
             <p className="text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
               {currentError.errorType || 'Error'} · {currentError.category} · build {currentError.build}
             </p>
-            <p className="text-xs leading-relaxed text-red-700 dark:text-red-300 break-words">
-              {currentError.errorMessage || 'No error message was captured.'}
+            <p className="text-xs leading-relaxed text-slate-700 dark:text-[#D1D5DB] break-words">
+              {currentError.userMessage || 'Dugout Pulse encountered an unexpected problem. Review the diagnostic report and recovery tools before clearing app data.'}
             </p>
+            {currentError.errorMessage ? (
+              <details className="pt-1">
+                <summary className="cursor-pointer text-[10px] font-semibold text-red-700 dark:text-red-300">Technical error details</summary>
+                <p className="pt-1 text-[10px] leading-relaxed text-red-700 dark:text-red-300 break-words">{currentError.errorMessage}</p>
+              </details>
+            ) : null}
             <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.time}</p>
             {currentError.frames?.length ? (
               <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.frames.join(' · ')}</p>
