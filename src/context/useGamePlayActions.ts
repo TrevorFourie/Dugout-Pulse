@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, DefensivePosition, HitLocation, PitcherHand, Play, PlayCode, PlayMode, PlayScoringContext, RunnerOutReason } from '../types/baseball';
 import type { PlaySeed } from '../utils/pitchingFlow';
@@ -26,9 +26,14 @@ export function useGamePlayActions({
   storageWritesBlocked,
   onStorageProtectionFailure,
 }: GamePlayActionsOptions) {
+  // Only the latest scoring write may clear the journal or pause further scoring.
+  // An older queued write can fail while a newer full snapshot is already recoverable.
+  const scoringWriteGeneration = useRef(0);
+
   const commitLiveGame = useCallback((nextGame: Game): boolean => {
     if (storageWritesBlocked) return false;
     const serialized = JSON.stringify(nextGame);
+    const writeGeneration = ++scoringWriteGeneration.current;
     // This small write-ahead marker lets startup distinguish a live-game mirror that
     // may be newer than SQLite without duplicating a potentially large game payload.
     try {
@@ -55,7 +60,11 @@ export function useGamePlayActions({
       // SQLite's shared transaction queue orders this with whole-context snapshots.
       // Before cutover the existing localStorage-first importer path remains intact.
       void saveSQLiteLiveGame(nextGame).then((persisted) => {
-        if (!persisted || localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized) return;
+        if (
+          !persisted ||
+          writeGeneration !== scoringWriteGeneration.current ||
+          localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized
+        ) return;
         if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
           localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
           if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
@@ -63,16 +72,25 @@ export function useGamePlayActions({
           }
         }
       }).catch((error) => {
+        // Always record the failed transaction. Only pause scoring when the failed
+        // transaction still represents the latest journaled game; a later queued
+        // write owns recovery for any superseded snapshot and will report its own failure.
+        const failedWriteIsCurrent =
+          writeGeneration === scoringWriteGeneration.current &&
+          localStorage.getItem(STORAGE_KEYS.LIVE_GAME) === serialized &&
+          localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
         try {
           recordDiagnosticError(
             'storage_write_games',
             error,
-            'A scoring change could not be confirmed in SQLite. The pending journal was retained for startup recovery and further scoring was paused.',
+            failedWriteIsCurrent
+              ? 'The latest scoring change could not be confirmed in SQLite. Its pending journal was retained for startup recovery and further scoring was paused.'
+              : 'An older scoring snapshot could not be confirmed in SQLite; a newer journaled state remains responsible for persistence and recovery.',
           );
         } catch {
-          // Keep the storage write blocked even if diagnostic recording fails.
+          // Preserve the safe write outcome even if diagnostic recording fails.
         }
-        onStorageProtectionFailure();
+        if (failedWriteIsCurrent) onStorageProtectionFailure();
       });
       return true;
     } catch (error) {
