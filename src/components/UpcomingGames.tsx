@@ -34,24 +34,45 @@ interface OppositionTeam {
   logo?: string;
 }
 
+const isScheduledGame = (value: unknown): value is ScheduledGame => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const game = value as Record<string, unknown>;
+  const optionalStrings = ['playerTeamId', 'playerTeamName', 'gameType', 'ageGroup', 'time', 'venue', 'notes'];
+  return typeof game.id === 'string' && game.id.length > 0 &&
+    typeof game.opponent === 'string' && typeof game.date === 'string' && game.date.length > 0 &&
+    (game.isHome === undefined || typeof game.isHome === 'boolean') &&
+    (game.reminderMinutes === undefined || typeof game.reminderMinutes === 'number') &&
+    (game.reminderOptOut === undefined || typeof game.reminderOptOut === 'boolean') &&
+    optionalStrings.every((key) => game[key] === undefined || typeof game[key] === 'string');
+};
+
+const isOppositionTeam = (value: unknown): value is OppositionTeam => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const team = value as Record<string, unknown>;
+  return typeof team.id === 'string' && team.id.length > 0 &&
+    typeof team.name === 'string' && team.name.length > 0 &&
+    (team.logo === undefined || typeof team.logo === 'string');
+};
+
 type StoredArrayRead<T> = { value: T; error: string | null };
 
-const readJson = <T,>(key: string, fallback: T): StoredArrayRead<T> => {
+const readJson = <T,>(key: string, fallback: T, isValidItem: (item: unknown) => boolean): StoredArrayRead<T> => {
   try {
     const value = localStorage.getItem(key);
-    if (!value) return { value: fallback, error: null };
+    if (value === null) return { value: fallback, error: null };
     const parsed: unknown = JSON.parse(value);
     if (!Array.isArray(parsed)) throw new SyntaxError('Saved list did not contain an array.');
+    if (!parsed.every(isValidItem)) throw new SyntaxError('Saved list contained an item with an unexpected format.');
     return { value: parsed as T, error: null };
   } catch (error) {
     recordDiagnosticError(
       error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
       error,
-      'Saved local list ' + key + ' could not be read. The stored value was not changed.',
+      'Saved local list ' + key + ' could not be read or validated. The stored value was not changed.',
     );
     return {
       value: fallback,
-      error: 'Dugout Pulse could not read a saved upcoming-game or opposition-team list. No saved values were changed. Review the diagnostic report before making changes.',
+      error: 'Dugout Pulse could not read or validate a saved upcoming-game or opposition-team list. The original stored values were not changed. Review the diagnostic report before making changes.',
     };
   }
 };
@@ -69,8 +90,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [gameType, setGameType] = useState(defaultPlayerTeam?.tournament || allTournaments[0] || 'League');
   const gameTypes = useMemo(() => Array.from(new Set([...(allTournaments || []), ...playerTeams.map((team) => team.tournament).filter((value): value is string => Boolean(value?.trim()))])), [allTournaments, playerTeams]);
   const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
-  const [initialGames] = useState(() => readJson<ScheduledGame[]>(GAMES_KEY, []));
-  const [initialTeams] = useState(() => readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, []));
+  const [initialGames] = useState(() => readJson<ScheduledGame[]>(GAMES_KEY, [], isScheduledGame));
+  const [initialTeams] = useState(() => readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, [], isOppositionTeam));
   const [games, setGames] = useState<ScheduledGame[]>(initialGames.value);
   const [teams, setTeams] = useState<OppositionTeam[]>(initialTeams.value);
   const [failureAlert, setFailureAlert] = useState<string | null>(() => initialGames.error || initialTeams.error);
