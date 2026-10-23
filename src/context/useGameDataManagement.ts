@@ -290,8 +290,7 @@ export function useGameDataManagement({
             !protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
           throw new Error('SQLite import committed, but the opposition-team compatibility copy could not be verified.');
         }
-        if (setupCompleted &&
-            !protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
+        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, String(setupCompleted))) {
           throw new Error('SQLite import committed, but the setup-completed compatibility copy could not be verified.');
         }
       }
