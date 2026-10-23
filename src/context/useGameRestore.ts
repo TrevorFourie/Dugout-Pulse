@@ -68,8 +68,14 @@ export function useGameRestore({
 
       const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
       const readPendingLiveGame = (): Game | undefined => {
-        const raw = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
-        if (raw === null) return undefined;
+        const marker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
+        if (marker === null) return undefined;
+        // Older in-progress builds may have stored the full game in the marker;
+        // the current marker is compact and reads the write-ahead compatibility value.
+        const raw = marker === 'pending' ? localStorage.getItem(STORAGE_KEYS.LIVE_GAME) : marker;
+        if (raw === null) {
+          throw new Error('A pending live-game marker has no saved game to reconcile.');
+        }
         let parsed: unknown;
         try {
           parsed = JSON.parse(raw) as unknown;
