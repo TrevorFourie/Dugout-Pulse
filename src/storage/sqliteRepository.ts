@@ -511,7 +511,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
   return snapshot.audit;
 }
 
-/** True only after a future coordinated cutover explicitly marks SQLite as authoritative. */
+/** True only after the coordinated startup path has transactionally marked SQLite authoritative. */
 export async function isLegacyStorageImportComplete(): Promise<boolean> {
   const database = await initializeSQLiteDatabase();
   const result = await database.query(
@@ -521,7 +521,7 @@ export async function isLegacyStorageImportComplete(): Promise<boolean> {
   return result.values?.[0]?.value === 'complete';
 }
 
-/** Exposed for a future startup gate to make the marker name stable and explicit. */
+/** Exported marker name for coordinated startup, reset, and recovery checks. */
 export const LEGACY_STORAGE_IMPORT_MARKER = CUTOVER_MARKER;
 
 
@@ -541,8 +541,8 @@ export interface VerifiedSQLiteSnapshot {
 
 /**
  * Reads a previously imported snapshot and verifies that every typed projection
- * still matches its preserved source values. This is a read-only API for the
- * future startup gate; it does not make SQLite authoritative or mutate localStorage.
+ * still matches its preserved source values. This read-only pre-cutover check does
+ * not make SQLite authoritative or mutate localStorage.
  */
 export async function readVerifiedSQLiteSnapshot(
   options: { requireCurrentSourceMatch?: boolean } = {},
