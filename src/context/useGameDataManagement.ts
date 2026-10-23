@@ -438,6 +438,13 @@ export function useGameDataManagement({
             } catch {
               // The newly imported file is already absent.
             }
+            continue;
+          }
+          try {
+            await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
+            rollbackFailure = rollbackFailure || new Error('A newly imported logo file still exists after rollback.');
+          } catch {
+            // File absence confirmed after deletion.
           }
         }
       }
