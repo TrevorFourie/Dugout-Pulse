@@ -10,7 +10,23 @@ import { recordDiagnosticError } from './errorDiagnostics';
 
 const LOGO_LIBRARY_KEY = 'dugoutPulse.logoLibrary.v1';
 
-function readStoredArray(key: string): unknown[] {
+function isScheduledGameBackupRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const game = value as Record<string, unknown>;
+  return typeof game.id === 'string' && game.id.length > 0 &&
+    typeof game.opponent === 'string' && typeof game.date === 'string' && game.date.length > 0 &&
+    typeof game.isHome === 'boolean';
+}
+
+function isOppositionTeamBackupRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const team = value as Record<string, unknown>;
+  return typeof team.id === 'string' && team.id.length > 0 &&
+    typeof team.name === 'string' && team.name.length > 0 &&
+    (team.logo === undefined || typeof team.logo === 'string');
+}
+
+function readStoredArray(key: string, isValidItem?: (item: unknown) => boolean): unknown[] {
   let value: string | null;
   try {
     value = localStorage.getItem(key);
@@ -26,9 +42,9 @@ function readStoredArray(key: string): unknown[] {
     recordDiagnosticError('data_corruption', error, 'A saved list needed for backup could not be parsed. The backup was stopped rather than omitting saved data.');
     throw error;
   }
-  if (!Array.isArray(parsed)) {
+  if (!Array.isArray(parsed) || (isValidItem && !parsed.every(isValidItem))) {
     const error = new Error('A saved list needed for backup has an unexpected format.');
-    recordDiagnosticError('data_corruption', error, 'A saved list needed for backup has an unexpected format. The backup was stopped rather than omitting saved data.');
+    recordDiagnosticError('data_corruption', error, 'A saved list needed for backup has an unexpected format or contains invalid records. The backup was stopped rather than omitting or exporting malformed saved data.');
     throw error;
   }
   return parsed;
@@ -84,8 +100,8 @@ export async function buildFullBackup(data: {
 }): Promise<FullBackupResult> {
   const completeBackup = {
     ...data,
-    upcomingGames: readStoredArray('dugoutPulse.upcomingGames.v1'),
-    oppositionTeams: readStoredArray('dugoutPulse.oppositionTeams.v1'),
+    upcomingGames: readStoredArray('dugoutPulse.upcomingGames.v1', isScheduledGameBackupRecord),
+    oppositionTeams: readStoredArray('dugoutPulse.oppositionTeams.v1', isOppositionTeamBackupRecord),
     extras: readBackupExtras(),
   };
   // Inline (data URL) logos are kept inside the data itself; library logos are referenced by id and their
