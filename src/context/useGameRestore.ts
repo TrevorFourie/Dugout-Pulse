@@ -5,9 +5,8 @@ import { sortGames } from '../utils/stats';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { hasOrphanedGameReferences } from './gameStorageSafety';
+import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
-import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
