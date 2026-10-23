@@ -395,6 +395,18 @@ export function useGameDataManagement({
         recordDiagnosticError('storage_write', new Error('SQLite cutover marker and database status disagree.'), 'Reset was stopped because storage authority needs reconciliation.');
         return false;
       }
+      if (sqliteCutoverComplete && marker !== 'complete') {
+        try {
+          localStorage.setItem('dugoutPulse.sqliteCutover.v1', 'complete');
+          if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') !== 'complete') {
+            throw new Error('The SQLite cutover marker could not be restored before reset.');
+          }
+        } catch (error) {
+          setRestoreFailed(true);
+          recordDiagnosticError('storage_write', error, 'Reset was stopped because SQLite authority could not be recorded safely in local storage.');
+          return false;
+        }
+      }
 
       // Do not publish an empty in-memory state until the legacy keys have been
       // removed and, after cutover, the matching empty SQLite snapshot has committed.
