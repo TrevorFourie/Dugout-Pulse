@@ -4,12 +4,16 @@ import type { AppSettings, Game, DefensivePosition, HitLocation, PitcherHand, Pl
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
 import { STORAGE_KEYS } from './gameContextDefaults';
+import { protectedStorageSetItem } from './gameStorageSafety';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 interface GamePlayActionsOptions {
   liveGame: Game | null;
   setLiveGame: Dispatch<SetStateAction<Game | null>>;
   settings: AppSettings;
   triggerHaptic: () => void;
+  storageWritesBlocked: boolean;
+  onStorageProtectionFailure: () => void;
 }
 
 /** Owns play creation, correction, ordering, and undo behavior for the live game. */
@@ -18,7 +22,24 @@ export function useGamePlayActions({
   setLiveGame,
   settings,
   triggerHaptic,
+  storageWritesBlocked,
+  onStorageProtectionFailure,
 }: GamePlayActionsOptions) {
+  const commitLiveGame = useCallback((nextGame: Game): boolean => {
+    if (storageWritesBlocked) return false;
+    try {
+      if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame))) {
+        onStorageProtectionFailure();
+        return false;
+      }
+      return true;
+    } catch (error) {
+      try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be saved and verified.'); } catch { /* Preserve the blocked write outcome. */ }
+      onStorageProtectionFailure();
+      return false;
+    }
+  }, [storageWritesBlocked, onStorageProtectionFailure]);
+
   // Add a play to the live game
   const addPlay = useCallback(
     (
@@ -46,7 +67,7 @@ export function useGamePlayActions({
       targetInning?: number;
       }
     ): Play | undefined => {
-      if (!liveGame) return undefined;
+      if (!liveGame || storageWritesBlocked) return undefined;
 
       triggerHaptic();
 
@@ -118,31 +139,18 @@ export function useGamePlayActions({
         });
       }
 
-      setLiveGame((prev) => {
-        if (!prev) return null;
-        const nextGame = {
-          ...prev,
-          plays: [...prev.plays, ...newPlays],
-        };
-        // Scorekeeping is offline-first: commit the authoritative game snapshot to localStorage
-        // in the same transaction that updates React state, before the UI renders the change.
-        try {
-          localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-        } catch (storageError) {
-          console.error('Failed to persist live score locally:', storageError);
-        }
-        return nextGame;
-      });
-
+      const nextGame = { ...liveGame, plays: [...liveGame.plays, ...newPlays] };
+      if (!commitLiveGame(nextGame)) return undefined;
+      setLiveGame(nextGame);
       return newPlays[0];
     },
-    [liveGame, settings.homeRunAddsRunAndRbi, triggerHaptic]
+    [liveGame, settings.homeRunAddsRunAndRbi, triggerHaptic, storageWritesBlocked, commitLiveGame]
   );
 
   // Append several plays from one action (e.g. pitch + auto-walk + run) as one undoable group.
   const addPlays = useCallback(
     (seeds: PlaySeed[], targetInning?: number): Play[] => {
-      if (!liveGame || seeds.length === 0) return [];
+      if (!liveGame || storageWritesBlocked || seeds.length === 0) return [];
       triggerHaptic();
       const now = Date.now();
       const groupId = seeds.length > 1 ? 'grp_' + now + '_' + Math.random().toString(36).substring(2, 6) : undefined;
@@ -155,75 +163,48 @@ export function useGamePlayActions({
         ...(groupId ? { groupId } : {}),
       }));
 
-      setLiveGame((prev) => {
-        if (!prev) return null;
-        const nextGame = { ...prev, plays: [...prev.plays, ...newPlays] };
-        try {
-          localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-        } catch (storageError) {
-          console.error('Failed to persist live score locally:', storageError);
-        }
-        return nextGame;
-      });
+      const nextGame = { ...liveGame, plays: [...liveGame.plays, ...newPlays] };
+      if (!commitLiveGame(nextGame)) return [];
+      setLiveGame(nextGame);
       return newPlays;
     },
-    [liveGame, triggerHaptic]
+    [liveGame, triggerHaptic, storageWritesBlocked, commitLiveGame]
   );
 
   // Undo the last play
   const undoLastPlay = useCallback(() => {
-    if (!liveGame || liveGame.plays.length === 0) return;
+    if (!liveGame || storageWritesBlocked || liveGame.plays.length === 0) return;
     triggerHaptic();
 
-    setLiveGame((prev) => {
-      if (!prev || prev.plays.length === 0) return prev;
-      // Plays created by one button press share a groupId and are undone together.
-      const last = prev.plays[prev.plays.length - 1];
-      const nextGame = {
-        ...prev,
-        plays: last.groupId
-          ? prev.plays.filter((p) => p.groupId !== last.groupId)
-          : prev.plays.slice(0, -1),
-      };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist undo locally:', storageError);
-      }
-      return nextGame;
-    });
-  }, [liveGame, triggerHaptic]);
+    if (!liveGame || liveGame.plays.length === 0) return;
+    const last = liveGame.plays[liveGame.plays.length - 1];
+    const nextGame = {
+      ...liveGame,
+      plays: last.groupId
+        ? liveGame.plays.filter((p) => p.groupId !== last.groupId)
+        : liveGame.plays.slice(0, -1),
+    };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, triggerHaptic, storageWritesBlocked, commitLiveGame]);
 
   // Delete an individual play anywhere in the list
   const deletePlay = useCallback((playId: string) => {
-    setLiveGame((prev) => {
-      if (!prev) return null;
-      const nextGame = { ...prev, plays: prev.plays.filter((p) => p.id !== playId) };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist deletion locally:', storageError);
-      }
-      return nextGame;
-    });
-  }, []);
+    if (storageWritesBlocked) return;
+    if (!liveGame || !liveGame.plays.some((p) => p.id === playId)) return;
+    const nextGame = { ...liveGame, plays: liveGame.plays.filter((p) => p.id !== playId) };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, storageWritesBlocked, commitLiveGame]);
 
   // Update hit location of a specific play
   const updatePlayHitLocation = useCallback((playId: string, hitLocation: HitLocation | undefined) => {
-    setLiveGame((prev) => {
-      if (!prev) return null;
-      const nextGame = {
-        ...prev,
-        plays: prev.plays.map((p) => (p.id === playId ? { ...p, hitLocation } : p)),
-      };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist hit location locally:', storageError);
-      }
-      return nextGame;
-    });
-  }, []);
+    if (storageWritesBlocked) return;
+    if (!liveGame || !liveGame.plays.some((p) => p.id === playId)) return;
+    const nextGame = {
+      ...liveGame,
+      plays: liveGame.plays.map((p) => (p.id === playId ? { ...p, hitLocation } : p)),
+    };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, storageWritesBlocked, commitLiveGame]);
 
   // Correct the outcome of an existing batting play without creating a duplicate.
   // This is used when a hit is judged to be reached on error after its location was marked.
@@ -232,73 +213,55 @@ export function useGamePlayActions({
     code: PlayCode,
     errorType?: Play['errorType']
   ) => {
-    setLiveGame((prev) => {
-      if (!prev) return null;
-      const nextGame = {
-        ...prev,
-        plays: prev.plays.map((p) => {
-          if (p.id !== playId) return p;
-          const { errorType: _previousErrorType, ...playWithoutErrorType } = p;
-          return {
-            ...playWithoutErrorType,
-            code,
-            ...(errorType ? { errorType } : {}),
-          };
-        }),
-      };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist corrected play outcome locally:', storageError);
-      }
-      return nextGame;
-    });
-  }, []);
+    if (storageWritesBlocked) return;
+    if (!liveGame || !liveGame.plays.some((p) => p.id === playId)) return;
+    const nextGame = {
+      ...liveGame,
+      plays: liveGame.plays.map((p) => {
+        if (p.id !== playId) return p;
+        const { errorType: _previousErrorType, ...playWithoutErrorType } = p;
+        return { ...playWithoutErrorType, code, ...(errorType ? { errorType } : {}) };
+      }),
+    };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, storageWritesBlocked, commitLiveGame]);
 
   // Make the number of RBI plays attached to a batting play equal `count`.
   const setPlayRbis = useCallback((playId: string, count: number) => {
-    setLiveGame((prev) => {
-      if (!prev) return null;
-      const i = prev.plays.findIndex((p) => p.id === playId);
-      if (i === -1) return prev;
-      const ref = prev.plays[i];
-      const target = Math.max(0, Math.floor(count));
-      const attached = getAttachedRbiPlayIds(ref, prev.plays);
-      if (attached.length === target) return prev;
-      let plays = prev.plays;
-      if (attached.length > target) {
-        const drop = new Set(attached.slice(target)); // remove the latest ones
-        plays = plays.filter((p) => !drop.has(p.id));
-      } else {
-        const now = Date.now();
-        const added: Play[] = [];
-        for (let k = 0; k < target - attached.length; k++) {
-          added.push({
-            id: 'play_' + (now + k) + '_rbi_' + Math.random().toString(36).substring(2, 6),
-            inning: ref.inning,
-            mode: 'batting',
-            code: 'rbi',
-            timestamp: (ref.timestamp ?? now) + 0.001 * (k + 1),
-            pitcherHand: ref.pitcherHand,
-            lineupSpot: ref.lineupSpot,
-          });
-        }
-        plays = [...plays.slice(0, i + 1), ...added, ...plays.slice(i + 1)];
+    if (storageWritesBlocked) return;
+    if (!liveGame || storageWritesBlocked) return;
+    const i = liveGame.plays.findIndex((p) => p.id === playId);
+    if (i === -1) return;
+    const ref = liveGame.plays[i];
+    const target = Math.max(0, Math.floor(count));
+    const attached = getAttachedRbiPlayIds(ref, liveGame.plays);
+    if (attached.length === target) return;
+    let plays = liveGame.plays;
+    if (attached.length > target) {
+      const drop = new Set(attached.slice(target));
+      plays = plays.filter((p) => !drop.has(p.id));
+    } else {
+      const now = Date.now();
+      const added: Play[] = [];
+      for (let k = 0; k < target - attached.length; k++) {
+        added.push({
+          id: 'play_' + (now + k) + '_rbi_' + Math.random().toString(36).substring(2, 6),
+          inning: ref.inning, mode: 'batting', code: 'rbi',
+          timestamp: (ref.timestamp ?? now) + 0.001 * (k + 1),
+          pitcherHand: ref.pitcherHand, lineupSpot: ref.lineupSpot,
+        });
       }
-      const nextGame = { ...prev, plays };
-      try {
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame));
-      } catch (storageError) {
-        console.error('Failed to persist RBI change locally:', storageError);
-      }
-      return nextGame;
-    });
-  }, []);
+      plays = [...plays.slice(0, i + 1), ...added, ...plays.slice(i + 1)];
+    }
+    const nextGame = { ...liveGame, plays };
+    if (commitLiveGame(nextGame)) setLiveGame(nextGame);
+  }, [liveGame, storageWritesBlocked, commitLiveGame]);
 
   // Move a play one step earlier / later. With sameModeOnly the step is relative to the nearest
   // play of the same category (batting / pitching / fielding), which is what the split feed shows.
   const movePlay = useCallback(
     (playId: string, direction: 'earlier' | 'later', sameModeOnly = false) => {
+      if (storageWritesBlocked || !liveGame) return;
       setLiveGame((prev) => {
         if (!prev) return null;
         const i = prev.plays.findIndex((p) => p.id === playId);
@@ -323,11 +286,10 @@ export function useGamePlayActions({
         return { ...prev, plays };
       });
     },
-    []
-  );
-
-  // Drop a play right before / after another play (used by drag and drop)
+    [liveGame, storageWritesBlocked]
+  ); (used by drag and drop)
   const movePlayTo = useCallback((playId: string, targetId: string, position: 'before' | 'after') => {
+    if (storageWritesBlocked || !liveGame) return;
     setLiveGame((prev) => {
       if (!prev || playId === targetId) return prev;
       const from = prev.plays.findIndex((p) => p.id === playId);
@@ -348,7 +310,7 @@ export function useGamePlayActions({
       plays[at] = { ...moved, timestamp, inning: targetInning };
       return { ...prev, plays };
     });
-  }, []);
+  }, [liveGame, storageWritesBlocked]);
 
   // Insert a new play right after an existing one
   const insertPlayAfter = useCallback(
@@ -359,6 +321,7 @@ export function useGamePlayActions({
       code: PlayCode,
       hitLocation?: HitLocation | null
     ) => {
+      if (storageWritesBlocked || !liveGame) return;
       setLiveGame((prev) => {
         if (!prev) return null;
         const i = prev.plays.findIndex((p) => p.id === afterPlayId);
@@ -388,10 +351,8 @@ export function useGamePlayActions({
         return { ...prev, plays };
       });
     },
-    []
+    [liveGame, storageWritesBlocked]
   );
-
-  // Edit an individual play
   const editPlay = useCallback(
     (
       playId: string,
@@ -402,6 +363,7 @@ export function useGamePlayActions({
       newHitLocation?: HitLocation | null,
       newThrowTo?: string
     ) => {
+      if (storageWritesBlocked || !liveGame) return;
       setLiveGame((prev) => {
         if (!prev) return null;
         return {
@@ -426,11 +388,8 @@ export function useGamePlayActions({
         };
       });
     },
-    []
+    [liveGame, storageWritesBlocked]
   );
-
-
-  return {
     addPlay,
     addPlays,
     undoLastPlay,
