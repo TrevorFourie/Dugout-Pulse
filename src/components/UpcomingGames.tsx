@@ -95,6 +95,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [games, setGames] = useState<ScheduledGame[]>(initialGames.value);
   const [teams, setTeams] = useState<OppositionTeam[]>(initialTeams.value);
   const [failureAlert, setFailureAlert] = useState<string | null>(() => initialGames.error || initialTeams.error);
+  const [storedListsInvalid] = useState(() => Boolean(initialGames.error || initialTeams.error));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
@@ -119,6 +120,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   // Reflect venue renames immediately if Upcoming Games is still mounted.
   useEffect(() => {
     const handleVenueRenamed = (event: Event) => {
+      if (storedListsInvalid) {
+        setFailureAlert('Dugout Pulse has paused scheduled-game changes because a saved list could not be validated. Restore or review the stored data before trying again.');
+        return;
+      }
       const detail = (event as CustomEvent<{ oldName: string; newName: string }>).detail;
       if (!detail?.oldName || !detail?.newName) return;
       if (restoreFailed) {
@@ -150,15 +155,15 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     };
     window.addEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
     return () => window.removeEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
-  }, [games, restoreFailed]);
+  }, [games, restoreFailed, storedListsInvalid]);
 
   useEffect(() => {
-    if (isLoading || restoreFailed) return;
+    if (isLoading || restoreFailed || storedListsInvalid) return;
     void syncGameReminders(games, settings.gameRemindersEnabled === true).catch((error: unknown) => {
       recordDiagnosticError('native_failure', error, 'Game reminder synchronization failed after the scheduled-game list changed.');
       setFailureAlert('Dugout Pulse could not update game reminders. Your scheduled-game list remains saved; review notification settings and the diagnostic report.');
     });
-  }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed]);
+  }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed, storedListsInvalid]);
 
   const sortedGames = useMemo(
     () => [...games].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')),
@@ -167,6 +172,11 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const logos = useMemo(() => new Map(teams.map((team) => [team.name.trim().toLocaleLowerCase(), team.logo])), [teams]);
 
   const persist = (next: ScheduledGame[]) => {
+    if (storedListsInvalid) {
+      setMessage('');
+      setFailureAlert('Dugout Pulse has paused scheduled-game changes because a saved list could not be validated. Restore or review the stored data before trying again.');
+      return;
+    }
     if (restoreFailed) {
       setMessage('');
       setFailureAlert('Dugout Pulse has paused saved-data changes because storage recovery is required. Review the recovery points and diagnostic report before trying again.');
