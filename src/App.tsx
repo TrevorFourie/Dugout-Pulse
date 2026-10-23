@@ -261,6 +261,9 @@ const MainApp: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [settings.gameRemindersEnabled, restoreFailed]);
 
+  // Keep the complete app shell hidden until persisted data has loaded. Rendering
+  // Navigation/dashboard first and replacing them after localStorage loads caused
+  // visible startup movement and layout shifts on slower Android WebViews.
   // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
   useEffect(() => {
     if (!isFirstTimeUser) return;
@@ -269,9 +272,6 @@ const MainApp: React.FC = () => {
     setActiveTab('dashboard');
   }, [isFirstTimeUser]);
 
-  // Keep the complete app shell hidden until persisted data has loaded. Rendering
-  // Navigation/dashboard first and replacing them after localStorage loads caused
-  // visible startup movement and layout shifts on slower Android WebViews.
   if (showSplash) {
     // Android: render nothing, so the native splash artwork stays visible.
     if (isNativeLaunch) return null;
