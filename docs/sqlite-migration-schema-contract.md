@@ -1,6 +1,6 @@
 # SQLite schema and migration contract
 
-Status: guarded startup hydration, backup import, and reset are source-committed; backup export/recovery coordination and end-to-end migration verification remain outstanding.
+Status: guarded startup hydration, backup import/export, reset, and recovery restore are source-committed; end-to-end migration verification remains outstanding.
 
 ## Compatibility pin
 
@@ -62,7 +62,7 @@ IDs must be derived from validated existing records. If a recognised dataset can
 - Repository/startup wiring: `src/storage/sqliteRepository.ts` includes the non-destructive snapshot importer, pre-cutover integrity verification, transactional live-state read/write APIs, and a pending/completed cutover marker. `useGameRestore.ts` now hydrates from verified SQLite after cutover and mirrors the state before mounting app screens; on first cutover it imports and verifies the snapshot, creates a recovery checkpoint, then writes the complete live state and marker transactionally. `useGamePersistence.ts`, scheduled-game writes, and logo metadata writes are connected to the repository. These paths are source-committed but have not been typechecked or runtime-verified.
 - Import safety: identical snapshots are no-ops; a changed source fingerprint or existing unmarked destination data stops the import without automatic replacement. The importer checks that localStorage did not change during the import. If source data changed since a previous import, it refreshes only after the previous SQLite snapshot has been verified and only before any live-state writes have begun.
 - Runtime evidence from the user's Chrome session: the snapshot import returned successfully, the snapshot marker was present, `sourceKeysUnchanged` was true, and a later `readVerifiedSQLiteSnapshot()` returned `integrityVerified: true` with `localStorageUnchanged: true`. Exact count values were collapsed by the console output and were not available for independent review here.
-- GameContext startup and ongoing persistence are wired to the guarded cutover path. Backup import commits the resulting live snapshot and attempts rollback to the prior snapshot on failure; reset commits the empty snapshot and preserves the authority marker. These changes are source-only until runtime verification. Backup export, recovery restore, diagnostics coordination, end-to-end regressions, and native checks remain outstanding.
+- GameContext startup and ongoing persistence are wired to the guarded cutover path. Backup import commits the resulting live snapshot and attempts rollback to the prior snapshot on failure; export reads a serialized SQLite snapshot after cutover; reset commits the empty snapshot and preserves the authority marker; recovery checkpoint restore synchronizes SQLite and localStorage with rollback on failure. These changes are source-only until runtime verification. Diagnostics coordination, end-to-end regressions, and native checks remain outstanding.
 - The web WASM asset is committed at `public/assets/sql-wasm.wasm`. Chrome runtime checks confirmed schema initialization (10 tables), a write/read-back, persistence across page reload, and removal of the temporary smoke-test marker.
 - Static checks, the source-import runtime test, full app persistence/backup/recovery integration, and native checks remain unverified. Builds must not be triggered.
 
