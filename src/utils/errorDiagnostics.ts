@@ -475,20 +475,34 @@ export function clearDiagnosticLogs(): void {
   try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
 }
 
-/** Clear app/game storage while keeping diagnostics separate from game data. */
-export function clearAppDataPreservingDiagnostics(): void {
+/** Clear app/game storage while keeping diagnostics and recovery copies intact. */
+export function clearAppDataPreservingDiagnostics(): boolean {
   try {
-    for (let index = localStorage.length - 1; index >= 0; index--) {
+    const preservedKeys = new Set([
+      STORAGE_KEY,
+      'dugoutPulse.recoverySnapshot.v1',
+      'dugoutPulse.recoverySnapshot.previous.v1',
+      'dugoutPulse.beforeRecovery.v1',
+    ]);
+    const keysToRemove: string[] = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      // Preserve all recovery copies through a reset so a failed/partial recovery
-      // cannot destroy the only remaining backup.
-      if (key && key !== STORAGE_KEY && key !== 'dugoutPulse.recoverySnapshot.v1' &&
-          key !== 'dugoutPulse.recoverySnapshot.previous.v1' && key !== 'dugoutPulse.beforeRecovery.v1') {
-        localStorage.removeItem(key);
+      if (key && !preservedKeys.has(key)) keysToRemove.push(key);
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+      if (localStorage.getItem(key) !== null) {
+        throw new Error('App storage key removal failed read-back verification.');
       }
     }
-  } catch {
-    // Reset is best-effort if the browser blocks local storage operations.
+    return true;
+  } catch (error) {
+    try {
+      recordDiagnosticError('storage_write', error, 'A reset could not remove and verify every app-data storage key. The reset was stopped; recovery copies were retained.');
+    } catch {
+      // A diagnostics failure must not conceal the unsuccessful reset.
+    }
+    return false;
   }
 }
 
