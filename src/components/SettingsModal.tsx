@@ -62,6 +62,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const settingsContentRef = useRef<HTMLDivElement>(null);
 
+  const [backupStatusTick, setBackupStatusTick] = useState(0);
+  const backupStatus = React.useMemo(
+    () => getBackupStatus(games.length > 0 || profiles.some((p) => p.playerName || p.teamName)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [games.length, profiles, backupStatusTick],
+  );
+
   useEffect(() => {
     if (isOpen) {
       setSettingsSection(initialSection);
@@ -86,13 +93,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     }
   };
-
-  const [backupStatusTick, setBackupStatusTick] = useState(0);
-  const backupStatus = React.useMemo(
-    () => getBackupStatus(games.length > 0 || profiles.some((p) => p.playerName || p.teamName)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [games.length, profiles, backupStatusTick],
-  );
 
   const handleExportBackup = async () => {
     try {
