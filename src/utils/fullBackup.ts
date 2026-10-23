@@ -6,6 +6,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
 import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
+import { isLegacyStorageImportComplete, readLiveSQLiteState } from '../storage/sqliteRepository';
 import { recordDiagnosticError } from './errorDiagnostics';
 
 const LOGO_LIBRARY_KEY = 'dugoutPulse.logoLibrary.v1';
@@ -98,16 +99,59 @@ export async function buildFullBackup(data: {
   profiles: PlayerProfile[];
   settings: unknown;
 }): Promise<FullBackupResult> {
-  const completeBackup = {
-    ...data,
-    upcomingGames: readStoredArray('dugoutPulse.upcomingGames.v1', isScheduledGameBackupRecord),
-    oppositionTeams: readStoredArray('dugoutPulse.oppositionTeams.v1', isOppositionTeamBackupRecord),
-    extras: readBackupExtras(),
+  let sqliteCutoverComplete = false;
+  try {
+    sqliteCutoverComplete = await isLegacyStorageImportComplete();
+  } catch (error) {
+    const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+    if (marker === 'complete' || marker === 'pending') throw error;
+    // Before cutover, localStorage remains the authoritative backup source.
+  }
+
+  let backupData: {
+    games: Game[];
+    profiles: PlayerProfile[];
+    settings: unknown;
+    upcomingGames: unknown[];
+    oppositionTeams: unknown[];
+    extras: BackupExtras;
   };
+  let library: TeamLogoItem[];
+  if (sqliteCutoverComplete) {
+    // Read one complete SQLite snapshot so export never mixes a newer context
+    // state with stale compatibility-mirror schedules, presets, or logo metadata.
+    const state = await readLiveSQLiteState();
+    backupData = {
+      games: state.games,
+      profiles: state.profiles,
+      settings: state.settings,
+      upcomingGames: state.upcomingGames,
+      oppositionTeams: state.oppositionTeams,
+      extras: {
+        savedTournaments: state.savedTournaments,
+        savedAgeGroups: state.savedAgeGroups,
+        savedSeasons: state.savedSeasons,
+        savedOpponents: state.savedOpponents,
+        hiddenTournaments: state.hiddenTournaments,
+        hiddenAgeGroups: state.hiddenAgeGroups,
+        hiddenSeasons: state.hiddenSeasons,
+        setupCompleted: state.setupCompleted,
+      },
+    };
+    library = state.logoLibrary;
+  } else {
+    backupData = {
+      ...data,
+      upcomingGames: readStoredArray('dugoutPulse.upcomingGames.v1', isScheduledGameBackupRecord),
+      oppositionTeams: readStoredArray('dugoutPulse.oppositionTeams.v1', isOppositionTeamBackupRecord),
+      extras: readBackupExtras(),
+    };
+    library = readTeamLogoLibraryStrict();
+  }
+  const completeBackup = backupData;
   // Inline (data URL) logos are kept inside the data itself; library logos are referenced by id and their
   // image files are embedded below. Nothing is replaced by a bare hash, so no logo bytes are lost.
 
-  const library = readTeamLogoLibraryStrict();
   const logoFiles: Record<string, string> = {};
   const missingLogos: string[] = [];
   for (const item of library) {
@@ -130,8 +174,8 @@ export async function buildFullBackup(data: {
     backupVersion: BACKUP_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
     counts: {
-      games: data.games.length,
-      profiles: data.profiles.length,
+      games: backupData.games.length,
+      profiles: backupData.profiles.length,
       logos: Object.keys(logoFiles).length,
     },
     logoBackupPolicy: {
