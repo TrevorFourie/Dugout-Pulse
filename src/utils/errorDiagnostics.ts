@@ -167,7 +167,7 @@ function redactLikelyUserValues(value: string): string {
       return '[redacted value]';
     })
     .replace(/\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\s*[:=]\s*[^,;\n]+/gi, '$1: [redacted]')
-    .replace(/\b(player|team|opponent|venue|profile|game|account|user)\s+(?:name|id|record|data)?\s+[^,.;:\n]+/gi, '$1 [redacted]');
+    .replace(/\b(player|team|opponent|venue|profile|game|account|user)\s+(?:name\s+)?([A-Z][A-Za-z0-9'’.-]*(?:\s+[A-Z][A-Za-z0-9'’.-]*){0,4})\b/g, '$1 [redacted]');
 }
 
 function safeErrorMessage(error: unknown): string | undefined {
