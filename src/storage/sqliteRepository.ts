@@ -222,7 +222,7 @@ function validateSnapshot(entries: LegacyStorageEntry[]): ValidatedSnapshot {
       sourceKeyCount: entries.length,
       sourceCharacterCount: entries.reduce((total, entry) => total + entry.value.length, 0),
       gameCount: games.length,
-      playCount: games.reduce((total, game) => total + game.plays.length, 0),
+      playCount: games.reduce((total, game) => total + (Array.isArray(game.plays) ? game.plays.length : 0), 0),
       profileCount: profiles.length,
       upcomingGameCount: upcomingGames.length,
       oppositionTeamCount: oppositionTeams.length,
