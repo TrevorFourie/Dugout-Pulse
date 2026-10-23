@@ -15,6 +15,7 @@ import {
 
 const values = new Map<string, string>();
 let failNextSetForKey: string | null = null;
+let failNextRemoveForKey: string | null = null;
 
 (globalThis as unknown as { localStorage: Storage }).localStorage = {
   getItem(key: string) {
@@ -28,6 +29,10 @@ let failNextSetForKey: string | null = null;
     values.set(key, String(value));
   },
   removeItem(key: string) {
+    if (failNextRemoveForKey === key) {
+      failNextRemoveForKey = null;
+      throw new Error('Simulated storage removal failure');
+    }
     values.delete(key);
   },
   clear() {
@@ -52,6 +57,16 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
 
   assert.equal(protectedStorageSetItem('test-protected-key', 'saved-value'), true);
   assert.equal(values.get('test-protected-key'), 'saved-value');
+
+  values.set('existing-value', 'keep-this-value');
+  failNextSetForKey = 'existing-value';
+  assert.equal(protectedStorageSetItem('existing-value', 'replacement-value'), false);
+  assert.equal(values.get('existing-value'), 'keep-this-value', 'a failed write preserves the previous value');
+
+  failNextRemoveForKey = 'existing-value';
+  const { protectedStorageRemoveItem } = await import('./gameStorageSafety');
+  assert.equal(protectedStorageRemoveItem('existing-value'), false);
+  assert.equal(values.get('existing-value'), 'keep-this-value', 'a failed removal preserves the previous value');
 
   // Simulate newer user data that must survive a failed recovery attempt.
   values.set('baseball_hub_games_v1', JSON.stringify([{ id: 'current-game' }]));
