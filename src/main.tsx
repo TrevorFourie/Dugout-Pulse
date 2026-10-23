@@ -50,6 +50,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
   // transformed module response so the shared diagnostic screen can show the
   // actionable parser/import error rather than a generic startup message.
   let diagnosticError: unknown = error;
+  let startupDiagnosticDetails = '';
   try {
     const response = await fetch(`/src/App.tsx?diagnostic=${Date.now()}`, { cache: 'no-store' });
     const body = await response.text();
@@ -63,6 +64,14 @@ void import('/src/App.tsx').then(({ default: App }) => {
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
       .replace(/\s+/g, ' ');
+    // Preserve all concise compiler/error lines exposed by Vite, not only the
+    // first message used as the event title. The report sanitizer removes paths
+    // and common secrets before this context is exported.
+    startupDiagnosticDetails = readableBody.split(/\s(?=(?:Error:|SyntaxError:|TypeError:|ReferenceError:|Failed to resolve import|Unexpected token|Expected\b|\[plugin:|\[PARSE_ERROR\]))/i)
+      .filter((part) => /(?:Error:|SyntaxError:|TypeError:|ReferenceError:|Failed to resolve import|Unexpected token|Expected\b|\[plugin:|\[PARSE_ERROR\]|\.tsx?:\d+:\d+)/i.test(part))
+      .slice(0, 12)
+      .join('\n')
+      .slice(0, 12000);
     const actionableError = readableBody.match(
       /(?:Expected corresponding JSX closing tag[^.]{0,180}\.?|Adjacent JSX elements must be wrapped in an enclosing tag\.?|Unterminated JSX contents\.?|Unexpected token[^.]{0,180}\.?|Failed to resolve import[^.]{0,180}\.?|Failed to parse source for import analysis[^.]{0,180}\.?|The following error occurred while transforming[^.]{0,180}\.?)/i,
     );
@@ -77,7 +86,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
   } catch {
     // Keep the original module rejection if Vite's diagnostic response is unavailable.
   }
-  const reference = recordDiagnosticError('app_startup', diagnosticError);
+  const reference = recordDiagnosticError('app_startup', diagnosticError, startupDiagnosticDetails || undefined);
   root.replaceChildren();
   showDiagnosticScreen(reference);
 });
