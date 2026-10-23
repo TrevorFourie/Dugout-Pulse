@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Edit2, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
+import { recordDiagnosticError } from '../../utils/errorDiagnostics';
 
 interface VenuesSettingsPanelProps {
   isActive: boolean;
@@ -102,8 +103,17 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                                 detail: { oldName: venue, newName: renamedVenue },
                               }));
                               onStatusMessage({ text: `Venue "${venue}" renamed to "${renamedVenue}" across saved venues and scheduled games.`, isError: false });
-                            } catch {
-                              onStatusMessage({ text: 'Venue name updated, but scheduled games could not be synchronized on this device. Please reopen Upcoming Games and check them.', isError: true });
+                            } catch (error) {
+                              try {
+                                recordDiagnosticError(
+                                  error instanceof SyntaxError ? 'data_corruption' : 'storage_write',
+                                  error,
+                                  'A venue rename was saved, but synchronizing the affected scheduled games did not complete. The saved schedule needs to be checked before further edits.',
+                                );
+                              } catch {
+                                // Preserve the visible warning even if diagnostic recording is unavailable.
+                              }
+                              onStatusMessage({ text: 'Venue name updated, but scheduled games could not be synchronized on this device. Please reopen Upcoming Games and check them. If the problem continues, share the diagnostic report.', isError: true });
                             }
                           }
                           setEditingVenue(null);
