@@ -1,6 +1,6 @@
 # SQLite Migration — CP1 Storage Inventory
 
-Status: **Guarded SQLite startup hydration, backup import, and reset are source-committed; backup export/recovery coordination and runtime verification remain outstanding**.
+Status: **Guarded SQLite startup, backup import/export, reset, and recovery restore are source-committed; runtime and regression verification remain outstanding**.
 
 This document records the actual persistence surfaces inspected on `main`. It is a migration checklist, not evidence that SQLite integration or runtime tests have passed.
 
@@ -54,7 +54,7 @@ From `src/context/gameContextDefaults.ts`:
 1. **Done (source/lockfile only):** install the Capacitor 7-compatible dependency set and commit the package-manager-generated lockfile. Do not switch runtime storage yet.
 2. **Source implementation and first runtime checks complete:** add a typed SQLite repository and transactional snapshot importer with versioned schema, exact legacy-value retention, typed projections, read-back checks, and separate snapshot/cutover markers. The user's Chrome import and subsequent typed-projection integrity read both passed; localStorage remained unchanged. Do not delete legacy values.
 3. **Source wired, not runtime verified:** GameContext waits for startup hydration; existing cutover reads SQLite, verifies live state, and repairs the compatibility mirror before app screens mount. First cutover is gated by snapshot verification, a recovery checkpoint, transactional state verification, and a pending/completed marker.
-4. **Source wired, not runtime verified:** backup import now commits a complete SQLite state before reporting success and attempts to restore the previous live snapshot if a partial logo/import write fails. Reset commits the empty SQLite state before reporting success and preserves the store-authority marker. Backup export, recovery/restore interactions, and diagnostics coordination still require review.
+4. **Source wired, not runtime verified:** backup import commits a complete SQLite state before reporting success and attempts to restore the previous live snapshot if a partial import fails. Backup export reads one serialized SQLite state after cutover. Reset commits the empty SQLite state and preserves the store-authority marker. Recovery checkpoint restore updates SQLite and rolls it back alongside localStorage on failure. Diagnostics coordination and all runtime/regression checks remain outstanding.
 6. Test on Chrome with a copied browser profile or disposable test data first. Verify first import, reload persistence, live-game resume, scoring edits/undo, profile/settings changes, schedule/team/logo records, backup export/import, interrupted/failed migration, and old-key retention.
 7. Only after Chrome evidence should native platform integration be considered complete.
 
@@ -75,6 +75,6 @@ The repository backup `Migrate-Data/dugout-pulse-backup-2026-10-23.json` was pre
 - Static checks: not run. Build: intentionally not run per repository rules.
 - Actual localStorage snapshot import: runtime call returned audit/import results, the source-key comparison was true, and the snapshot marker was present.
 - Typed projection integrity: the user's subsequent `readVerifiedSQLiteSnapshot()` call returned `integrityVerified: true` and `localStorageUnchanged: true`. The console collapsed nested audit/count values, so exact counts were not independently reviewed from the returned output.
-- Startup hydration/cutover, backup import/reset, and conditional write paths are source-committed but not runtime-verified. Backup export, recovery interactions, scoring regression, and native platform checks remain outstanding.
+- Startup hydration/cutover, backup import/export/reset, recovery restore, and conditional write paths are source-committed but not runtime-verified. Diagnostics integration, scoring regression, and native platform checks remain outstanding.
 
 The next user test should wait until the startup gate, live persistence path, backup/recovery integration, and regression checks are implemented as one coherent milestone. Do not describe the migration as ready for normal use before those checks are complete.
