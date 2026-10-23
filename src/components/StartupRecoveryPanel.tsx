@@ -113,11 +113,11 @@ export const StartupRecoveryPanel: React.FC<StartupRecoveryPanelProps> = ({ erro
         setMessage('The report share sheet was dismissed. The app cannot confirm that the report was saved.');
       } else {
         setReportPreview(report);
-        showFailure('Could not export diagnostic report', 'Dugout Pulse could not export the diagnostic file. The report preview is shown below so you can copy it manually.', 'warning');
+        showFailure('Could not export diagnostic report', 'Dugout Pulse could not export the diagnostic file. The report preview is shown below so you can copy it manually.', 'danger');
       }
     } catch (error) {
       setReportPreview(report);
-      showFailure('Could not export diagnostic report', reportFailure('runtime_error', error, 'The diagnostic report could not be exported. The preview is available below.'), 'warning');
+      showFailure('Could not export diagnostic report', reportFailure('runtime_error', error, 'The diagnostic report could not be exported. The preview is available below.'), 'danger');
     }
   };
 
