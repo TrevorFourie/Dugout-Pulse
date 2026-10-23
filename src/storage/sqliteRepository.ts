@@ -511,6 +511,11 @@ export async function readVerifiedSQLiteSnapshot(): Promise<VerifiedSQLiteSnapsh
   if (marker.values[0].value !== fingerprint) {
     throw new Error('SQLite legacy source values no longer match the recorded snapshot fingerprint.');
   }
+  const currentSource = readAllLocalStorage();
+  if (sourceFingerprint(currentSource) !== fingerprint ||
+      canonicalStringify(currentSource) !== canonicalStringify(legacyValues)) {
+    throw new Error('Current local storage differs from the imported SQLite snapshot. Cutover is blocked to protect changes made after import.');
+  }
 
   const snapshot = validateSnapshot(legacyValues);
   const gameExpected = new Map(snapshot.games.map((game) => [game.id, serializeJson(game)]));
@@ -814,4 +819,21 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
     upcomingGames,
     logoLibrary,
   };
+}
+
+
+/**
+ * Finalizes cutover only after a complete live-state snapshot has been written and
+ * read back successfully. The startup gate must verify the original source snapshot
+ * against current localStorage before writing that live state.
+ */
+export async function markSQLiteLiveCutoverComplete(): Promise<void> {
+  await readLiveSQLiteState();
+  await withSQLiteTransaction(async (database) => {
+    await database.run(
+      'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      [CUTOVER_MARKER, 'complete'],
+      false,
+    );
+  });
 }
