@@ -167,7 +167,25 @@ export function useGameRestore({
         // localStorage-based app from starting.
       }
 
-      const localCutoverMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+      let localCutoverMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+      if (localCutoverMarker === 'pending' && !cutoverComplete) {
+        // An interrupted attempt can return to localStorage only after removing the
+        // pending flag and proving that the original source still matches its snapshot.
+        try {
+          localStorage.removeItem(LOCAL_CUTOVER_MARKER);
+          if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== null) {
+            throw new Error('The uncommitted SQLite cutover marker could not be cleared.');
+          }
+          await readVerifiedSQLiteSnapshot();
+          localCutoverMarker = null;
+        } catch (error) {
+          setRestoreFailed(true);
+          setIsLoading(false);
+          recordDiagnosticError('storage_load', error, 'An interrupted SQLite cutover could not be reconciled against the original saved data; automatic saving is paused.');
+          console.error('Interrupted SQLite cutover could not be safely reconciled.', error);
+          return;
+        }
+      }
       if (cutoverComplete || localCutoverMarker === 'complete' || localCutoverMarker === 'pending') {
         try {
           if (!cutoverComplete) {
