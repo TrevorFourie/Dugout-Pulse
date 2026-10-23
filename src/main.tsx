@@ -153,9 +153,8 @@ void import('/src/App.tsx').then(({ default: App }) => {
   } catch {
     // Keep the original startup failure visible even if recording diagnostics fails.
   }
+  root.replaceChildren();
   if (!showDiagnosticScreen(reference)) {
     renderLocalStartupFallback(reference);
-  } else {
-    root.replaceChildren();
   }
 });
