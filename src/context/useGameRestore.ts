@@ -5,7 +5,7 @@ import { sortGames } from '../utils/stats';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
+import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem, readPendingLiveGameFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
 import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
@@ -67,37 +67,6 @@ export function useGameRestore({
       }
 
       const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
-      const readPendingLiveGame = (): Game | undefined => {
-        const marker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
-        if (marker === null) return undefined;
-        // Older in-progress builds may have stored the full game in the marker;
-        // the current marker is compact and reads the write-ahead compatibility value.
-        const raw = marker === 'pending' ? localStorage.getItem(STORAGE_KEYS.LIVE_GAME) : marker;
-        // A pending scoring marker is written before the live-game mirror. Scoring
-        // writes always contain a game, so a missing mirror cannot safely be treated
-        // as a completed clear; retain the marker and stop startup for recovery.
-        if (raw === null) {
-          throw new Error('A pending live-game write has no recoverable game value; SQLite reconciliation was stopped to protect scoring data.');
-        }
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw) as unknown;
-        } catch {
-          throw new Error('A pending live-game write could not be parsed; SQLite reconciliation was stopped to protect scoring data.');
-        }
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          throw new Error('A pending live-game write has an invalid shape; SQLite reconciliation was stopped to protect scoring data.');
-        }
-        const game = parsed as Record<string, unknown>;
-        if (typeof game.id !== 'string' || game.id.length === 0 ||
-            (game.date !== undefined && typeof game.date !== 'string') ||
-            (game.teamName !== undefined && typeof game.teamName !== 'string') ||
-            (game.innings !== undefined && typeof game.innings !== 'number') ||
-            (game.plays !== undefined && !Array.isArray(game.plays))) {
-          throw new Error('A pending live-game write failed validation; SQLite reconciliation was stopped to protect scoring data.');
-        }
-        return parsed as Game;
-      };
       const clearPendingLiveGame = () => {
         localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
         if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
@@ -105,7 +74,7 @@ export function useGameRestore({
         }
       };
       const reconcilePendingLiveGame = async (state: SQLiteLiveState): Promise<SQLiteLiveState> => {
-        const pendingGame = readPendingLiveGame();
+        const pendingGame = readPendingLiveGameFromStorage();
         if (!pendingGame) {
           if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) clearPendingLiveGame();
           return state;
@@ -350,7 +319,7 @@ export function useGameRestore({
       await importLegacyStorageSnapshot();
       const snapshot = await readVerifiedSQLiteSnapshot();
       const initialState = makeInitialLiveState(snapshot);
-      const pendingLiveGame = readPendingLiveGame();
+      const pendingLiveGame = readPendingLiveGameFromStorage();
       if (pendingLiveGame) initialState.liveGame = pendingLiveGame;
       if (!(await createVerifiedRecoveryCheckpoint('Before switching saved application state to SQLite'))) {
         throw new Error('A verified recovery checkpoint could not be created before switching storage.');
@@ -403,7 +372,7 @@ export function useGameRestore({
     // authoritative. Replay a pending scoring journal into that store before hydration.
     try {
       const hasPendingLiveGameMarker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
-      const pendingGame = readPendingLiveGame();
+      const pendingGame = readPendingLiveGameFromStorage();
       if (pendingGame) {
         if (!(await createVerifiedRecoveryCheckpoint('Before restoring a pending live-game write to local storage'))) {
           throw new Error('A recovery checkpoint could not be verified before restoring the pending live-game write.');
