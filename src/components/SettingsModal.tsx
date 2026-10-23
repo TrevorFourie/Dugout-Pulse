@@ -53,7 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [backupSaveConfirmationOpen, setBackupSaveConfirmationOpen] = useState(false);
   const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' | 'success' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
@@ -82,12 +82,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [games.length, profiles, backupStatusTick],
   );
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeout = window.setTimeout(() => setToastMessage(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -142,9 +136,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           variant: 'warning',
         });
       } else {
+        // The share/download handoff is not proof that the user saved a separate copy.
+        // Ask the user to confirm the save before showing any success message.
         setStatusMessage(null);
         setOperationAlert(null);
-        setToastMessage('Backup export started. Verify the file was saved outside Dugout Pulse before relying on it.');
+        setBackupSaveConfirmationOpen(true);
       }
     } catch (error) {
       setStatusMessage(null);
@@ -323,15 +319,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-slate-200 bg-[#18212D] px-4 py-3 text-sm font-medium text-white shadow-xl dark:border-[#354050]"
-        >
-          {toastMessage}
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={backupSaveConfirmationOpen}
+        title="Did you save the backup outside Dugout Pulse?"
+        message="Dugout Pulse handed the backup file to the system share or download flow, but cannot verify that a separate copy was saved. Confirm only after you have saved it somewhere outside the app, such as Drive, Files, email or a computer. A backup left only in this app's local storage may be lost if the app is uninstalled or the phone is lost."
+        confirmLabel="Yes, I saved it"
+        cancelLabel="Not yet"
+        showCancelButton={true}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => {
+          setBackupSaveConfirmationOpen(false);
+          setOperationAlert({
+            title: 'Backup save not confirmed',
+            message: 'Dugout Pulse cannot confirm that a separate backup was saved. Do not rely on this export until you have saved the file outside the app.',
+            variant: 'warning',
+          });
+        }}
+        onConfirm={() => {
+          setBackupSaveConfirmationOpen(false);
+          setOperationAlert({
+            title: 'Backup file created',
+            message: 'You confirmed that you saved a copy outside Dugout Pulse. Keep that separate copy safe; a backup left only in this app’s local storage may be lost if the app is uninstalled or the phone is lost.',
+            variant: 'success',
+          });
+        }}
+      />
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}
