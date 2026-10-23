@@ -329,6 +329,16 @@ export function useGameDataManagement({
       }
       return { success: true, message: `Season data successfully restored!${logoNote}${unverifiedNote}` };
     } catch (err: unknown) {
+      // Logo restoration can touch SQLite metadata before the complete import commits.
+      // Restore the previous verified live snapshot on failure; localStorage is
+      // reconciled from SQLite on the next startup if any compatibility write failed.
+      if (sqliteStateMayHaveChanged && originalSQLiteState) {
+        try {
+          await saveLiveSQLiteState(originalSQLiteState);
+        } catch (rollbackError) {
+          recordDiagnosticError('storage_write', rollbackError, 'Backup import failed and the previous SQLite state could not be restored automatically. The verified recovery checkpoint was retained.');
+        }
+      }
       // If any import mutation may have started, pause automatic persistence. The
       // verified pre-import checkpoint remains available for explicit recovery.
       if (recoveryCheckpointCreated) setRestoreFailed(true);
@@ -343,7 +353,15 @@ export function useGameDataManagement({
         message: reportFailure('backup_import', err, userMessage),
       };
     }
-  }, []);
+  }, [
+    games, liveGame, editingGameId, reopenedGameId, profiles, settings, oppositionTeams,
+    savedOpponents, savedTournaments, savedAgeGroups, savedSeasons,
+    hiddenTournaments, hiddenAgeGroups, hiddenSeasons,
+    setGames, setLiveGame, setEditingGameId, setReopenedGameId, setProfiles, setSettings,
+    setOppositionTeams, setHiddenTournaments, setHiddenAgeGroups, setHiddenSeasons,
+    setIsFirstTimeUser, setRestoreFailed, setSavedOpponents, setSavedTournaments,
+    setSavedAgeGroups, setSavedSeasons, saveTournament, saveAgeGroup, saveSeason,
+  ]);
 
   // Resolves true only after a verified checkpoint exists and app-data removal is confirmed.
   const resetAllData = useCallback(async (): Promise<boolean> => {
