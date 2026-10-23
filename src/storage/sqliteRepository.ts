@@ -5,7 +5,8 @@ import type { TeamLogoItem } from '../utils/teamLogoLibrary';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
 import { initializeSQLiteDatabase, withSQLiteTransaction } from './sqliteDatabase';
 
-const IMPORT_MARKER = 'legacy_storage_import_v1';
+const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
+const CUTOVER_MARKER = 'legacy_storage_import_v1';
 
 const ARRAY_LIST_KEYS = [
   STORAGE_KEYS.SAVED_OPPONENTS,
@@ -282,17 +283,22 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
   await initializeSQLiteDatabase();
 
   await withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value === 'complete') {
+      throw new Error(
+        'SQLite is already marked as the live storage. The legacy snapshot importer is disabled to protect newer SQLite data.',
+      );
+    }
+
     const marker = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
-      [IMPORT_MARKER],
+      [SNAPSHOT_MARKER],
     );
     const existingFingerprint = marker.values?.[0]?.value;
-    if (typeof existingFingerprint === 'string') {
-      if (existingFingerprint !== fingerprint) {
-        throw new Error(
-          'A SQLite legacy snapshot already exists, but the current local storage has changed. No data was changed; an explicit recovery/reconciliation decision is required before retrying.',
-        );
-      }
+    if (typeof existingFingerprint === 'string' && existingFingerprint === fingerprint) {
       // The prior transaction verified every projection before recording this exact
       // fingerprint. A retry is a no-op, including after a web-store flush error.
       return;
@@ -411,7 +417,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
 
     await database.run(
       'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-      [IMPORT_MARKER, fingerprint],
+      [SNAPSHOT_MARKER, fingerprint],
       false,
     );
   });
@@ -424,10 +430,10 @@ export async function isLegacyStorageImportComplete(): Promise<boolean> {
   const database = await initializeSQLiteDatabase();
   const result = await database.query(
     'SELECT value FROM app_meta WHERE key = ?',
-    [IMPORT_MARKER],
+    [CUTOVER_MARKER],
   );
-  return typeof result.values?.[0]?.value === 'string' && result.values[0].value.length > 0;
+  return result.values?.[0]?.value === 'complete';
 }
 
 /** Exposed for a future startup gate to make the marker name stable and explicit. */
-export const LEGACY_STORAGE_IMPORT_MARKER = IMPORT_MARKER;
+export const LEGACY_STORAGE_IMPORT_MARKER = CUTOVER_MARKER;
