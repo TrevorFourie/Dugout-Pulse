@@ -148,7 +148,7 @@ export const OppositionTeamsSettings: React.FC = () => {
                   <input autoFocus value={editName} onChange={(event) => setEditName(event.target.value)} className={fieldClass} aria-label="Edit opposition team name" />
                 ) : <p className="truncate text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">{team.name}</p>}
                 <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">{resolveTeamLogoSrc(team.logo) ? 'Logo selected' : 'Using default team icon'}</p>
-                <TeamLogoPicker compact value={team.logo} onChange={(logo) => setTeamLogo(team.id, logo)} onError={setError} />
+                <TeamLogoPicker compact value={team.logo} onChange={(logo) => setTeamLogo(team.id, logo)} onError={setFailureAlert} />
               </div>
               {editingId === team.id ? (
                 <>
