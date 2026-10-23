@@ -97,7 +97,10 @@ async function createAndOpenConnection(): Promise<SQLiteDBConnection> {
         false,
       );
 
-  await connection.open();
+  const isOpen = await connection.isDBOpen();
+  if (!isOpen.result) {
+    await connection.open();
+  }
   databaseConnection = connection;
   return connection;
 }
