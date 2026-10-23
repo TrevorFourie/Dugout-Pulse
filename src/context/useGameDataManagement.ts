@@ -210,6 +210,12 @@ export function useGameDataManagement({
         }
         // Before cutover, localStorage remains authoritative and reset can proceed.
       }
+      const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+      if (marker === 'pending' || (marker === 'complete' && !sqliteCutoverComplete)) {
+        setRestoreFailed(true);
+        recordDiagnosticError('storage_write', new Error('SQLite cutover marker and database status disagree.'), 'Reset was stopped because storage authority needs reconciliation.');
+        return false;
+      }
 
       // Do not publish an empty in-memory state until the legacy keys have been
       // removed and, after cutover, the matching empty SQLite snapshot has committed.
