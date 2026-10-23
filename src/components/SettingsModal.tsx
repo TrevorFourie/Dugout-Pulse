@@ -62,6 +62,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const settingsContentRef = useRef<HTMLDivElement>(null);
 
+  const handleSettingsStatusMessage = (message: { text: string; isError: boolean } | null) => {
+    if (message?.isError) {
+      setStatusMessage(null);
+      setOperationAlert({
+        title: 'Could not complete settings change',
+        message: message.text,
+        variant: 'danger',
+      });
+      return;
+    }
+    setStatusMessage(message);
+  };
+
   const [backupStatusTick, setBackupStatusTick] = useState(0);
   const backupStatus = React.useMemo(
     () => getBackupStatus(games.length > 0 || profiles.some((p) => p.playerName || p.teamName)),
@@ -87,9 +100,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       updateActiveProfile({ logo: dataUrl });
       setStatusMessage({ text: 'Logo updated!', isError: false });
     } catch (err) {
-      setStatusMessage({
-        text: reportFailure('logo_library', err, 'We could not use that image.'),
-        isError: true,
+      setStatusMessage(null);
+      setOperationAlert({
+        title: 'Logo could not be updated',
+        message: reportFailure('logo_library', err, 'We could not use that image.'),
+        variant: 'danger',
       });
     }
   };
@@ -106,7 +121,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           variant: 'danger',
         });
       } else if (result.outcome === 'cancelled') {
-        setStatusMessage({ text: 'Backup was not saved. Choose a place to keep the file (Drive, Files, email) to complete the backup.', isError: true });
+        setStatusMessage(null);
+        setOperationAlert({
+          title: 'Backup was not saved',
+          message: 'No backup file was confirmed as saved. Choose a location outside Dugout Pulse and try again if you want a separate copy of your data.',
+          variant: 'warning',
+        });
       } else if (result.missingLogos.length > 0) {
         setStatusMessage(null);
         setOperationAlert({
@@ -254,7 +274,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {/* Teams for this Player (Multi-team with Tournament, Age Group, Season) */}
-            <TeamsSettingsPanel isActive={settingsSection === 'teams'} onStatusMessage={setStatusMessage} />
+            <TeamsSettingsPanel isActive={settingsSection === 'teams'} onStatusMessage={handleSettingsStatusMessage} />
             <PresetSettingsPanel
               isActive={settingsSection === 'teamLists' || settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups'}
               settingsSection={settingsSection === 'seasons' || settingsSection === 'tournaments' || settingsSection === 'ageGroups' ? settingsSection : 'teamLists'}
