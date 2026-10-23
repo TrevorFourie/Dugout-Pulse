@@ -4,14 +4,13 @@ import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/base
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 import { readTeamLogoLibrary, readTeamLogoLibraryStrict } from '../utils/teamLogoLibrary';
-import { clearAppDataPreservingDiagnostics, recordDiagnosticError } from '../utils/errorDiagnostics';
+import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
-import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
 import { explainFailure, reportFailure } from '../utils/userMessages';
 import { isLegacyStorageImportComplete, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
