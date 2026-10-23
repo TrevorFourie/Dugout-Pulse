@@ -5,6 +5,7 @@ import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, B
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 import { DatePicker } from './DatePicker';
+import { TimePicker } from './TimePicker';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoImage } from './TeamLogoImage';
@@ -377,7 +378,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
               <DatePicker value={date} onChange={setDate} ariaLabel="Game date" placeholder="Select game date" className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Start Time
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${inputClass} mt-1`} />
+              <TimePicker value={time} onChange={setTime} ariaLabel="Start time" placeholder="Select start time" allowClear className={`${inputClass} mt-1`} />
             </label>
             <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Venue
               <ThemedDropdown<string>

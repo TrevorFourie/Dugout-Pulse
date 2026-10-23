@@ -5,6 +5,7 @@ import { ThemedDropdown } from '../ThemedDropdown';
 import { OpponentCombobox } from '../OpponentCombobox';
 import { ValueCombobox } from '../ValueCombobox';
 import { DatePicker } from '../DatePicker';
+import { TimePicker } from '../TimePicker';
 import {
   Calendar, Check, Clock, Home, Plane, Play as PlayIcon, Plus, Shield, Trophy, Users,
 } from 'lucide-react';
@@ -347,14 +348,12 @@ export const NewGameForm: React.FC<NewGameFormProps> = ({ startGameDate, onStart
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
                   Game Time
                 </label>
-                <input
-                type="time"
-                required
-                value={newGameTime}
-                onChange={(e) => setNewGameTime(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] 
-                dark:[&::-webkit-calendar-picker-indicator]:invert"
-              />
+                <TimePicker
+                  value={newGameTime}
+                  onChange={setNewGameTime}
+                  ariaLabel="Game time"
+                  className="px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]"
+                />
               </div>
             </div>
 
