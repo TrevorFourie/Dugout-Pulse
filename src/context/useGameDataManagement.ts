@@ -25,7 +25,7 @@ function readUpcomingGamesForSQLite(): SQLiteLiveState['upcomingGames'] {
     typeof (value as { id?: unknown }).id === 'string' &&
     typeof (value as { opponent?: unknown }).opponent === 'string' &&
     typeof (value as { date?: unknown }).date === 'string' &&
-    typeof (value as { isHome?: unknown }).isHome === 'boolean'
+    ((value as { isHome?: unknown }).isHome === undefined || typeof (value as { isHome?: unknown }).isHome === 'boolean')
   )) {
     throw new Error('Scheduled games could not be validated before backup import.');
   }
