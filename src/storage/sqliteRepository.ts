@@ -279,13 +279,14 @@ export function auditLegacyStorage(): LegacyStorageAudit {
 }
 
 /**
- * One-time, transactional copy of the current localStorage snapshot into SQLite.
- * Every source string is retained exactly in legacy_values. Recognised records are
- * also projected into typed tables, verified before the marker is written, and the
- * original localStorage keys are never removed or changed.
+ * Transactionally copy the current localStorage snapshot into SQLite while the
+ * legacy store remains authoritative. Every source string is retained exactly in
+ * legacy_values; typed projections are verified before the snapshot marker is set.
+ * Original localStorage keys are never removed or changed by this importer.
  *
- * This function is intentionally not called by GameContext until the coordinated
- * read/write cutover is ready; calling it manually does not switch the live store.
+ * The guarded startup path invokes this only before cutover, then separately verifies
+ * the snapshot, creates a recovery checkpoint, and commits a complete live-state
+ * snapshot with the cutover marker. Importing alone never switches authority.
  */
 export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit> {
   const snapshot = validateSnapshot(readAllLocalStorage());
