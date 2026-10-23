@@ -5,6 +5,7 @@
  * the app or triggering a build.
  */
 import test from 'node:test';
+import { PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
 import assert from 'node:assert/strict';
 import {
   protectedStorageRemoveItem,
@@ -50,11 +51,17 @@ let failNextRemoveForKey: string | null = null;
 test('recovery snapshot is verified and a failed restore rolls back the current state', () => {
   values.clear();
   values.set('baseball_hub_games_v1', JSON.stringify([{ id: 'original-game' }]));
+  values.set(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
 
   assert.equal(snapshotBeforeGameWrite(), true);
   const checkpointRaw = values.get(RECOVERY_STORAGE_KEY);
   assert.ok(checkpointRaw, 'the recovery snapshot is written');
   assert.equal(values.get(RECOVERY_STORAGE_KEY), checkpointRaw, 'the written snapshot remains readable');
+  assert.equal(
+    (JSON.parse(checkpointRaw!) as { values: Record<string, string> }).values[PENDING_LIVE_GAME_WRITE_KEY],
+    undefined,
+    'the transient scoring journal is not captured as recoverable app data',
+  );
 
   assert.equal(protectedStorageSetItem('test-protected-key', 'saved-value'), true);
   assert.equal(values.get('test-protected-key'), 'saved-value');
@@ -84,6 +91,7 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
   // A later restore can proceed once storage works again.
   assert.equal(restoreRecoverySnapshot(), true);
   assert.equal(values.get('baseball_hub_games_v1'), JSON.stringify([{ id: 'original-game' }]));
+  assert.equal(values.get(PENDING_LIVE_GAME_WRITE_KEY), 'pending', 'restoring an old snapshot does not replace the live scoring journal');
   assert.equal(values.has('user-preference'), false);
   assert.equal(values.has('test-protected-key'), false);
 });
