@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
@@ -67,6 +67,37 @@ export function useGameRestore({
       }
 
       const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
+      const readPendingLiveGame = (): Game | undefined => {
+        const raw = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
+        if (raw === null) return undefined;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw) as unknown;
+        } catch {
+          throw new Error('A pending live-game write could not be parsed; SQLite reconciliation was stopped to protect scoring data.');
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('A pending live-game write has an invalid shape; SQLite reconciliation was stopped to protect scoring data.');
+        }
+        return parsed as Game;
+      };
+      const clearPendingLiveGame = () => {
+        localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+          throw new Error('The pending live-game write could not be cleared after SQLite persistence.');
+        }
+      };
+      const reconcilePendingLiveGame = async (state: SQLiteLiveState): Promise<SQLiteLiveState> => {
+        const pendingGame = readPendingLiveGame();
+        if (!pendingGame) return state;
+        if (!(await createVerifiedRecoveryCheckpoint('Before reconciling a pending live-game write to SQLite'))) {
+          throw new Error('A recovery checkpoint could not be verified before reconciling the pending live-game write.');
+        }
+        await saveLiveSQLiteState({ ...state, liveGame: pendingGame });
+        const reconciled = { ...state, liveGame: pendingGame };
+        clearPendingLiveGame();
+        return reconciled;
+      };
       const isMeaningfullyConfigured = (profiles: PlayerProfile[], setupCompleted: boolean) => {
         const first = profiles[0];
         return setupCompleted || Boolean(
@@ -190,7 +221,7 @@ export function useGameRestore({
           if (!cutoverComplete) {
             throw new Error('The local cutover marker exists, but SQLite does not confirm a completed cutover.');
           }
-          const state = await readLiveSQLiteState();
+          const state = await reconcilePendingLiveGame(await readLiveSQLiteState());
           await mirrorLiveState(state);
           applyLiveState(state);
           setIsLoading(false);
@@ -299,10 +330,13 @@ export function useGameRestore({
       await importLegacyStorageSnapshot();
       const snapshot = await readVerifiedSQLiteSnapshot();
       const initialState = makeInitialLiveState(snapshot);
+      const pendingLiveGame = readPendingLiveGame();
+      if (pendingLiveGame) initialState.liveGame = pendingLiveGame;
       if (!(await createVerifiedRecoveryCheckpoint('Before switching saved application state to SQLite'))) {
         throw new Error('A verified recovery checkpoint could not be created before switching storage.');
       }
       await saveLiveSQLiteState(initialState, { completeCutover: true });
+      if (pendingLiveGame) clearPendingLiveGame();
       await mirrorLiveState(initialState);
       applyLiveState(initialState);
       setIsLoading(false);
@@ -320,7 +354,7 @@ export function useGameRestore({
         // the database transaction. Read that authoritative snapshot and reconcile
         // it instead of leaving the app blocked unnecessarily.
         try {
-          const committedState = await readLiveSQLiteState();
+          const committedState = await reconcilePendingLiveGame(await readLiveSQLiteState());
           await mirrorLiveState(committedState);
           applyLiveState(committedState);
           setIsLoading(false);
