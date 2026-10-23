@@ -155,7 +155,7 @@ export function useGameDataManagement({
           liveGame,
           editingGameId,
           reopenedGameId,
-          setupCompleted: persistedState.setupCompleted || localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+          setupCompleted: persistedState.setupCompleted,
           savedOpponents,
           savedTournaments,
           savedAgeGroups,
