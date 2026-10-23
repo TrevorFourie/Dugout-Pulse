@@ -28,12 +28,12 @@ export function useGamePlayActions({
   const commitLiveGame = useCallback((nextGame: Game): boolean => {
     if (storageWritesBlocked) return false;
     const serialized = JSON.stringify(nextGame);
-    // Write the complete pending game before updating its compatibility key. Startup
-    // can replay this journal into SQLite if the app closes before the persistence effect.
+    // This small write-ahead marker lets startup distinguish a live-game mirror that
+    // may be newer than SQLite without duplicating a potentially large game payload.
     try {
-      localStorage.setItem(PENDING_LIVE_GAME_WRITE_KEY, serialized);
-      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== serialized) {
-        throw new Error('The pending live-game write could not be verified.');
+      localStorage.setItem(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== 'pending') {
+        throw new Error('The pending live-game marker could not be verified.');
       }
     } catch (error) {
       try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be journaled safely.'); } catch { /* Preserve the blocked write outcome. */ }
@@ -43,16 +43,24 @@ export function useGamePlayActions({
 
     try {
       if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, serialized)) {
-        recordDiagnosticError('storage_write_games', new Error('The live-game compatibility write failed; its verified pending journal was retained for recovery.'));
+        // The protected write rolled back to the prior live game. Remove the marker
+        // when possible; if removal fails, startup safely replays that prior value.
+        try {
+          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+            throw new Error('The unused pending live-game marker could not be cleared.');
+          }
+        } catch (cleanupError) {
+          recordDiagnosticError('storage_write_games', cleanupError, 'The scoring write failed and its unused recovery marker could not be cleared.');
+        }
         onStorageProtectionFailure();
+        return false;
       }
-      // The write-ahead journal is durable and verified even if the compatibility
-      // mirror fails; keep the in-memory action aligned with the recoverable record.
       return true;
     } catch (error) {
-      try { recordDiagnosticError('storage_write_games', error, 'The live-game compatibility write failed; its verified pending journal was retained for recovery.'); } catch { /* Preserve the journaled outcome. */ }
+      try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be saved and verified.'); } catch { /* Preserve the blocked write outcome. */ }
       onStorageProtectionFailure();
-      return true;
+      return false;
     }
   }, [storageWritesBlocked, onStorageProtectionFailure]);
 
