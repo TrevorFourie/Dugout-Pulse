@@ -73,9 +73,12 @@ export function useGameRestore({
         // Older in-progress builds may have stored the full game in the marker;
         // the current marker is compact and reads the write-ahead compatibility value.
         const raw = marker === 'pending' ? localStorage.getItem(STORAGE_KEYS.LIVE_GAME) : marker;
-        // A missing live-game key can mean SQLite and its mirror committed a clear
-        // immediately before a crash; the caller will trust the verified SQLite state.
-        if (raw === null) return undefined;
+        // A pending scoring marker is written before the live-game mirror. Scoring
+        // writes always contain a game, so a missing mirror cannot safely be treated
+        // as a completed clear; retain the marker and stop startup for recovery.
+        if (raw === null) {
+          throw new Error('A pending live-game write has no recoverable game value; SQLite reconciliation was stopped to protect scoring data.');
+        }
         let parsed: unknown;
         try {
           parsed = JSON.parse(raw) as unknown;
