@@ -43,7 +43,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     variant === 'danger'
       ? 'bg-red-100 text-red-600 dark:bg-[#FF5252]/15 dark:text-[#D4626D]'
       : variant === 'warning'
-      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+      ? 'bg-blue-100 text-[#18212D] dark:bg-[#252D38] dark:text-blue-400'
       : variant === 'success'
       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
       : 'bg-blue-100 text-[#18212D] dark:bg-[#252D38] dark:text-blue-400';
