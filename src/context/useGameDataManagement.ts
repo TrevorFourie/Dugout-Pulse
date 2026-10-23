@@ -181,23 +181,104 @@ export function useGameDataManagement({
 
       // Complete all direct local-storage writes before publishing imported state to React.
       // If a write fails, the current in-memory game/profile state remains intact.
-      if (data && Array.isArray(data.upcomingGames)) {
+      if (!sqliteCutoverComplete && data && Array.isArray(data.upcomingGames)) {
         if (!protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
           throw new Error('Could not protect storage before importing upcoming games');
         }
       }
-      if (data && Array.isArray(data.oppositionTeams)) {
+      if (!sqliteCutoverComplete && data && Array.isArray(data.oppositionTeams)) {
         if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
           throw new Error('Could not protect storage before importing opposition teams');
         }
       }
 
       const extras = (data && typeof data === 'object' ? (data as { extras?: Record<string, unknown> }).extras : undefined);
-      if (extras && typeof extras === 'object' &&
+      if (!sqliteCutoverComplete && extras && typeof extras === 'object' &&
           extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
         // A failed setup-flag write must stop the import before the restored state is published.
         if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
           throw new Error('Could not protect storage before saving setup completion');
+        }
+      }
+
+      // When SQLite is authoritative, commit the complete imported state before
+      // publishing success. Any earlier logo metadata writes are reconciled back to
+      // the previous live snapshot if this operation fails.
+      if (sqliteCutoverComplete) {
+        const nextGames = data && Array.isArray(data.games) ? sortGames(data.games, 'oldestFirst') : games;
+        const nextProfiles = data && Array.isArray(data.profiles) && data.profiles.length > 0
+          ? (data.profiles as PlayerProfile[]).map(withTeams)
+          : profiles;
+        const nextSettings = data && data.settings ? { ...settings, ...data.settings } as AppSettings : settings;
+        const nextOppositionTeams = data && Array.isArray(data.oppositionTeams)
+          ? data.oppositionTeams as OppositionTeam[]
+          : oppositionTeams;
+        const extrasObject = extras && typeof extras === 'object' ? extras : {};
+        const mergePresets = (saved: string[], hidden: string[], incoming: unknown) => {
+          let nextSaved = [...saved];
+          let nextHidden = [...hidden];
+          for (const name of asStringList(incoming)) {
+            const trimmed = name.trim();
+            if (!trimmed) continue;
+            if (!nextSaved.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+              nextSaved = [trimmed, ...nextSaved];
+            }
+            nextHidden = nextHidden.filter((item) => item.trim().toLowerCase() !== trimmed.toLowerCase());
+          }
+          return { saved: nextSaved, hidden: nextHidden };
+        };
+        const tournamentLists = mergePresets(savedTournaments, hiddenTournaments, extrasObject.savedTournaments);
+        const ageGroupLists = mergePresets(savedAgeGroups, hiddenAgeGroups, extrasObject.savedAgeGroups);
+        const seasonLists = mergePresets(savedSeasons, hiddenSeasons, extrasObject.savedSeasons);
+        const incomingOpponents = asStringList(extrasObject.savedOpponents);
+        const knownOpponents = new Set(savedOpponents.map((name) => name.trim().toLowerCase()));
+        const nextSavedOpponents = incomingOpponents.length > 0
+          ? [...savedOpponents, ...incomingOpponents.filter((name) => !knownOpponents.has(name.toLowerCase()))]
+          : savedOpponents;
+        const nextHiddenTournaments = Array.isArray(extrasObject.hiddenTournaments)
+          ? asStringList(extrasObject.hiddenTournaments) : tournamentLists.hidden;
+        const nextHiddenAgeGroups = Array.isArray(extrasObject.hiddenAgeGroups)
+          ? asStringList(extrasObject.hiddenAgeGroups) : ageGroupLists.hidden;
+        const nextHiddenSeasons = Array.isArray(extrasObject.hiddenSeasons)
+          ? asStringList(extrasObject.hiddenSeasons) : seasonLists.hidden;
+        const nextUpcomingGames = data && Array.isArray(data.upcomingGames)
+          ? data.upcomingGames as SQLiteLiveState['upcomingGames']
+          : originalSQLiteState?.upcomingGames || [];
+        const setupCompleted = extrasObject.setupCompleted === true &&
+          Array.isArray(data.profiles) && data.profiles.length > 0
+          ? true
+          : originalSQLiteState?.setupCompleted ?? false;
+        const nextState: SQLiteLiveState = {
+          games: nextGames,
+          profiles: nextProfiles,
+          settings: nextSettings,
+          liveGame,
+          editingGameId,
+          reopenedGameId,
+          setupCompleted,
+          savedOpponents: nextSavedOpponents,
+          savedTournaments: tournamentLists.saved,
+          savedAgeGroups: ageGroupLists.saved,
+          savedSeasons: seasonLists.saved,
+          hiddenTournaments: nextHiddenTournaments,
+          hiddenAgeGroups: nextHiddenAgeGroups,
+          hiddenSeasons: nextHiddenSeasons,
+          oppositionTeams: nextOppositionTeams,
+          upcomingGames: nextUpcomingGames,
+          logoLibrary: readTeamLogoLibraryStrict(),
+        };
+        await saveLiveSQLiteState(nextState);
+        if (data && Array.isArray(data.upcomingGames) &&
+            !protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
+          throw new Error('SQLite import committed, but the scheduled-game compatibility copy could not be verified.');
+        }
+        if (data && Array.isArray(data.oppositionTeams) &&
+            !protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
+          throw new Error('SQLite import committed, but the opposition-team compatibility copy could not be verified.');
+        }
+        if (setupCompleted &&
+            !protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
+          throw new Error('SQLite import committed, but the setup-completed compatibility copy could not be verified.');
         }
       }
 
