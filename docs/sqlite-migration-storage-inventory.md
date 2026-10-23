@@ -52,8 +52,8 @@ From `src/context/gameContextDefaults.ts`:
 ## Required migration strategy
 
 1. **Done (source/lockfile only):** install the Capacitor 7-compatible dependency set and commit the package-manager-generated lockfile. Do not switch runtime storage yet.
-2. **Source implementation committed, runtime import test pending:** add a typed SQLite repository and transactional snapshot importer with versioned schema, exact legacy-value retention, typed projections, read-back checks, and separate snapshot/cutover markers. Do not delete legacy values.
-4. Gate app startup on database initialization/migration before publishing GameContext state; if SQLite is unavailable or validation fails, show a recoverable error and retain source data rather than starting with empty defaults.
+2. **Source implementation and first runtime checks complete:** add a typed SQLite repository and transactional snapshot importer with versioned schema, exact legacy-value retention, typed projections, read-back checks, and separate snapshot/cutover markers. The user's Chrome import and subsequent typed-projection integrity read both passed; localStorage remained unchanged. Do not delete legacy values.
+3. Gate app startup on database initialization/migration before publishing GameContext state; if SQLite is unavailable or validation fails, show a recoverable error and retain source data rather than starting with empty defaults.
 5. Migrate backup/import/reset, logos, recovery, and diagnostics as a coordinated set. Preserve the current recovery checkpoint requirement and the existing JSON backup format.
 6. Test on Chrome with a copied browser profile or disposable test data first. Verify first import, reload persistence, live-game resume, scoring edits/undo, profile/settings changes, schedule/team/logo records, backup export/import, interrupted/failed migration, and old-key retention.
 7. Only after Chrome evidence should native platform integration be considered complete.
@@ -72,7 +72,8 @@ The repository backup `Migrate-Data/dugout-pulse-backup-2026-10-23.json` was pre
 - Browser WASM asset: present at `public/assets/sql-wasm.wasm`.
 - Chrome runtime evidence: schema initialization and 10-table query passed; transaction write/read-back passed; the marker survived page reload; the temporary marker was then removed and verified absent.
 - Static checks: not run. Build: intentionally not run per repository rules.
-- Actual localStorage snapshot import: runtime call returned audit/import results, the source-key comparison was true, and the snapshot marker was present. The new full typed-projection read-back API has not yet been runtime-tested.
+- Actual localStorage snapshot import: runtime call returned audit/import results, the source-key comparison was true, and the snapshot marker was present.
+- Typed projection integrity: the user's subsequent `readVerifiedSQLiteSnapshot()` call returned `integrityVerified: true` and `localStorageUnchanged: true`. The console collapsed nested audit/count values, so exact counts were not independently reviewed from the returned output.
 - App-level SQLite read/write integration, backup/recovery regression, and native platform checks: not yet verified.
 
-The next user test should be one combined, non-destructive Chrome import check. Do not describe the migration as ready for normal use until the source import, startup gate, live persistence cutover, backup/recovery integration, and regression checks are complete.
+The next user test should wait until the startup gate, live persistence path, backup/recovery integration, and regression checks are implemented as one coherent milestone. Do not describe the migration as ready for normal use before those checks are complete.
