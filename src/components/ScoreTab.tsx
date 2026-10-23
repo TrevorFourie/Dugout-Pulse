@@ -214,6 +214,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
 
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSavingGame, setIsSavingGame] = useState(false);
   const [isDiscardModalOpen, setIsDiscardModalOpen] = useState(false);
   const [isAbandonResumeModalOpen, setIsAbandonResumeModalOpen] = useState(false);
   const [isPitcherOutModalOpen, setIsPitcherOutModalOpen] = useState(false);
@@ -1484,10 +1485,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   };
 
 
-  const handleSaveGameWithScore = () => {
+  const handleSaveGameWithScore = async () => {
     const teamScore = Number(teamFinalScore);
     const opponentScore = Number(opponentFinalScore);
     if (
+      isSavingGame ||
       teamFinalScore.trim() === '' ||
       opponentFinalScore.trim() === '' ||
       !Number.isInteger(teamScore) ||
@@ -1499,16 +1501,33 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     }
 
     const outcome = teamScore > opponentScore ? 'W' : teamScore < opponentScore ? 'L' : 'D';
-    // Close all transient scoring UI before committing the game.
-    setPendingHitPlay(null);
-    pendingRunnerAfterHitRef.current = null;
-    pendingRunnerPrimaryPlayIdRef.current = null;
-    setRunnerSession(null);
-    setRunnerHistory([]);
-    setActiveRunnerChip(null);
-    setIsSaveModalOpen(false);
-    saveGame(`${outcome} ${teamScore}-${opponentScore}`);
-    onGameClosed?.();
+    setIsSavingGame(true);
+    try {
+      const saved = await saveGame(`${outcome} ${teamScore}-${opponentScore}`);
+      if (!saved) {
+        setStorageFailureAlert('The game could not be safely saved. Your live game has been kept available for recovery. Review diagnostics before trying again.');
+        return;
+      }
+
+      // Clear transient scoring UI only after persistence confirms the completed game.
+      setPendingHitPlay(null);
+      pendingRunnerAfterHitRef.current = null;
+      pendingRunnerPrimaryPlayIdRef.current = null;
+      setRunnerSession(null);
+      setRunnerHistory([]);
+      setActiveRunnerChip(null);
+      setIsSaveModalOpen(false);
+      onGameClosed?.();
+    } catch (error) {
+      try {
+        recordDiagnosticError('storage_write_games', error, 'The completed game could not be saved.');
+      } catch {
+        // The visible failure message remains even if diagnostics are unavailable.
+      }
+      setStorageFailureAlert('The game could not be saved safely. Your live game has been kept available for recovery.');
+    } finally {
+      setIsSavingGame(false);
+    }
   };
 
   const pitchLimit = settings.pitchCountLimit || 85;
@@ -2077,6 +2096,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
+                disabled={isSavingGame}
                 className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-[#354050] dark:text-[#D1D5DB] dark:hover:bg-[#252D38]"
               >
                 Cancel
@@ -2085,6 +2105,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 type="button"
                 onClick={handleSaveGameWithScore}
                 disabled={
+                  isSavingGame ||
                   teamFinalScore.trim() === '' ||
                   opponentFinalScore.trim() === '' ||
                   !Number.isInteger(Number(teamFinalScore)) ||
@@ -2094,7 +2115,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 }
                 className="rounded-md bg-[#00BFA5] dark:bg-[#00D7BC] px-4 py-2.5 text-sm font-semibold text-[#18212D] dark:text-[#101419] shadow-md hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:cursor-not-allowed disabled:opacity-40 "
               >
-                {isEditing ? 'Save Score & Changes' : 'Save Score & Game'}
+                {isSavingGame ? 'Saving…' : isEditing ? 'Save Score & Changes' : 'Save Score & Game'}
               </button>
             </div>
           </section>
