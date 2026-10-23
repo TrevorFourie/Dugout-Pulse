@@ -5,6 +5,7 @@ const MAX_STORAGE_CHARS = 48_000;
 const MAX_MESSAGE_CHARS = 400;
 const MAX_DETAIL_CHARS = 2400;
 let lastReference = '';
+let lastRecordedAt = 0;
 let pendingReactHookDiagnostic: { time: number; details: string } | undefined;
 
 declare const __BUILD_ID__: string;
@@ -306,6 +307,7 @@ export function recordDiagnosticError(category: string, error: unknown, addition
   };
   persist(event);
   lastReference = event.id;
+  lastRecordedAt = Date.now();
   return event.id;
 }
 
@@ -424,48 +426,59 @@ export function installGlobalDiagnosticHandlers(): void {
   if (target[marker]) return;
   target[marker] = true;
 
-  const captureHookOrderDiagnostic = (args: unknown[]) => {
-    const describe = (value: unknown): string => {
-      if (typeof value === 'string') return value;
-      if (value instanceof Error) return value.name + ': ' + value.message + (value.stack ? '\n' + value.stack : '');
-      if (value === undefined) return 'undefined';
-      if (value === null || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
-      try {
-        const seen = new WeakSet<object>();
-        return JSON.stringify(value, (_key, item: unknown) => {
-          if (item && typeof item === 'object') {
-            if (seen.has(item)) return '[Circular]';
-            seen.add(item);
-          }
-          return item;
-        }, 2) ?? String(value);
-      } catch {
-        return Object.prototype.toString.call(value);
-      }
-    };
-    const formatConsoleArguments = (values: unknown[]): string => {
-      if (!values.length) return '';
-      if (typeof values[0] !== 'string') return values.map(describe).join('\n');
-      let argIndex = 1;
-      const formatted = values[0].replace(/%([%sdifocO])/g, (match, token: string) => {
-        if (token === '%') return '%';
-        if (argIndex >= values.length) return match;
-        const value = values[argIndex++];
-        if (token === 'c') return '';
-        if (token === 'd' || token === 'i' || token === 'f') {
-          const number = Number(value);
-          return Number.isFinite(number) ? String(number) : describe(value);
+  const describeConsoleArgument = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value instanceof Error) return value.name + ': ' + value.message + (value.stack ? '\n' + value.stack : '');
+    if (value === undefined) return 'undefined';
+    if (value === null || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+    try {
+      const seen = new WeakSet<object>();
+      return JSON.stringify(value, (_key, item: unknown) => {
+        if (item && typeof item === 'object') {
+          if (seen.has(item)) return '[Circular]';
+          seen.add(item);
         }
-        return describe(value);
-      });
-      return [formatted, ...values.slice(argIndex).map(describe)].filter(Boolean).join('\n');
-    };
+        return item;
+      }, 2) ?? String(value);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  };
+  const formatConsoleArguments = (values: unknown[]): string => {
+    if (!values.length) return '';
+    if (typeof values[0] !== 'string') return values.map(describeConsoleArgument).join('\n');
+    let argIndex = 1;
+    const formatted = values[0].replace(/%([%sdifocO])/g, (match, token: string) => {
+      if (token === '%') return '%';
+      if (argIndex >= values.length) return match;
+      const value = values[argIndex++];
+      if (token === 'c') return '';
+      if (token === 'd' || token === 'i' || token === 'f') {
+        const number = Number(value);
+        return Number.isFinite(number) ? String(number) : describeConsoleArgument(value);
+      }
+      return describeConsoleArgument(value);
+    });
+    return [formatted, ...values.slice(argIndex).map(describeConsoleArgument)].filter(Boolean).join('\n');
+  };
+  const captureHookOrderDiagnostic = (args: unknown[]): boolean => {
     const detail = formatConsoleArguments(args);
-    if (!/change in the order of Hooks called|Rendered (?:more|fewer) hooks than during the previous render/i.test(detail)) return;
+    if (!/change in the order of Hooks called|Rendered (?:more|fewer) hooks than during the previous render/i.test(detail)) return false;
     pendingReactHookDiagnostic = {
       time: Date.now(),
       details: safeDiagnosticDetail(detail),
     };
+    return true;
+  };
+  const classifyConsoleFailure = (detail: string): string => {
+    const value = detail.toLowerCase();
+    if (/quota|storage is full|could not save|could not remove|local storage|storage write|setitem/.test(value)) return 'storage_write';
+    if (/corrupt|invalid data|failed validation|integrity check|read-back verification|unexpected format|json parse|syntaxerror/.test(value)) return 'data_corruption';
+    if (/restore|rollback/.test(value)) return 'recovery_restore';
+    if (/recovery|checkpoint|snapshot/.test(value)) return 'recovery_checkpoint';
+    if (/backup|import|export|share/.test(value)) return /import/.test(value) ? 'backup_import' : 'backup_export';
+    if (/read storage|could not read|failed to read|storage could not be inspected/.test(value)) return 'storage_read';
+    return 'runtime_error';
   };
 
   // React emits the Hook-by-Hook comparison through console.error before the
@@ -473,7 +486,18 @@ export function installGlobalDiagnosticHandlers(): void {
   // so the exported report contains the comparison, not just the final exception.
   const originalConsoleError = console.error.bind(console);
   console.error = (...args: unknown[]) => {
-    try { captureHookOrderDiagnostic(args); } catch { /* diagnostics must never affect rendering */ }
+    try {
+      const isHookOrderDiagnostic = captureHookOrderDiagnostic(args);
+      const detail = formatConsoleArguments(args);
+      // Catch handled failures that are only written to the console (storage,
+      // recovery, import/export, and other caught errors) without forcing a modal
+      // over an operation that already has its own user-facing handling.
+      if (!isHookOrderDiagnostic && Date.now() - lastRecordedAt > 1500 &&
+          /error|failed|failure|could not|unable|corrupt|invalid|denied|quota|exception|verification/i.test(detail)) {
+        const errorArgument = args.find((arg): arg is Error => arg instanceof Error);
+        recordDiagnosticError(classifyConsoleFailure(detail), errorArgument || new Error(detail.slice(0, MAX_MESSAGE_CHARS)), detail);
+      }
+    } catch { /* diagnostics must never affect rendering */ }
     originalConsoleError(...args);
   };
   const originalConsoleWarn = console.warn.bind(console);
