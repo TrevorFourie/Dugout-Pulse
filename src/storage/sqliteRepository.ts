@@ -987,7 +987,7 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
     oppositionTeams: snapshot.oppositionTeams,
     upcomingGames: snapshot.upcomingGames as SQLiteLiveState['upcomingGames'],
     logoLibrary: snapshot.logoLibrary,
-  });
+  }, { includeAuxiliary: true });
 }
 
 /** Updates scheduled games transactionally after cutover; before cutover localStorage remains authoritative. */
