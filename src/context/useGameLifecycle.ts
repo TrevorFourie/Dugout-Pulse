@@ -165,16 +165,6 @@ export function useGameLifecycle({
     if (storageWritesBlocked || !liveGame) return false;
     const gameToSave = { ...liveGame, finalResult, innings: getInningsPlayed(liveGame) };
 
-    if (liveGame.tournament && liveGame.tournament.trim()) {
-      saveTournament(liveGame.tournament.trim());
-    }
-    if (liveGame.ageGroup && liveGame.ageGroup.trim()) {
-      saveAgeGroup(liveGame.ageGroup.trim());
-    }
-    if (liveGame.season && liveGame.season.trim()) {
-      saveSeason(liveGame.season.trim());
-    }
-
     const existingGameId = editingGameId ?? reopenedGameId;
     const completedGame = existingGameId ? { ...gameToSave, id: existingGameId } : gameToSave;
 
@@ -204,6 +194,19 @@ export function useGameLifecycle({
       }
       onStorageProtectionFailure();
       return false;
+    }
+
+    // Update preset lists only after the completed-game transaction succeeds. This
+    // keeps their React persistence effect from queueing a stale live-game snapshot
+    // ahead of the final state transition.
+    if (liveGame.tournament && liveGame.tournament.trim()) {
+      saveTournament(liveGame.tournament.trim());
+    }
+    if (liveGame.ageGroup && liveGame.ageGroup.trim()) {
+      saveAgeGroup(liveGame.ageGroup.trim());
+    }
+    if (liveGame.season && liveGame.season.trim()) {
+      saveSeason(liveGame.season.trim());
     }
 
     setGames((prevGames) => {
