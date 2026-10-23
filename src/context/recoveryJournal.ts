@@ -664,7 +664,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         }
         await verifyLogoFilesForValues(rolledBack, beforeLogoFiles);
         if (sqliteCutoverComplete && beforeSQLiteState) {
-          await saveLiveSQLiteState(beforeSQLiteState);
+          await saveLiveSQLiteState(beforeSQLiteState, { includeAuxiliary: true });
         }
         rollbackVerified = true;
       } catch (rollbackError) {
