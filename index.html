@@ -84,7 +84,7 @@
             category: 'app_startup',
             errorType: 'Error',
             errorMessage: messageText,
-            userMessage: "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Review the diagnostic report and restart the app.",
+            userMessage: "Dugout Pulse ran into a problem while starting. You can open the diagnostic report and share it if you need help. Please keep the app installed and avoid clearing its data while we look into this.",
             frames: [],
             platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
             build: 'unknown'
@@ -135,31 +135,31 @@
           // Keep the on-screen failure message user-friendly. Raw compiler/runtime
           // details belong in the opt-in diagnostic report, not the primary error text.
           var friendlyMessages = {
-            app_startup: "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.",
-            react_render: "Dugout Pulse encountered a screen error and had to stop this view. Your saved data may still be on this device. Avoid clearing app data and share the diagnostic report.",
-            storage_load: "Dugout Pulse couldn't safely read some saved data. Don't reset or reinstall the app. Open recovery tools and check your recovery points.",
-            storage_read: "Dugout Pulse couldn't safely read some saved data. Don't reset or reinstall the app. Open recovery tools and check your recovery points.",
-            data_corruption: "Dugout Pulse couldn't safely read some saved data. Don't reset or reinstall the app. Open recovery tools and check your recovery points.",
-            storage_write: "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.",
-            storage_write_games: "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.",
-            storage_write_profiles: "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.",
-            storage_write_opposition_teams: "Dugout Pulse couldn't safely save a change. Pause further edits and check your recovery points before trying again.",
-            backup_import: "Dugout Pulse couldn't safely import that backup. Don't reset the app. Review the diagnostic report before trying another import.",
-            recovery_restore: "Dugout Pulse couldn't complete the restore. Do not clear app data or reinstall. Review the diagnostic report before another attempt.",
-            recovery_checkpoint: "Dugout Pulse couldn't verify a recovery point. Avoid resetting or reinstalling the app; check for another verified recovery point.",
-            data_reset: "Dugout Pulse couldn't complete the data reset safely. Do not repeat the reset yet. Review the diagnostic report and check your recovery points.",
-            window_error: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
-            unhandled_rejection: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
-            network_failure: "A network request made by Dugout Pulse failed. This may be expected while offline; review the diagnostic report if the operation did not complete.",
-            module_load_failure: "An optional part of Dugout Pulse could not load. Other features may still work; review the diagnostic report if you notice a problem.",
-            runtime_error: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
-            native_failure: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling."
+            app_startup: "Dugout Pulse ran into a problem while starting. You can open the diagnostic report and share it if you need help. Please keep the app installed and avoid clearing its data while we look into this.",
+            react_render: "Dugout Pulse had trouble displaying this screen. Please restart the app to try again. If the problem happens again, please share the diagnostic report so we can investigate. For now, please keep the app installed and avoid clearing its data.",
+            storage_load: "Dugout Pulse had trouble reading some saved data. Please open the recovery tools to review your available recovery points. If you need help, the diagnostic report can provide more detail. Please keep the app installed and avoid clearing its data.",
+            storage_read: "Dugout Pulse had trouble reading some saved data. Please open the recovery tools to review your available recovery points. If you need help, the diagnostic report can provide more detail. Please keep the app installed and avoid clearing its data.",
+            data_corruption: "Dugout Pulse had trouble reading some saved data. Please open the recovery tools to review your available recovery points. If you need help, the diagnostic report can provide more detail. Please keep the app installed and avoid clearing its data.",
+            storage_write: "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.",
+            storage_write_games: "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.",
+            storage_write_profiles: "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.",
+            storage_write_opposition_teams: "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.",
+            backup_import: "Dugout Pulse couldn't complete the backup import. Your existing information has not been verified as part of this attempt. Please review the recovery tools and diagnostic report before trying again.",
+            recovery_restore: "Dugout Pulse couldn't complete the restore. Please review the available recovery points and diagnostic report before trying again. Keep the app installed and avoid clearing its data for now.",
+            recovery_checkpoint: "Dugout Pulse couldn't verify that recovery point. Please check whether another verified recovery point is available. Keep the app installed and avoid clearing its data while you review your options.",
+            data_reset: "Dugout Pulse couldn't complete the data reset. Please check the recovery tools and diagnostic report before trying again, so you can review the available options first.",
+            window_error: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
+            unhandled_rejection: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
+            network_failure: "Dugout Pulse couldn't complete a network request. This can happen while you're offline. If the action didn't finish as expected, please check its result and share the diagnostic report if you need help.",
+            module_load_failure: "One part of Dugout Pulse couldn't load. Other features may still be available. If something isn't working as expected, please share the diagnostic report so the issue can be investigated.",
+            runtime_error: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated.",
+            native_failure: "Dugout Pulse ran into an unexpected problem. If you can still use the app, please export the diagnostic report to help identify the cause. Please keep the app installed and avoid clearing its data while the issue is being investigated."
           };
           message.textContent = latest && typeof latest.userMessage === 'string'
             ? latest.userMessage
             : (latest && friendlyMessages[latest.category]
               ? friendlyMessages[latest.category]
-              : "Dugout Pulse encountered a problem. Review the diagnostic report and avoid clearing app data until the cause is known.");
+              : "Dugout Pulse couldn't complete that action. You can review the recovery tools for available options, and share the diagnostic report if you need help. Please keep the app installed and avoid clearing its data for now.");
           message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:' + (darkTheme ? '#FCA5A5' : '#B91C1C') + ';margin:0 0 12px;';
           // Technical types and source frames stay in the opt-in diagnostic report.
           errorKind.textContent = latest
@@ -283,7 +283,7 @@
               category: 'app_startup',
               errorType: 'SyntaxError',
               errorMessage: message,
-              userMessage: "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.",
+              userMessage: "Dugout Pulse ran into a problem while starting. You can open the diagnostic report and share it if you need help. Please keep the app installed and avoid clearing its data while we look into this.",
               frames: file && line ? [file + ':' + line + ':' + (column || '1')] : [],
               platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
               build: 'unknown'
