@@ -4,7 +4,7 @@ import type { Game, PlayerProfile } from '../types/baseball';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
-import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
+import { isMissingTeamLogoFileError, TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
 import { isLegacyStorageImportComplete, readLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 import { recordDiagnosticError } from './errorDiagnostics';
@@ -223,8 +223,10 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
       try {
         await Filesystem.stat({ path: 'team-logos/' + entry.fileName, directory: Directory.Data });
         exists = true;
-      } catch {
-        // A missing file is expected for a logo being restored for the first time.
+      } catch (statError) {
+        if (!isMissingTeamLogoFileError(statError)) {
+          throw new Error('Could not verify whether a custom logo file is absent. No logo files were changed.');
+        }
       }
       if (exists) {
         throw new Error('An existing custom logo could not be preserved before restore. No logo files were changed.');
@@ -261,15 +263,15 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
             try {
               await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
               rollbackError = rollbackError || deleteError;
-            } catch {
-              // The file is already absent; no cleanup remains.
+            } catch (statError) {
+              if (!isMissingTeamLogoFileError(statError)) rollbackError = rollbackError || statError;
             }
           }
           try {
             await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
             rollbackError = rollbackError || new Error('A newly restored logo file still exists after rollback.');
-          } catch {
-            // File absence confirmed after cleanup.
+          } catch (statError) {
+            if (!isMissingTeamLogoFileError(statError)) rollbackError = rollbackError || statError;
           }
         } else {
           const previous = previousFiles[fileName];
