@@ -1,3 +1,4 @@
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
@@ -40,8 +41,8 @@ const EXCLUDED_KEYS = new Set([
   'dugoutPulse.beforeRecovery.v1',
   'dugoutPulse.diagnostics.v1',
   // Transient write-ahead state must never be restored from an older checkpoint.
-  'dugoutPulse.pendingLiveGameWrite.v1',
-  'dugoutPulse.pendingCompletedGameSave.v1',
+  PENDING_LIVE_GAME_WRITE_KEY,
+  PENDING_COMPLETED_GAME_SAVE_KEY,
   // Storage authority is system metadata and must not be rolled back with app data.
   'dugoutPulse.sqliteCutover.v1',
 ]);
@@ -569,7 +570,7 @@ export async function listVerifiedRecoveryCheckpoints(): Promise<RecoveryCheckpo
  * rolls back from the in-memory pre-restore state and leaves both journal files intact.
  */
 export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ success: boolean; message: string }> {
-  if (localStorage.getItem('dugoutPulse.pendingCompletedGameSave.v1') !== null) {
+  if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
     return {
       success: false,
       message: 'A completed-game save is awaiting recovery. Reload the app to recover that game before restoring an older checkpoint.',
