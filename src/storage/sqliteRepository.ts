@@ -637,8 +637,9 @@ export interface SQLiteLiveState {
  * whole-state operations, so routine context writes cannot overwrite their own
  * independently serialized write paths.
  *
- * The legacy_values table remains the preserved source snapshot, not a live mirror.
- * Callers must create the established recovery checkpoint before invoking this.
+ * The legacy_values table preserves the exact source snapshot used for cutover; it
+ * is not rewritten by live-state operations. Callers must create the established
+ * recovery checkpoint before invoking this.
  */
 export async function saveLiveSQLiteState(
   state: SQLiteLiveState,
@@ -968,7 +969,7 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
 /**
  * Convert a fully restored, validated compatibility store into the live SQLite
  * shape. Used by the recovery journal only after it has verified every restored
- * key and logo file; legacy_values remains the original migration provenance.
+ * key and logo file; legacy_values remains the exact source snapshot captured at cutover.
  */
 export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void> {
   if (!(await isLegacyStorageImportComplete())) {
