@@ -121,7 +121,13 @@ export function snapshotBeforeGameWrite(): boolean {
   if (snapshotTakenForPage) return true;
   try {
     const prior = selectRecoverySnapshot();
-    if (prior) localStorage.setItem(PREVIOUS_RECOVERY_KEY, JSON.stringify(prior));
+    if (prior) {
+      const previousRaw = JSON.stringify(prior);
+      localStorage.setItem(PREVIOUS_RECOVERY_KEY, previousRaw);
+      if (localStorage.getItem(PREVIOUS_RECOVERY_KEY) !== previousRaw) {
+        throw new Error('Previous recovery snapshot failed read-back verification.');
+      }
+    }
 
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
@@ -138,12 +144,16 @@ export function snapshotBeforeGameWrite(): boolean {
       reason: 'Before the first app-data write in this page session',
       values,
     };
-    localStorage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(snapshot));
+    const serialized = JSON.stringify(snapshot);
+    localStorage.setItem(RECOVERY_STORAGE_KEY, serialized);
+    if (localStorage.getItem(RECOVERY_STORAGE_KEY) !== serialized) {
+      throw new Error('Recovery snapshot failed read-back verification.');
+    }
     snapshotTakenForPage = true;
     return true;
   } catch (error) {
-    recordDiagnosticError('recovery_checkpoint', error, 'A pre-write recovery snapshot could not be created.');
-    console.error('Could not create a recovery snapshot; saved data was not changed.', error);
+    recordDiagnosticError('recovery_checkpoint', error, 'A pre-write recovery snapshot could not be created and read back successfully.');
+    console.error('Could not create and verify a recovery snapshot; the requested saved-data change was blocked.', error);
     return false;
   }
 }
@@ -194,35 +204,87 @@ export function getRecoverySnapshotInfo(): RecoverySnapshotInfo {
 export function restoreRecoverySnapshot(): boolean {
   const snapshot = selectRecoverySnapshot();
   if (!snapshot) return false;
-  try {
-    const currentValues: Record<string, string> = {};
+
+  const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY]);
+  const captureCurrentValues = (): Record<string, string> => {
+    const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
-      if (!key || [RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY].includes(key)) continue;
+      if (!key || preservedKeys.has(key)) continue;
       const value = localStorage.getItem(key);
-      if (value !== null) currentValues[key] = value;
+      if (value !== null) values[key] = value;
     }
-    localStorage.setItem(BEFORE_RECOVERY_KEY, JSON.stringify({
+    return values;
+  };
+  const matchesStoredValues = (expected: Record<string, string>): boolean => {
+    const actual = captureCurrentValues();
+    const expectedKeys = Object.keys(expected);
+    const actualKeys = Object.keys(actual);
+    return expectedKeys.length === actualKeys.length &&
+      expectedKeys.every((key) => Object.prototype.hasOwnProperty.call(actual, key) && actual[key] === expected[key]);
+  };
+
+  let currentValues: Record<string, string>;
+  try {
+    currentValues = captureCurrentValues();
+    const beforeRecovery: RecoverySnapshot = {
       version: RECOVERY_VERSION,
       createdAt: new Date().toISOString(),
       reason: 'Before restoring recovery snapshot',
       values: currentValues,
-    } satisfies RecoverySnapshot));
+    };
+    const beforeRecoveryRaw = JSON.stringify(beforeRecovery);
+    localStorage.setItem(BEFORE_RECOVERY_KEY, beforeRecoveryRaw);
+    if (localStorage.getItem(BEFORE_RECOVERY_KEY) !== beforeRecoveryRaw) {
+      throw new Error('The pre-restore safety copy failed read-back verification.');
+    }
+  } catch (error) {
+    recordDiagnosticError('recovery_restore', error, 'The current saved state could not be preserved and verified before snapshot restoration; no restore was started.');
+    console.error('Could not verify the pre-restore safety copy. Snapshot restoration was not started.', error);
+    return false;
+  }
 
-    const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY]);
+  let restoreStarted = false;
+  try {
+    restoreStarted = true;
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
       const key = localStorage.key(index);
       if (key && !preservedKeys.has(key) && !(key in snapshot.values)) localStorage.removeItem(key);
     }
     for (const [key, value] of Object.entries(snapshot.values)) {
-      if (preservedKeys.has(key)) continue;
-      localStorage.setItem(key, value);
+      if (!preservedKeys.has(key)) localStorage.setItem(key, value);
+    }
+
+    if (!matchesStoredValues(snapshot.values)) {
+      throw new Error('Restored recovery snapshot failed exact read-back verification.');
     }
     snapshotTakenForPage = true;
     return true;
   } catch (error) {
-    recordDiagnosticError('recovery_restore', error, 'A recovery snapshot could not be fully restored.');
-    console.error('Recovery snapshot could not be fully restored. The recovery copies were retained.', error);
+    let rollbackVerified = !restoreStarted;
+    if (restoreStarted) {
+      try {
+        for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+          const key = localStorage.key(index);
+          if (key && !preservedKeys.has(key) && !(key in currentValues)) localStorage.removeItem(key);
+        }
+        for (const [key, value] of Object.entries(currentValues)) {
+          if (!preservedKeys.has(key)) localStorage.setItem(key, value);
+        }
+        rollbackVerified = matchesStoredValues(currentValues);
+        if (!rollbackVerified) throw new Error('The pre-restore state failed exact read-back verification during rollback.');
+      } catch (rollbackError) {
+        rollbackVerified = false;
+        recordDiagnosticError('recovery_restore', rollbackError, 'Automatic rollback after a failed snapshot restore could not be verified. The pre-restore safety copy and original recovery snapshots were retained for manual recovery.');
+        console.error('Snapshot restore rollback could not be verified; recovery copies were retained.', rollbackError);
+      }
+    }
+
+    const detail = rollbackVerified
+      ? 'Snapshot restoration failed; the original saved state was restored and verified. The pre-restore safety copy and recovery snapshots were retained.'
+      : 'Snapshot restoration failed and automatic rollback could not be verified. The pre-restore safety copy and recovery snapshots were retained for manual recovery.';
+    recordDiagnosticError('recovery_restore', error, detail);
+    console.error(detail, error);
     return false;
   }
 }
