@@ -4,6 +4,7 @@ import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 import { ConfirmationModal } from './ConfirmationModal';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { reportFailure } from '../utils/userMessages';
 
 const SCHEDULED_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 
@@ -35,11 +36,20 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   const { games, activeProfile, liveGame, reopenSavedGame, startLiveGame } = useGame();
   const [selectedGameId, setSelectedGameId] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
+  const [loadFailureAlert, setLoadFailureAlert] = useState<string | null>(null);
   const [scheduledGamesLoad] = useState<{ games: ScheduledGame[]; error: string }>(() => {
     try {
       const stored = localStorage.getItem(SCHEDULED_GAMES_KEY);
       const parsed: unknown = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(parsed)) throw new Error('Scheduled-game storage did not contain a list.');
+      if (!Array.isArray(parsed) || !parsed.every((item) =>
+        !!item && typeof item === 'object' &&
+        typeof (item as ScheduledGame).id === 'string' &&
+        typeof (item as ScheduledGame).opponent === 'string' &&
+        typeof (item as ScheduledGame).date === 'string' &&
+        typeof (item as ScheduledGame).isHome === 'boolean'
+      )) {
+        throw new Error('Scheduled-game storage did not contain a valid list of games.');
+      }
       return { games: parsed as ScheduledGame[], error: '' };
     } catch (loadError) {
       recordDiagnosticError(
@@ -113,7 +123,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
     if (selectedGameId.startsWith('scheduled:')) {
       const scheduledGame = matchingScheduledGames.find((game) => `scheduled:${game.id}` === selectedGameId);
       if (!scheduledGame) {
-        setError('This scheduled game could not be found. Please refresh and try again.');
+        setLoadFailureAlert('The selected scheduled game is no longer available. Close this window, refresh the game list, and select it again.');
         return;
       }
       const playerTeam = (activeProfile.teams || []).find((team) =>
@@ -140,7 +150,11 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       onClose();
       onGameSelected();
     } else {
-      setError('This game could not be loaded. Please try again.');
+      setLoadFailureAlert(reportFailure(
+        'storage_load',
+        new Error('The selected saved game could not be reopened.'),
+        'Dugout Pulse could not load the selected saved game.',
+      ));
     }
   };
 
@@ -207,6 +221,17 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
         variant="warning"
         onCancel={() => setScheduledGamesAlertOpen(false)}
         onConfirm={() => setScheduledGamesAlertOpen(false)}
+      />
+      <ConfirmationModal
+        isOpen={loadFailureAlert !== null}
+        title="Could not load game"
+        message={loadFailureAlert ?? ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="danger"
+        onCancel={() => setLoadFailureAlert(null)}
+        onConfirm={() => setLoadFailureAlert(null)}
       />
     </div>
   );
