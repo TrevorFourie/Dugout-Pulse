@@ -1061,6 +1061,13 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
  * localStorage is still the authoritative store.
  */
 export async function saveSQLiteLiveGame(game: Game | null): Promise<boolean> {
+  // Do not initialize/open SQLite for ordinary scoring before cutover. Until the
+  // local authority marker is present, the legacy store remains the intended writer.
+  // "pending" is not accepted as authority; it is inspected below and fails closed
+  // if the database does not independently confirm a completed cutover.
+  const localCutover = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+  if (localCutover !== 'complete' && localCutover !== 'pending') return false;
+
   if (game !== null && !isGame(game)) {
     throw new Error('SQLite live-game write was blocked because the game failed validation.');
   }
