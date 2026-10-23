@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
-import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
+import { protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
 import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
 
@@ -50,7 +50,17 @@ export function useGamePersistence({
     const persistSnapshot = async () => {
       try {
         const expectedLiveGame = liveGame === null ? null : JSON.stringify(liveGame);
-        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
+        const matchesPendingCompletedSave = (pendingGame: Game) =>
+          games.some((game) => game.id === pendingGame.id && JSON.stringify(game) === JSON.stringify(pendingGame)) &&
+          liveGame?.id !== pendingGame.id &&
+          editingGameId !== pendingGame.id &&
+          reopenedGameId !== pendingGame.id;
+        const shouldAbortForNewerWrite = () => {
+          const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
+          if (pendingCompletedGame && !matchesPendingCompletedSave(pendingCompletedGame)) return true;
+          return hasNewerPendingLiveGameWrite(expectedLiveGame);
+        };
+        if (shouldAbortForNewerWrite()) return;
 
         const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed');
         if (!checkpointed) {
@@ -58,6 +68,8 @@ export function useGamePersistence({
           recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested storage write was blocked.'));
           return;
         }
+
+        if (shouldAbortForNewerWrite()) return;
 
         let cutoverComplete = false;
         try {
@@ -77,7 +89,7 @@ export function useGamePersistence({
           }
         }
 
-        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
+        if (shouldAbortForNewerWrite()) return;
 
         if (cutoverComplete) {
           const setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true';
@@ -102,14 +114,20 @@ export function useGamePersistence({
             upcomingGames: [],
             logoLibrary: [],
           });
-          // SQLite has committed the complete state, so clear the journal before
-          // mirroring unrelated compatibility keys. A crash during mirroring must
-          // not replay an older live game over a newer saved-game state.
+          // SQLite has committed the complete state, so clear completed-save and
+          // scoring journals only after the exact current snapshot is durable.
+          const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
+          if (pendingCompletedGame && matchesPendingCompletedSave(pendingCompletedGame)) {
+            localStorage.removeItem(PENDING_COMPLETED_GAME_SAVE_KEY);
+            if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+              throw new Error('The completed-game journal could not be cleared after SQLite committed the matching snapshot.');
+            }
+          }
         }
 
         // A scoring action may have landed while SQLite was committing this snapshot.
         // Leave its pending journal intact and let the queued newer snapshot reconcile it.
-        if (hasNewerPendingLiveGameWrite(expectedLiveGame)) return;
+        if (shouldAbortForNewerWrite()) return;
 
         if (cutoverComplete) {
           if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
