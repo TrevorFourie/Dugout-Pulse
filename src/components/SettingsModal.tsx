@@ -53,7 +53,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' | 'success' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
@@ -82,12 +81,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [games.length, profiles, backupStatusTick],
   );
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeout = window.setTimeout(() => setToastMessage(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -142,11 +135,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           variant: 'warning',
         });
       } else {
-        // A successful share/download handoff does not prove the user saved an external copy.
-        // Use a temporary toast; never show a success modal or claim the backup was saved.
+        // A share/download handoff does not prove the user saved an external copy.
+        // Keep this important verification warning in a modal rather than a transient toast.
         setStatusMessage(null);
-        setOperationAlert(null);
-        setToastMessage('Backup export started. Verify the file was saved outside Dugout Pulse before relying on it.');
+        setOperationAlert({
+          title: 'Backup export started',
+          message: 'Dugout Pulse handed the backup file off to the device or browser. This does not confirm that an external copy was saved. Verify the file exists somewhere outside Dugout Pulse before relying on it.',
+          variant: 'warning',
+        });
       }
     } catch (error) {
       setStatusMessage(null);
@@ -325,15 +321,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-slate-200 bg-[#18212D] px-4 py-3 text-sm font-medium text-white shadow-xl dark:border-[#354050]"
-        >
-          {toastMessage}
-        </div>
-      )}
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}
