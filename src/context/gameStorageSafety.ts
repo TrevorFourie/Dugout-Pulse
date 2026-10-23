@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 export const RECOVERY_STORAGE_KEY = 'dugoutPulse.recoverySnapshot.v1';
@@ -133,7 +133,8 @@ export function snapshotBeforeGameWrite(): boolean {
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index);
       if (!key || key === RECOVERY_STORAGE_KEY || key === PREVIOUS_RECOVERY_KEY ||
-          key === BEFORE_RECOVERY_KEY || key === DIAGNOSTICS_KEY) continue;
+          key === BEFORE_RECOVERY_KEY || key === DIAGNOSTICS_KEY ||
+          key === PENDING_LIVE_GAME_WRITE_KEY) continue;
       const value = localStorage.getItem(key);
       if (value !== null) values[key] = value;
     }
@@ -246,7 +247,7 @@ export function restoreRecoverySnapshot(): boolean {
   const snapshot = selectRecoverySnapshot();
   if (!snapshot) return false;
 
-  const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY]);
+  const preservedKeys = new Set([RECOVERY_STORAGE_KEY, PREVIOUS_RECOVERY_KEY, BEFORE_RECOVERY_KEY, DIAGNOSTICS_KEY, PENDING_LIVE_GAME_WRITE_KEY]);
   const captureCurrentValues = (): Record<string, string> => {
     const values: Record<string, string> = {};
     for (let index = 0; index < localStorage.length; index += 1) {
