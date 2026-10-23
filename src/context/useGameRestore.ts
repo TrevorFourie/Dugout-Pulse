@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem, readPendingLiveGameFromStorage } from './gameStorageSafety';
+import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage, readPendingLiveGameFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
 import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 
@@ -85,6 +85,42 @@ export function useGameRestore({
         await saveLiveSQLiteState({ ...state, liveGame: pendingGame });
         const reconciled = { ...state, liveGame: pendingGame };
         clearPendingLiveGame();
+        return reconciled;
+      };
+      const clearPendingCompletedGameSave = () => {
+        localStorage.removeItem(PENDING_COMPLETED_GAME_SAVE_KEY);
+        if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+          throw new Error('The pending completed-game save could not be cleared after SQLite persistence.');
+        }
+      };
+      const reconcilePendingCompletedGameSave = async (state: SQLiteLiveState): Promise<SQLiteLiveState> => {
+        const completedGame = readPendingCompletedGameSaveFromStorage();
+        if (!completedGame) return state;
+        if (!(await createVerifiedRecoveryCheckpoint('Before reconciling a pending completed-game save to SQLite'))) {
+          throw new Error('A recovery checkpoint could not be verified before reconciling the pending completed-game save.');
+        }
+
+        // The write-ahead marker records the user's explicit save intent. Upsert by
+        // ID so recovery is safe whether the original transaction committed or not.
+        const games = sortGames(
+          [...state.games.filter((game) => game.id !== completedGame.id), completedGame],
+          'oldestFirst',
+        );
+        const reconciled: SQLiteLiveState = {
+          ...state,
+          games,
+          liveGame: state.liveGame?.id === completedGame.id ? null : state.liveGame,
+          editingGameId: state.editingGameId === completedGame.id ? null : state.editingGameId,
+          reopenedGameId: state.reopenedGameId === completedGame.id ? null : state.reopenedGameId,
+        };
+        await saveLiveSQLiteState(reconciled);
+
+        // Clear an older live-game journal for this same game first. If the page
+        // closes before the completed-save marker is cleared, startup can safely
+        // repeat this idempotent reconciliation.
+        const pendingLiveGame = readPendingLiveGameFromStorage();
+        if (pendingLiveGame?.id === completedGame.id) clearPendingLiveGame();
+        clearPendingCompletedGameSave();
         return reconciled;
       };
       const isMeaningfullyConfigured = (profiles: PlayerProfile[], setupCompleted: boolean) => {
@@ -210,7 +246,9 @@ export function useGameRestore({
           if (!cutoverComplete) {
             throw new Error('The local cutover marker exists, but SQLite does not confirm a completed cutover.');
           }
-          const state = await reconcilePendingLiveGame(await readLiveSQLiteState());
+          const savedState = await readLiveSQLiteState();
+          const completedSaveReconciled = await reconcilePendingCompletedGameSave(savedState);
+          const state = await reconcilePendingLiveGame(completedSaveReconciled);
           await mirrorLiveState(state);
           applyLiveState(state);
           setIsLoading(false);
