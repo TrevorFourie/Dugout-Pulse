@@ -75,10 +75,15 @@ export function useGamePlayActions({
         // Always record the failed transaction. Only pause scoring when the failed
         // transaction still represents the latest journaled game; a later queued
         // write owns recovery for any superseded snapshot and will report its own failure.
-        const failedWriteIsCurrent =
-          writeGeneration === scoringWriteGeneration.current &&
-          localStorage.getItem(STORAGE_KEYS.LIVE_GAME) === serialized &&
-          localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
+        let failedWriteIsCurrent = writeGeneration === scoringWriteGeneration.current;
+        try {
+          failedWriteIsCurrent = failedWriteIsCurrent &&
+            localStorage.getItem(STORAGE_KEYS.LIVE_GAME) === serialized &&
+            localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
+        } catch {
+          // If storage cannot be inspected, fail closed for the latest write.
+          failedWriteIsCurrent = writeGeneration === scoringWriteGeneration.current;
+        }
         try {
           recordDiagnosticError(
             'storage_write_games',
