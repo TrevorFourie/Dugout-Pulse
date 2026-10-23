@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
@@ -106,6 +107,8 @@ export function useGameDataManagement({
     let sqliteStateMayHaveChanged = false;
     let beforeLocalStorage: Record<string, string> | null = null;
     const beforeLogoFiles: Record<string, string> = {};
+    const beforeLogoFileNames = new Set<string>();
+    const importedLogoFileNames = new Set<string>();
     let logoRestoreStarted = false;
     const preservedStorageKeys = new Set([
       'dugoutPulse.diagnostics.v1',
@@ -132,6 +135,7 @@ export function useGameDataManagement({
       }
       beforeLocalStorage = capturedValues;
       for (const item of readTeamLogoLibraryStrict()) {
+        beforeLogoFileNames.add(item.fileName);
         try {
           const bytes = await readLogoFileAsBase64(item.fileName);
           if (bytes) beforeLogoFiles[item.fileName] = bytes;
@@ -174,9 +178,24 @@ export function useGameDataManagement({
         // transaction. If anything later fails, the previous live state is restored.
         sqliteStateMayHaveChanged = true;
       }
+      // Track incoming logo files that did not exist before this import so a later
+      // failure can remove them as well as restoring overwritten files.
+      const backupRecord = parsedData as Record<string, unknown>;
+      const backupFiles = backupRecord.logoFiles && typeof backupRecord.logoFiles === 'object' && !Array.isArray(backupRecord.logoFiles)
+        ? backupRecord.logoFiles as Record<string, unknown>
+        : {};
+      const backupLibrary = Array.isArray(backupRecord.logoLibrary) ? backupRecord.logoLibrary : [];
+      for (const entry of backupLibrary) {
+        if (!entry || typeof entry !== 'object') continue;
+        const fileName = (entry as { fileName?: unknown }).fileName;
+        if (typeof fileName === 'string' && typeof backupFiles[fileName] === 'string' && !beforeLogoFileNames.has(fileName)) {
+          importedLogoFileNames.add(fileName);
+        }
+      }
+
       // Restore logo images + library first so logo references in games/profiles resolve below.
       logoRestoreStarted = true;
-      const restoredLogoCount = await restoreLogosFromBackup(parsedData as Record<string, unknown>);
+      const restoredLogoCount = await restoreLogosFromBackup(backupRecord);
       const localLogos = new Map<string, string>();
       readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
       for (let index = 0; index < localStorage.length; index += 1) {
@@ -386,6 +405,20 @@ export function useGameDataManagement({
           await writeLogoFiles(beforeLogoFiles);
         } catch (logoRollbackError) {
           rollbackFailure = rollbackFailure || logoRollbackError;
+        }
+      }
+      if (logoRestoreStarted) {
+        for (const fileName of importedLogoFileNames) {
+          try {
+            await Filesystem.deleteFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+          } catch (deleteError) {
+            try {
+              await readLogoFileAsBase64(fileName);
+              rollbackFailure = rollbackFailure || deleteError;
+            } catch {
+              // The newly imported file is already absent.
+            }
+          }
         }
       }
       if (logoRestoreStarted) {
