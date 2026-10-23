@@ -5,6 +5,7 @@ import { LINEUP_SPOTS } from '../../types/baseball';
 import { OpponentCombobox } from '../OpponentCombobox';
 import { ThemedDropdown } from '../ThemedDropdown';
 import { ValueCombobox } from '../ValueCombobox';
+import { DatePicker } from '../DatePicker';
 
 interface GameDetailsModalProps {
   isOpen: boolean;
@@ -39,12 +40,7 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({ isOpen, isEd
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={liveGame.date}
-                  onChange={(e) => updateLiveGameDetails({ date: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]"
-                />
+                <DatePicker value={liveGame.date} onChange={(date) => updateLiveGameDetails({ date })} ariaLabel="Game date" className="px-2.5 py-1.5 rounded-md bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-xs text-slate-900 dark:text-[#FAFAFA]" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Opponent</label>

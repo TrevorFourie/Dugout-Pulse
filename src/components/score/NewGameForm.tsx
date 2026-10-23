@@ -4,6 +4,7 @@ import { ConfirmationModal } from '../ConfirmationModal';
 import { ThemedDropdown } from '../ThemedDropdown';
 import { OpponentCombobox } from '../OpponentCombobox';
 import { ValueCombobox } from '../ValueCombobox';
+import { DatePicker } from '../DatePicker';
 import {
   Calendar, Check, Clock, Home, Plane, Play as PlayIcon, Plus, Shield, Trophy, Users,
 } from 'lucide-react';
@@ -338,13 +339,7 @@ export const NewGameForm: React.FC<NewGameFormProps> = ({ startGameDate, onStart
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   Game Date
                 </label>
-                <input
-                  type="date"
-                  required
-                  value={newGameDate}
-                  onChange={(e) => setNewGameDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC] dark:[&::-webkit-calendar-picker-indicator]:invert"
-                />
+                <DatePicker value={newGameDate} onChange={setNewGameDate} ariaLabel="Game date" className="px-3.5 py-2.5 rounded-md bg-slate-50 dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA]" />
               </div>
 
               <div>
