@@ -1,5 +1,6 @@
 import type { DefensivePosition, PlayCode, PlayMode, PitcherHand } from '../../types/baseball';
 import type { RunnerAdvanceCause, RunnerLifecycleState } from '../../utils/runnerLifecycle';
+import { recordDiagnosticError } from '../../utils/errorDiagnostics';
 
 export const DEFENSIVE_POSITIONS: { code: DefensivePosition; label: string }[] = [
   { code: 'P', label: 'Pitcher (P)' },
@@ -59,7 +60,6 @@ const POSITION_NAMES: Record<string, string> = {
 export const positionName = (code?: string): string => (code ? POSITION_NAMES[code] || code : '');
 
 export const RESUME_UI_STORAGE_KEY = 'dugout_pulse_resume_ui_v1';
-import { recordDiagnosticError } from '../../utils/errorDiagnostics';
 
 export const RUNNER_WORKFLOW_STORAGE_KEY = 'dugout_pulse_runner_workflow_v1';
 export type PersistedScoreUi = Record<string, { viewedInning?: number; activeMode?: PlayMode; pitcherHand?: PitcherHand }>;
