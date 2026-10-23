@@ -9,10 +9,11 @@ import largeSplashSrc from '../splash-source/splash-large.jpg';
 const root = document.getElementById('root')!;
 
 function renderLocalStartupFallback(reference: string): void {
+  const darkTheme = document.documentElement.classList.contains('dark');
   const panel = document.createElement('main');
   panel.setAttribute('role', 'alert');
   panel.setAttribute('aria-live', 'assertive');
-  panel.style.cssText = 'box-sizing:border-box;min-height:100vh;padding:32px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#F4F6F8;color:#18212D;font-family:system-ui,sans-serif;text-align:center;';
+  panel.style.cssText = 'box-sizing:border-box;min-height:100vh;padding:32px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:' + (darkTheme ? '#101419' : '#F4F6F8') + ';color:' + (darkTheme ? '#FAFAFA' : '#18212D') + ';font-family:system-ui,sans-serif;text-align:center;';
 
   const title = document.createElement('h1');
   title.textContent = 'Dugout Pulse needs to restart';
@@ -48,7 +49,7 @@ function renderLocalStartupFallback(reference: string): void {
   reportText.setAttribute('aria-label', 'Sanitised diagnostic report');
   reportText.readOnly = true;
   reportText.rows = 12;
-  reportText.style.cssText = 'box-sizing:border-box;width:100%;padding:12px;border:1px solid #94A3B8;border-radius:8px;background:#FFFFFF;color:#18212D;font-family:monospace;font-size:12px;';
+  reportText.style.cssText = 'box-sizing:border-box;width:100%;padding:12px;border:1px solid #64748B;border-radius:8px;background:' + (darkTheme ? '#1A2028' : '#FFFFFF') + ';color:' + (darkTheme ? '#E2E8F0' : '#18212D') + ';font-family:monospace;font-size:12px;';
   try {
     reportText.value = createDiagnosticReport(reference || undefined);
   } catch {
