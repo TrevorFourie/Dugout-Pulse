@@ -1053,3 +1053,46 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
     await verifyRows(database, 'logo_library', 'id', 'value_json', expected);
   });
 }
+
+/**
+ * Persist a scoring action's live-game snapshot immediately after its verified
+ * write-ahead mirror. The shared SQLite transaction queue preserves action order
+ * relative to complete GameContext snapshots. Returns false before cutover, when
+ * localStorage is still the authoritative store.
+ */
+export async function saveSQLiteLiveGame(game: Game | null): Promise<boolean> {
+  if (game !== null && !isGame(game)) {
+    throw new Error('SQLite live-game write was blocked because the game failed validation.');
+  }
+  const value = serializeJson(game);
+  return withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value !== 'complete') return false;
+
+    const liveState = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [LIVE_STATE_MARKER],
+    );
+    if (liveState.values?.[0]?.value !== '1') {
+      throw new Error('SQLite live-game write was blocked because no complete live-state snapshot is available.');
+    }
+
+    await database.run(
+      'INSERT INTO app_state (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
+      [STORAGE_KEYS.LIVE_GAME, value],
+      false,
+    );
+    const verified = await database.query(
+      'SELECT value_json FROM app_state WHERE key = ?',
+      [STORAGE_KEYS.LIVE_GAME],
+    );
+    if (verified.values?.[0]?.value_json !== value) {
+      throw new Error('SQLite live-game write failed read-back verification.');
+    }
+    return true;
+  });
+}
+
