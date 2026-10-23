@@ -140,6 +140,12 @@
             <button class="btn" data-device="android-tablet">Android Tablet</button>
         </div>
     </div>
+    <div>
+        <div class="group-title">Huawei</div>
+        <div class="btn-col">
+            <button class="btn" data-device="huawei-nova-14i">My Phone</button>
+        </div>
+    </div>
 
     <div>
         <div class="group-title">Apple</div>
@@ -189,13 +195,31 @@
 <script>
 /* ---------- Device definitions (portrait CSS pixel sizes of the whole screen) ---------- */
 const DEVICES = {
-    'android-phone':  { label: 'Android Phone',  w: 390,  h: 844,  bezel: 12, radius: 40, kind: 'android',        status: 32, nav: 48, defOrient: 'portrait'  },
+    'android-phone':  { label: 'Android Phone',  w: 412,  h: 905,  bezel: 12, radius: 40, kind: 'android',        status: 32, nav: 48, defOrient: 'portrait'  },
     'android-tablet': { label: 'Android Tablet', w: 768,  h: 1024, bezel: 16, radius: 28, kind: 'android-tablet', status: 32, nav: 52, defOrient: 'landscape' },
     'iphone':         { label: 'iPhone',         w: 393,  h: 852,  bezel: 12, radius: 58, kind: 'iphone',         status: 54, nav: 34, defOrient: 'portrait'  },
-    'ipad':           { label: 'iPad',           w: 820,  h: 1180, bezel: 18, radius: 34, kind: 'ipad',           status: 24, nav: 20, defOrient: 'landscape' }
+    'ipad':           { label: 'iPad',           w: 820,  h: 1180, bezel: 18, radius: 34, kind: 'ipad',           status: 24, nav: 20, defOrient: 'landscape' },
+    
+    // Added Huawei Nova 14i definition
+    'huawei-nova-14i': { 
+        label: 'Huawei Nova 14i',
+        // Physical panel: 1080 x 2376 px, 6.95", 20:9, ~376 ppi.
+        // Measured on the real phone: screen 360 x 792 dp, device pixel ratio 3.0
+        // (1080 / 3 = 360, 2376 / 3 = 792).
+        w: 360,
+        h: 792,
+        bezel: 12,       // Fairly thick bezels, as on the real phone
+        radius: 38,
+        kind: 'android',
+        camera: 'dot',   // small centered selfie camera cutout
+        status: 36,      // EMUI status bar height (measured from a screenshot)
+        nav: 38,         // 3-button navigation bar (measured from a screenshot)
+        defOrient: 'portrait'
+    }
 };
 
-const state = { device: 'android-phone', orient: 'portrait', url: 'http://localhost:3000' };
+
+const state = { device: 'huawei-nova-14i', orient: 'portrait', url: 'http://localhost:3000' };
 
 /* ---------- SVG snippets ---------- */
 const SVG = {
@@ -272,10 +296,18 @@ function render() {
             : `<div class="dyn-island" style="width:120px;height:34px;left:${(sw - 120) / 2}px;top:11px"></div>`;
     }
 
+    // Selfie camera cutout (Huawei Nova 14i)
+    let cam = '';
+    if (d.camera === 'dot') {
+        cam = landscape
+            ? `<div class="dyn-island" style="width:14px;height:14px;left:10px;top:${(sh - 14) / 2}px;border-radius:50%"></div>`
+            : `<div class="dyn-island" style="width:14px;height:14px;left:${(sw - 14) / 2}px;top:8px;border-radius:50%"></div>`;
+    }
+
     const html = `
     <div class="device" style="width:${frameW}px;height:${frameH}px;padding:${d.bezel}px;border-radius:${d.radius}px">
         <div class="screen" style="width:${sw}px;height:${sh}px;border-radius:${screenRadius}px">
-            ${island}
+            ${island}${cam}
             ${top}
             <div class="app-area"><iframe id="appFrame" src="${escapeAttr(state.url)}" title="Dugout Pulse"></iframe></div>
             ${bottom}
