@@ -53,7 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
-  const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' } | null>(null);
+  const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' | 'success' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -115,9 +115,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           variant: 'warning',
         });
       } else {
-        setStatusMessage({
-          text: 'Backup file created. Make sure you saved it somewhere outside the app (Drive, Files, email or a computer) - a backup that stays only on this phone is lost if the app is uninstalled or the phone is lost.',
-          isError: false,
+        setStatusMessage(null);
+        setOperationAlert({
+          title: 'Backup file created',
+          message: 'Make sure you saved it somewhere outside the app (Drive, Files, email or a computer). A backup that stays only on this phone may be lost if the app is uninstalled or the phone is lost.',
+          variant: 'success',
         });
       }
     } catch (error) {
