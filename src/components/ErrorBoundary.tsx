@@ -69,8 +69,8 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
           alignItems: 'center',
           justifyContent: 'center',
           gap: '16px',
-          background: '#F4F6F8',
-          color: '#18212D',
+          background: typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? '#101419' : '#F4F6F8',
+          color: typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? '#FAFAFA' : '#18212D',
           fontFamily: 'system-ui, sans-serif',
           textAlign: 'center',
         }}
@@ -125,7 +125,7 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
               value={this.getDiagnosticReport()}
               rows={12}
               onFocus={(event) => event.currentTarget.select()}
-              style={{ boxSizing: 'border-box', width: '100%', padding: '12px', border: '1px solid #94A3B8', borderRadius: '8px', background: '#FFFFFF', color: '#18212D', fontFamily: 'monospace', fontSize: '12px' }}
+              style={{ boxSizing: 'border-box', width: '100%', padding: '12px', border: '1px solid #64748B', borderRadius: '8px', background: typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? '#1A2028' : '#FFFFFF', color: typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? '#E2E8F0' : '#18212D', fontFamily: 'monospace', fontSize: '12px' }}
             />
           </div>
         )}
