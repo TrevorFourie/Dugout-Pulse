@@ -1,6 +1,5 @@
 import React from 'react';
-import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { StartupRecoveryPanel } from './StartupRecoveryPanel';
+import { recordDiagnosticError, showDiagnosticScreen } from '../utils/errorDiagnostics';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -17,11 +16,14 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
   componentDidCatch(error: Error): void {
     const reference = recordDiagnosticError('react_render', error);
     this.setState({ errorReference: reference });
+    showDiagnosticScreen(reference);
   }
 
   render(): React.ReactNode {
     if (this.state.hasError) {
-      return <StartupRecoveryPanel errorReference={this.state.errorReference} />;
+      // Keep the React tree unmounted while the document-level diagnostic screen is visible.
+      // Recovery tools remain available from that screen, but are not the automatic error fallback.
+      return null;
     }
     return this.props.children;
   }
