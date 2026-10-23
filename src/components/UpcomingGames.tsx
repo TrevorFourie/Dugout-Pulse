@@ -181,6 +181,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       }
       const granted = await requestGameNotificationPermission();
       if (!granted) {
+        setPermissionPromptError(null);
         setPermissionPromptGame(game);
         return;
       }
