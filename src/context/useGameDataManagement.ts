@@ -6,7 +6,7 @@ import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
@@ -116,6 +116,7 @@ export function useGameDataManagement({
       'dugoutPulse.recoverySnapshot.previous.v1',
       'dugoutPulse.beforeRecovery.v1',
       'dugoutPulse.sqliteCutover.v1',
+      PENDING_COMPLETED_GAME_SAVE_KEY,
     ]);
     try {
       const parsedData = JSON.parse(jsonStr);
