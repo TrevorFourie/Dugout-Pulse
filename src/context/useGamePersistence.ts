@@ -33,15 +33,26 @@ export function useGamePersistence({
 }: GamePersistenceOptions): void {
   const persist = (reason: string, write: () => boolean, diagnostic?: string) => {
     void (async () => {
-      const checkpointed = await createVerifiedRecoveryCheckpoint(reason);
-      if (!checkpointed) {
+      try {
+        const checkpointed = await createVerifiedRecoveryCheckpoint(reason);
+        if (!checkpointed) {
+          onStorageProtectionFailure();
+          recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested storage write was blocked.'));
+          return;
+        }
+        if (!write()) {
+          onStorageProtectionFailure();
+          if (diagnostic) recordDiagnosticError(diagnostic, new Error('Protected storage write failed'));
+        }
+      } catch (error) {
+        // A thrown serializer/storage error must also pause later writes; an unhandled
+        // rejection alone would diagnose the problem but leave state mutations enabled.
         onStorageProtectionFailure();
-        recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested storage write was blocked.'));
-        return;
-      }
-      if (!write()) {
-        onStorageProtectionFailure();
-        if (diagnostic) recordDiagnosticError(diagnostic, new Error('Protected storage write failed'));
+        try {
+          recordDiagnosticError(diagnostic || 'storage_write', error, 'A saved-data persistence operation threw before it could be verified. Automatic storage writes were paused.');
+        } catch {
+          // Preserve the storage pause even if diagnostic recording is unavailable.
+        }
       }
     })();
   };
