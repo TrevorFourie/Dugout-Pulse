@@ -86,6 +86,15 @@ export function useGamePersistence({
             upcomingGames: [],
             logoLibrary: [],
           });
+          // SQLite has committed the complete state, so clear the journal before
+          // mirroring unrelated compatibility keys. A crash during mirroring must
+          // not replay an older live game over a newer saved-game state.
+          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+            localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+            if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+              throw new Error('The pending live-game journal could not be cleared after SQLite committed.');
+            }
+          }
         }
 
         // Keep the established local recovery/backup/diagnostic paths usable as a
@@ -118,13 +127,13 @@ export function useGamePersistence({
           return;
         }
 
-        // Clear the scoring write-ahead journal only after SQLite (when active)
-        // and every compatibility mirror write have been verified.
-        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+        // Before cutover, localStorage remains authoritative, so retain the journal
+        // until all compatibility writes have been verified.
+        if (!cutoverComplete && localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
           try {
             localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
             if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-              throw new Error('The pending live-game journal could not be cleared after persistence.');
+              throw new Error('The pending live-game journal could not be cleared after localStorage persistence.');
             }
           } catch (error) {
             onStorageProtectionFailure();
