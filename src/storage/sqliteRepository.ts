@@ -2,7 +2,7 @@ import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import type { OppositionTeam } from '../context/gameContextTypes';
 import type { TeamLogoItem } from '../utils/teamLogoLibrary';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from '../context/gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from '../context/gameContextDefaults';
 import { sortGames } from '../utils/stats';
 import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteRead, withSQLiteTransaction } from './sqliteDatabase';
 
@@ -1073,6 +1073,22 @@ export async function saveCompletedSQLiteGame(game: Game): Promise<boolean> {
   if (localCutover !== 'complete' && localCutover !== 'pending') return false;
 
   const serializedGame = serializeJson(game);
+  const pendingSave = serializeJson({ version: 1, game });
+  try {
+    const existingPendingSave = localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY);
+    if (existingPendingSave !== null && existingPendingSave !== pendingSave) {
+      throw new Error('Another completed-game save is awaiting recovery; the new save was stopped to protect saved data.');
+    }
+    if (existingPendingSave === null) {
+      localStorage.setItem(PENDING_COMPLETED_GAME_SAVE_KEY, pendingSave);
+    }
+    if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== pendingSave) {
+      throw new Error('The completed-game recovery marker failed read-back verification.');
+    }
+  } catch (error) {
+    throw new Error('The completed game was not changed because its recovery marker could not be verified. ' + (error instanceof Error ? error.message : String(error)));
+  }
+
   return withSQLiteTransaction(async (database) => {
     const cutover = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
