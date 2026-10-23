@@ -5,6 +5,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64 } from '../context/recoveryJournal';
 import { UserFacingError, explainFailure } from './userMessages';
 import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagnostics';
+import { isLegacyStorageImportComplete, saveSQLiteLogoLibrary } from '../storage/sqliteRepository';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
@@ -65,7 +66,21 @@ export const readTeamLogoLibrary = (): TeamLogoItem[] => {
 };
 const writeTeamLogoLibrary = async (items: TeamLogoItem[]): Promise<void> => {
   await saveSQLiteLogoLibrary(items);
-  if (!protectedStorageSetItem(KEY, JSON.stringify(items))) throw new Error('Could not safely update the saved team logo library.');
+  if (!protectedStorageSetItem(KEY, JSON.stringify(items))) {
+    let sqliteIsAuthoritative = false;
+    try {
+      sqliteIsAuthoritative = await isLegacyStorageImportComplete();
+    } catch {
+      // Do not claim SQLite success if its authority cannot be confirmed.
+    }
+    if (sqliteIsAuthoritative) {
+      // The primary write has committed. Keep mounted logo pickers aligned with it,
+      // while still surfacing the failed compatibility mirror to the caller.
+      changed();
+      throw new Error('The logo library was saved to SQLite, but its compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
+    }
+    throw new Error('Could not safely update the saved team logo library. The change was not confirmed.');
+  }
   changed();
 };
 
