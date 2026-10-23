@@ -82,13 +82,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             aria-label="Open Player Details settings"
             className="group flex min-w-0 items-center gap-3.5 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5] sm:gap-2"
           >
-            {/* Team Logo Badge */}
+            {/* Player profile image; TeamLogoImage falls back to TeamIcon when no image is selected. */}
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shrink-0 shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
-              {activeProfile.logo ? (
-                <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
-              ) : (
-                <AppLogo variant="logo" className="w-full h-full object-contain p-1" />
-              )}
+              <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
             </div>
 
             <div className="py-0">
@@ -113,6 +109,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* Hero Card */}
+
       <div
         className="overflow-hidden rounded-2xl text-white p-5 sm:p-6 shadow-xl relative border border-slate-700/40"
         style={{
