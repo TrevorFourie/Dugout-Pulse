@@ -906,6 +906,7 @@ export async function saveSQLiteUpcomingGames(
   if (!Array.isArray(games) || !games.every(isUpcomingGame)) {
     throw new Error('SQLite save stopped because scheduled games failed validation.');
   }
+  if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') return;
   await withSQLiteTransaction(async (database) => {
     const cutover = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
@@ -928,6 +929,7 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
   if (!Array.isArray(library) || !library.every(isLogoItem)) {
     throw new Error('SQLite save stopped because the logo library failed validation.');
   }
+  if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') return;
   await withSQLiteTransaction(async (database) => {
     const cutover = await database.query(
       'SELECT value FROM app_meta WHERE key = ?',
