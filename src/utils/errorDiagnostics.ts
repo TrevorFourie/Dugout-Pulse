@@ -166,8 +166,11 @@ function redactLikelyUserValues(value: string): string {
       ) return match;
       return '[redacted value]';
     })
-    .replace(/\b(player|team|opponent|venue|profile|game|account|user)(?:name|id|record|data)?\s*[:=]\s*[^,;\n]+/gi, '$1: [redacted]')
-    .replace(/\b(player|team|opponent|venue|profile|game|account|user)\s+(?:name\s+)?([A-Z][A-Za-z0-9'’.-]*(?:\s+[A-Z][A-Za-z0-9'’.-]*){0,4})\b/g, '$1 [redacted]');
+    .replace(/\b(player|team|opponent|venue|profile|game|account|user|device|installation|serial|uuid|ip|mac|network)(?:name|id|identifier|address|serial|uuid|record|data)?\s*[:=]\s*[^,;\n]+/gi, '$1: [redacted]')
+    .replace(/\b(player|team|opponent|venue|profile|game|account|user)\s+(?:name\s+)?([A-Z][A-Za-z0-9'’.-]*(?:\s+[A-Z][A-Za-z0-9'’.-]*){0,4})\b/g, '$1 [redacted]')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, '[identifier]')
+    .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[address]')
+    .replace(/\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/gi, '[identifier]');
 }
 
 function safeErrorMessage(error: unknown): string | undefined {
