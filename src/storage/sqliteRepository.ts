@@ -425,7 +425,7 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
   return snapshot.audit;
 }
 
-/** True only after the import transaction and web-store flush have completed. */
+/** True only after a future coordinated cutover explicitly marks SQLite as authoritative. */
 export async function isLegacyStorageImportComplete(): Promise<boolean> {
   const database = await initializeSQLiteDatabase();
   const result = await database.query(
