@@ -600,18 +600,11 @@ export function installGlobalDiagnosticHandlers(): void {
     if (value instanceof Error) return value.name + ': ' + value.message + (value.stack ? '\n' + value.stack : '');
     if (value === undefined) return 'undefined';
     if (value === null || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
-    try {
-      const seen = new WeakSet<object>();
-      return JSON.stringify(value, (_key, item: unknown) => {
-        if (item && typeof item === 'object') {
-          if (seen.has(item)) return '[Circular]';
-          seen.add(item);
-        }
-        return item;
-      }, 2) ?? String(value);
-    } catch {
-      return Object.prototype.toString.call(value);
-    }
+    // Never serialise arbitrary console objects: they can contain game records,
+    // player/team names, account details or device-specific information.
+    if (typeof value === 'function') return '[Function]';
+    const objectType = Object.prototype.toString.call(value).slice(8, -1);
+    return '[' + (objectType || 'Object') + ']';
   };
   const formatConsoleArguments = (values: unknown[]): string => {
     if (!values.length) return '';
