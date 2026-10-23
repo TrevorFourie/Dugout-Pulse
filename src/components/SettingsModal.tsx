@@ -53,6 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' | 'success' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
@@ -81,6 +82,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [games.length, profiles, backupStatusTick],
   );
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = window.setTimeout(() => setToastMessage(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -136,11 +143,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         });
       } else {
         setStatusMessage(null);
-        setOperationAlert({
-          title: 'Backup file created — save a copy outside the app',
-          message: 'Dugout Pulse handed the backup file off, but that does not guarantee you kept a separate copy. Save it to a location outside the app, such as Drive, Files, email or a computer. A backup left only in this app’s local storage may be lost if the app is uninstalled or the phone is lost.',
-          variant: 'primary',
-        });
+        setOperationAlert(null);
+        setToastMessage('Backup export started. Verify the file was saved outside Dugout Pulse before relying on it.');
       }
     } catch (error) {
       setStatusMessage(null);
@@ -319,6 +323,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-slate-200 bg-[#18212D] px-4 py-3 text-sm font-medium text-white shadow-xl dark:border-[#354050]"
+        >
+          {toastMessage}
+        </div>
+      )}
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}
