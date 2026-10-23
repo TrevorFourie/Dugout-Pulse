@@ -1,6 +1,6 @@
 # SQLite schema and migration contract
 
-Status: design prepared; implementation and runtime verification remain outstanding.
+Status: SQLite foundation and a non-destructive legacy snapshot importer are committed; live-storage cutover and end-to-end migration verification remain outstanding.
 
 ## Compatibility pin
 
@@ -23,7 +23,7 @@ Use a versioned schema and retain original serialized JSON for each domain recor
 - `legacy_values(key TEXT PRIMARY KEY, value TEXT NOT NULL)` — exact original string values for every imported source key, retained as a compatibility/recovery copy.
 - `diagnostics(id TEXT PRIMARY KEY, value_json TEXT NOT NULL)` — only if the existing diagnostics flow is deliberately integrated; never merge diagnostic state into game data.
 
-IDs must be derived from validated existing records. Records without a valid stable ID must remain in `legacy_values` and trigger a migration warning; never invent an ID that could merge unrelated historical records.
+IDs must be derived from validated existing records. If a recognised dataset cannot be validated or a record lacks a stable ID, stop before writing, leave all original localStorage values untouched, and report the failing dataset; never invent an ID that could merge unrelated historical records.
 
 ## Import contract
 
@@ -33,8 +33,8 @@ IDs must be derived from validated existing records. Records without a valid sta
 4. Read back all rows and compare canonical serialized payloads and per-domain counts with the source. Check games and play counts, profiles, schedules, opposition teams, logo metadata, live-game state, and settings.
 5. Persist the migration marker only after validation succeeds and the web store save succeeds on web.
 6. Keep the old localStorage values indefinitely during the first test release. Do not enable destructive cleanup in this migration.
-7. On any error, roll back, do not mark migration complete, keep legacy data untouched, block writes to the new repository, and surface an actionable failure instead of silently falling back to empty defaults.
-8. Make reruns idempotent. If a previous attempt wrote some rows but did not complete, a retry must validate/reconcile from the preserved source values rather than duplicate records.
+7. On any error, roll back, do not mark the live-storage cutover complete, keep legacy data untouched, block writes to the new repository, and surface an actionable failure instead of silently falling back to empty defaults.
+8. Make snapshot retries idempotent. Before cutover, an identical source fingerprint is a no-op and a changed source can be re-snapshotted transactionally. Once SQLite is marked authoritative, the legacy snapshot importer must refuse to run so stale localStorage cannot overwrite newer SQLite data.
 
 ## Startup and write ordering
 
@@ -59,8 +59,9 @@ IDs must be derived from validated existing records. Records without a valid sta
 
 - Dependency commit: `12bdff1` added `@capacitor-community/sqlite@7.0.3` and `jeep-sqlite@2.8.0` with the locally generated lockfile.
 - Source foundation: `src/storage/sqliteDatabase.ts` is committed. It creates the initial tables transactionally, checks the schema version, holds one shared connection, and flushes web transactions through `saveToStore`.
-- The SQLite module is intentionally not connected to GameContext yet. Existing localStorage remains authoritative; no user data is imported, changed, or removed by this module.
-- The web adapter requires `sql-wasm.wasm` at `public/assets/sql-wasm.wasm`. This asset has not yet been copied into the repository.
-- Static checks and browser/native open-write-close-reopen smoke tests remain unverified. The assistant cannot run npm or the app in the user's local checkout, and builds must not be triggered.
+- Repository groundwork: `src/storage/sqliteRepository.ts` now includes a read-only source audit and a transaction-based snapshot importer. It preserves exact source strings in `legacy_values`, validates recognised datasets before writes, verifies typed projections, and uses a separate marker reserved for the future live-storage cutover.
+- The repository is intentionally not connected to GameContext yet. Existing localStorage remains authoritative. The importer has not yet been runtime-tested against the user's actual local data.
+- The web WASM asset is committed at `public/assets/sql-wasm.wasm`. Chrome runtime checks confirmed schema initialization (10 tables), a write/read-back, persistence across page reload, and removal of the temporary smoke-test marker.
+- Static checks, the source-import runtime test, full app persistence/backup/recovery integration, and native checks remain unverified. Builds must not be triggered.
 
-Next gate: pull the source commit on the user's local `main`, copy the installed `sql.js` WASM asset to `public/assets/sql-wasm.wasm`, run the approved non-build TypeScript check, then perform a dedicated browser smoke test before beginning the legacy-data importer. Do not claim the app is ready for normal Chrome testing until these checks and the startup/migration safeguards are in place.
+Next gate: review the committed repository module, run one combined Chrome check that audits the user's current localStorage, imports a snapshot into SQLite without changing localStorage, and verifies domain counts and exact source-key retention. Do not switch GameContext or mark SQLite authoritative until the importer and the rest of the coordinated storage integration are verified.
