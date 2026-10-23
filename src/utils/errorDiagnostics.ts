@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'dugoutPulse.diagnostics.v1';
+const SESSION_STORAGE_KEY = 'dugoutPulse.diagnostics.session.v1';
 const MAX_EVENTS = 40;
 const MAX_STORAGE_CHARS = 48_000;
 // The diagnostic report must show the TRUE error, so keep enough of it to be useful.
@@ -6,6 +7,12 @@ const MAX_MESSAGE_CHARS = 400;
 const MAX_DETAIL_CHARS = 12000;
 let lastReference = '';
 let lastRecordedAt = 0;
+let lastRecordedErrorObject: object | undefined;
+let volatileEvents: DiagnosticEvent[] = [];
+let recentConsoleFailures: Array<{ fingerprint: string; time: number }> = [];
+let recentRecordedErrors: Array<{ fingerprint: string; time: number; reference: string }> = [];
+const networkErrorReferences = new WeakMap<object, string>();
+let recordedErrorReferences = new WeakMap<object, { reference: string; time: number }>();
 let pendingReactHookDiagnostic: { time: number; details: string } | undefined;
 
 declare const __BUILD_ID__: string;
@@ -29,7 +36,7 @@ export function friendlyErrorMessage(category: string): string {
     case 'app_startup':
       return "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Open recovery tools if needed, and share the diagnostic report.";
     case 'react_render':
-      return "Dugout Pulse encountered a screen error and had to stop this view. Your saved data may still be on this device. Avoid clearing app data and share the diagnostic report.";
+      return "Dugout Pulse encountered a screen error. This does not by itself mean your saved data was deleted. Restart the app, and share the diagnostic report if the problem returns. Avoid clearing app data.";
     case 'storage_load':
     case 'storage_read':
     case 'data_corruption':
@@ -49,6 +56,10 @@ export function friendlyErrorMessage(category: string): string {
       return "Dugout Pulse couldn't complete the data reset safely. Do not repeat the reset yet. Review the diagnostic report and check your recovery points.";
     case 'window_error':
     case 'unhandled_rejection':
+    case 'network_failure':
+      return "A network request made by Dugout Pulse failed. This may be expected while offline; review the diagnostic report if the operation did not complete.";
+    case 'module_load_failure':
+      return "An optional part of Dugout Pulse could not load. Other features may still work; review the diagnostic report if you notice a problem.";
     case 'runtime_error':
     case 'native_failure':
     case 'app_lifecycle':
@@ -90,6 +101,8 @@ const ALLOWED_CATEGORIES = new Set([
   'window_error',
   'unhandled_rejection',
   'runtime_error',
+  'network_failure',
+  'module_load_failure',
   'data_corruption',
   'storage_read',
   'app_lifecycle',
@@ -152,7 +165,7 @@ function safeErrorMessage(error: unknown): string | undefined {
       if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
       try {
         const parsed = new URL(url);
-        return parsed.origin + '/' + parsed.pathname.split('/').slice(-2).join('/');
+        return parsed.pathname.split('/').filter(Boolean).slice(-1)[0] || '[url]';
       } catch {
         return '[url]';
       }
@@ -190,7 +203,7 @@ function safeDiagnosticDetail(value: string): string {
       if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
       try {
         const parsed = new URL(url);
-        return parsed.origin + '/' + parsed.pathname.split('/').slice(-2).join('/');
+        return parsed.pathname.split('/').filter(Boolean).slice(-1)[0] || '[url]';
       } catch {
         return '[url]';
       }
@@ -207,12 +220,35 @@ function safeDiagnosticDetail(value: string): string {
 }
 
 function readEvents(): DiagnosticEvent[] {
+  let primary: unknown[] = [];
+  let fallback: unknown[] = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) primary = parsed;
+    }
+  } catch {
+    // Continue with fallback diagnostics if persistent storage is blocked or corrupt.
+  }
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) fallback = parsed;
+    }
+  } catch {
+    // Session storage may also be unavailable in restricted browser contexts.
+  }
+  const combined = [...primary, ...fallback, ...volatileEvents];
+  const unique = new Map<string, unknown>();
+  for (const item of combined) {
+    if (item && typeof item === 'object' && 'id' in item && typeof item.id === 'string') {
+      unique.set(item.id, item);
+    }
+  }
+  const parsed = [...unique.values()];
+  return parsed
       .filter((item): item is DiagnosticEvent =>
         Boolean(item && typeof item === 'object' &&
           typeof item.id === 'string' &&
@@ -253,28 +289,73 @@ function readEvents(): DiagnosticEvent[] {
           build: typeof item.build === 'string' ? item.build.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 32) : 'unknown',
         };
       });
-  } catch {
-    return [];
-  }
 }
 
 function persist(event: DiagnosticEvent): void {
+  const events = [...readEvents(), event].slice(-MAX_EVENTS);
+  let serialized = JSON.stringify(events);
+  while (serialized.length > MAX_STORAGE_CHARS && events.length > 1) {
+    events.shift();
+    serialized = JSON.stringify(events);
+  }
   try {
-    const events = [...readEvents(), event].slice(-MAX_EVENTS);
-    let serialized = JSON.stringify(events);
-    while (serialized.length > MAX_STORAGE_CHARS && events.length > 1) {
-      events.shift();
-      serialized = JSON.stringify(events);
-    }
     localStorage.setItem(STORAGE_KEY, serialized);
+    volatileEvents = [];
+    try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* optional fallback cleanup */ }
   } catch {
-    // Diagnostics must never interrupt the app, especially when storage is full/unavailable.
+    // Preserve diagnostics for export during this session if persistent storage is blocked or full.
+    volatileEvents = events;
+    try { sessionStorage.setItem(SESSION_STORAGE_KEY, serialized); } catch {
+      // In-memory diagnostics remain available even when all browser storage is unavailable.
+    }
+  }
+}
+
+
+function replacePersistedEvent(updated: DiagnosticEvent): void {
+  const events = readEvents();
+  const index = events.findIndex((event) => event.id === updated.id);
+  if (index < 0) return;
+  events[index] = updated;
+  const retained = events.slice(-MAX_EVENTS);
+  let serialized = JSON.stringify(retained);
+  while (serialized.length > MAX_STORAGE_CHARS && retained.length > 1) {
+    retained.shift();
+    serialized = JSON.stringify(retained);
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, serialized);
+    volatileEvents = [];
+    try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* optional fallback cleanup */ }
+  } catch {
+    volatileEvents = retained;
+    try { sessionStorage.setItem(SESSION_STORAGE_KEY, serialized); } catch {
+      // The updated context remains available in memory even when all storage is unavailable.
+    }
   }
 }
 
 /** Record only a fixed operation label, error class and sanitised source locations. */
 export function recordDiagnosticError(category: string, error: unknown, additionalDetails?: string): string {
   const normalisedCategory = safeCategory(category);
+  const errorObject = error && (typeof error === 'object' || typeof error === 'function') ? error as object : undefined;
+  const existingCapture = errorObject ? recordedErrorReferences.get(errorObject) : undefined;
+  if (existingCapture && Date.now() - existingCapture.time <= 10000) {
+    // A global storage wrapper may see the same exception before the operation-specific catch.
+    // Keep one event but enrich it with the more precise context supplied by the caller.
+    if (additionalDetails) {
+      const extra = safeDiagnosticDetail(additionalDetails);
+      const existingEvent = readEvents().find((event) => event.id === existingCapture.reference);
+      if (existingEvent && extra && !(existingEvent.details || '').includes(extra)) {
+        const mergedDetails = [existingEvent.details, extra].filter(Boolean).join('\\n\\n').slice(0, MAX_DETAIL_CHARS);
+        replacePersistedEvent({ ...existingEvent, details: mergedDetails });
+      }
+    }
+    lastReference = existingCapture.reference;
+    lastRecordedAt = Date.now();
+    lastRecordedErrorObject = errorObject;
+    return existingCapture.reference;
+  }
   const hookDiagnostic = pendingReactHookDiagnostic &&
     Date.now() - pendingReactHookDiagnostic.time <= 15000
     ? pendingReactHookDiagnostic.details
@@ -294,6 +375,23 @@ export function recordDiagnosticError(category: string, error: unknown, addition
     .map(safeDiagnosticDetail)
     .filter(Boolean)
     .join('\n\n');
+  const fingerprint = JSON.stringify([
+    normalisedCategory,
+    safeErrorType(error),
+    safeErrorMessage(error) || '',
+    safeStackFrames(error).join('|'),
+    diagnosticDetails,
+  ]);
+  const now = Date.now();
+  recentRecordedErrors = recentRecordedErrors.filter((entry) => now - entry.time <= 10000);
+  const duplicate = recentRecordedErrors.find((entry) => entry.fingerprint === fingerprint);
+  if (duplicate) {
+    lastReference = duplicate.reference;
+    lastRecordedAt = now;
+    lastRecordedErrorObject = errorObject;
+    if (errorObject) recordedErrorReferences.set(errorObject, { reference: duplicate.reference, time: now });
+    return duplicate.reference;
+  }
   const event: DiagnosticEvent = {
     id: createReference(),
     // Preserve exact time to correlate diagnostics with the browser console.
@@ -308,8 +406,11 @@ export function recordDiagnosticError(category: string, error: unknown, addition
     build: getBuild(),
   };
   persist(event);
+  recentRecordedErrors.push({ fingerprint, time: Date.now(), reference: event.id });
+  if (errorObject) recordedErrorReferences.set(errorObject, { reference: event.id, time: Date.now() });
   lastReference = event.id;
   lastRecordedAt = Date.now();
+  lastRecordedErrorObject = errorObject;
   return event.id;
 }
 
@@ -341,11 +442,16 @@ export function getCurrentBuildDiagnosticEvent(): DiagnosticEvent | undefined {
 }
 
 export function clearDiagnosticLogs(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // The user can still continue using the app if browser storage is unavailable.
-  }
+  volatileEvents = [];
+  recentConsoleFailures = [];
+  recentRecordedErrors = [];
+  pendingReactHookDiagnostic = undefined;
+  lastReference = '';
+  lastRecordedAt = 0;
+  lastRecordedErrorObject = undefined;
+  recordedErrorReferences = new WeakMap<object, { reference: string; time: number }>();
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
+  try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
 }
 
 /** Clear app/game storage while keeping diagnostics separate from game data. */
@@ -423,6 +529,42 @@ export function showDiagnosticScreen(reference: string): void {
 /** Install once at bootstrap, before React or the rest of the app is loaded. */
 export function installGlobalDiagnosticHandlers(): void {
   if (typeof window === 'undefined') return;
+  // Observe native Storage failures centrally so direct callers cannot silently lose read/write errors.
+  // The guard prevents diagnostic persistence from recursively reporting its own storage failures.
+  let capturingStorageFailure = false;
+  if (typeof Storage !== 'undefined') {
+    type StorageMethod = 'getItem' | 'setItem' | 'removeItem' | 'clear';
+    const storagePrototype = Storage.prototype as unknown as Record<StorageMethod, (...args: string[]) => unknown>;
+    const wrapStorageMethod = (methodName: StorageMethod, category: 'storage_read' | 'storage_write') => {
+      try {
+        const original = storagePrototype[methodName];
+        storagePrototype[methodName] = function (this: Storage, ...args: string[]): unknown {
+          try {
+            return original.apply(this, args);
+          } catch (error) {
+            if (!capturingStorageFailure) {
+              capturingStorageFailure = true;
+              try {
+                recordDiagnosticError(category, error, 'A browser storage operation failed. The original operation was not altered or retried.');
+              } catch {
+                // Storage diagnostics must never replace the original storage exception.
+              } finally {
+                capturingStorageFailure = false;
+              }
+            }
+            throw error;
+          }
+        };
+      } catch {
+        // Some WebViews may disallow prototype overrides; other diagnostic handlers still remain active.
+      }
+    };
+    wrapStorageMethod('getItem', 'storage_read');
+    wrapStorageMethod('setItem', 'storage_write');
+    wrapStorageMethod('removeItem', 'storage_write');
+    wrapStorageMethod('clear', 'storage_write');
+  }
+
   const marker = '__dugoutPulseDiagnosticsInstalled';
   const target = window as Window & { __dugoutPulseDiagnosticsInstalled?: boolean };
   if (target[marker]) return;
@@ -488,7 +630,7 @@ export function installGlobalDiagnosticHandlers(): void {
   };
   const classifyConsoleFailure = (detail: string): string => {
     const value = detail.toLowerCase();
-    if (/quota|storage is full|could not save|could not remove|local storage|storage write|setitem/.test(value)) return 'storage_write';
+    if (/quota|storage is full|could not save|could not remove|local storage|storage write|setitem|persist|failed to save|save setup/.test(value)) return 'storage_write';
     if (/corrupt|invalid data|failed validation|integrity check|read-back verification|unexpected format|json parse|syntaxerror/.test(value)) return 'data_corruption';
     if (/restore|rollback/.test(value)) return 'recovery_restore';
     if (/recovery|checkpoint|snapshot/.test(value)) return 'recovery_checkpoint';
@@ -513,9 +655,17 @@ export function installGlobalDiagnosticHandlers(): void {
         /Rendered (?:more|fewer) hooks than during the previous render/i.test(detail) ||
         /React has detected a change in the order of Hooks called/i.test(detail) ||
         /useGame must be used within a GameProvider/i.test(detail);
-      if (!isHookOrderDiagnostic && !isReactCaughtRenderError && Date.now() - lastRecordedAt > 1500 &&
+      const now = Date.now();
+      const normalizedDetail = detail.toLowerCase().replace(/\s+/g, ' ').trim();
+      const fingerprint = normalizedDetail.slice(0, 1200);
+      recentConsoleFailures = recentConsoleFailures.filter((entry) => now - entry.time <= 2500);
+      const repeatedConsoleFailure = recentConsoleFailures.some((entry) => entry.fingerprint === fingerprint);
+      const errorArgument = args.find((arg): arg is Error => arg instanceof Error);
+      const duplicateOfExplicitCapture = now - lastRecordedAt <= 1500 &&
+        Boolean(errorArgument && lastRecordedErrorObject && errorArgument === lastRecordedErrorObject);
+      if (!isHookOrderDiagnostic && !isReactCaughtRenderError && !repeatedConsoleFailure && !duplicateOfExplicitCapture &&
           /error|failed|failure|could not|unable|corrupt|invalid|denied|quota|exception|verification/i.test(detail)) {
-        const errorArgument = args.find((arg): arg is Error => arg instanceof Error);
+        recentConsoleFailures.push({ fingerprint, time: now });
         recordDiagnosticError(classifyConsoleFailure(detail), errorArgument || new Error(detail.slice(0, MAX_MESSAGE_CHARS)), detail);
       }
     } catch { /* diagnostics must never affect rendering */ }
@@ -526,6 +676,38 @@ export function installGlobalDiagnosticHandlers(): void {
     try { captureHookOrderDiagnostic(args); } catch { /* diagnostics must never affect rendering */ }
     originalConsoleWarn(...args);
   };
+
+  // Capture fetch failures even when callers handle the rejected promise.
+  // Request URLs are deliberately excluded because they may contain private paths or query values.
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const isDiagnosticFetch = /\\/src\\/App\\.tsx\\?diagnostic=/i.test(requestUrl);
+    let request: Promise<Response>;
+    try {
+      request = originalFetch(input, init);
+    } catch (error) {
+      if (!isDiagnosticFetch && !(error instanceof DOMException && error.name === 'AbortError')) {
+        recordDiagnosticError('network_failure', error, 'A fetch request failed before a response was received.');
+      }
+      throw error;
+    }
+    return request.then((response) => {
+      if (!isDiagnosticFetch && !response.ok) {
+        recordDiagnosticError('network_failure', new Error('HTTP ' + response.status + ' response'),
+          'A fetch request returned HTTP status ' + response.status + '.');
+      }
+      return response;
+    }, (error: unknown) => {
+      if (!isDiagnosticFetch && !(error instanceof DOMException && error.name === 'AbortError')) {
+        const reference = recordDiagnosticError('network_failure', error, 'A fetch request failed before a response was received.');
+        if (error && (typeof error === 'object' || typeof error === 'function')) {
+          networkErrorReferences.set(error as object, reference);
+        }
+      }
+      throw error;
+    });
+  }) as typeof window.fetch;
 
   window.addEventListener('error', (event) => {
     // Resource errors do not bubble, so listen in capture phase. Record failed
@@ -539,11 +721,24 @@ export function installGlobalDiagnosticHandlers(): void {
       }
       return;
     }
-    const reference = recordDiagnosticError('window_error', event.error ?? new Error(event.message || 'WindowError'));
+    const alreadyCaptured = event.error && (typeof event.error === 'object' || typeof event.error === 'function') &&
+      event.error === lastRecordedErrorObject && Date.now() - lastRecordedAt <= 1500;
+    const reference = alreadyCaptured
+      ? lastReference
+      : recordDiagnosticError('window_error', event.error ?? new Error(event.message || 'WindowError'));
     showDiagnosticScreen(reference);
   }, true);
   window.addEventListener('unhandledrejection', (event) => {
-    const reference = recordDiagnosticError('unhandled_rejection', event.reason);
+    const reason = event.reason;
+    // Aborted fetches are expected during cancellation/unmount and are not app failures.
+    if (reason instanceof DOMException && reason.name === 'AbortError') return;
+    const networkReference = reason && (typeof reason === 'object' || typeof reason === 'function')
+      ? networkErrorReferences.get(reason as object)
+      : undefined;
+    // Reuse a fetch failure event if this same rejection later becomes unhandled.
+    const alreadyCaptured = reason && (typeof reason === 'object' || typeof reason === 'function') &&
+      reason === lastRecordedErrorObject && Date.now() - lastRecordedAt <= 1500;
+    const reference = networkReference || (alreadyCaptured ? lastReference : recordDiagnosticError('unhandled_rejection', reason));
     showDiagnosticScreen(reference);
   });
 }

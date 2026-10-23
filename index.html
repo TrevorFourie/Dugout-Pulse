@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="h-full" style="background-color:#121923;">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -24,6 +24,22 @@
       html.native-launch, html.native-launch body, html.native-launch #root { background-color: transparent !important; }
     </style>
     <script>
+      // Match the saved Dugout Pulse theme before React or the startup fallback renders.
+      (function () {
+        var mode = 'system';
+        try {
+          var settings = JSON.parse(localStorage.getItem('baseball_hub_settings_v1') || '{}');
+          if (settings && typeof settings.darkMode === 'string') mode = settings.darkMode;
+        } catch (_) { /* Fall back to the system theme when saved settings cannot be read. */ }
+        var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', Boolean(dark));
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        document.documentElement.style.backgroundColor = dark ? '#101419' : '#F4F6F8';
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', dark ? '#101419' : '#F4F6F8');
+      })();
+    </script>
+    <script>
       // Keep one startup-error presentation. Capture Vite's compile error before
       // the app entry module can execute, then show the actual error and report here.
       (function () {
@@ -32,12 +48,56 @@
         var storageKey = 'dugoutPulse.diagnostics.v1';
 
         function readEvents() {
+          var events = [];
           try {
-            var events = JSON.parse(localStorage.getItem(storageKey) || '[]');
-            return Array.isArray(events) ? events : [];
+            var parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            if (Array.isArray(parsed)) events = parsed;
           } catch (_) {
-            return [];
+            // Try session diagnostics when persistent storage cannot be read.
           }
+          try {
+            var fallback = JSON.parse(sessionStorage.getItem('dugoutPulse.diagnostics.session.v1') || '[]');
+            if (Array.isArray(fallback)) {
+              var ids = new Set(events.map(function (item) { return item && item.id; }));
+              fallback.forEach(function (item) {
+                if (item && item.id && !ids.has(item.id)) {
+                  events.push(item);
+                  ids.add(item.id);
+                }
+              });
+            }
+          } catch (_) {
+            // The in-memory bootstrap event can still be shown if all storage is unavailable.
+          }
+          return events.slice(-40);
+        }
+
+        function recordBootstrapFailure(messageText) {
+          if (capturedEvent) return capturedEvent;
+          var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          var id = 'DP-' + Array.from({ length: 6 }, function () {
+            return alphabet[Math.floor(Math.random() * alphabet.length)];
+          }).join('');
+          var event = {
+            id: id,
+            time: new Date().toISOString(),
+            category: 'app_startup',
+            errorType: 'Error',
+            errorMessage: messageText,
+            userMessage: "Dugout Pulse couldn't start correctly. Don't reinstall or clear app data. Review the diagnostic report and restart the app.",
+            frames: [],
+            platform: /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'iOS' : 'Web'),
+            build: 'unknown'
+          };
+          capturedEvent = event;
+          try {
+            var events = readEvents();
+            events.push(event);
+            localStorage.setItem(storageKey, JSON.stringify(events.slice(-40)));
+          } catch (_) {
+            // The captured event remains available in memory for the report on this screen.
+          }
+          return event;
         }
 
         function showStartupFallback(event) {
@@ -57,15 +117,20 @@
 
           var panel = document.createElement('main');
           panel.setAttribute('role', 'alert');
-          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;overflow:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:#121923;color:#f8fafc;font-family:system-ui,sans-serif;';
+          var darkTheme = document.documentElement.classList.contains('dark');
+          var foreground = darkTheme ? '#FAFAFA' : '#18212D';
+          var muted = darkTheme ? '#9CA3AF' : '#64748B';
+          var border = darkTheme ? '#354050' : '#E2E8F0';
+          var surface = darkTheme ? '#1A2028' : '#FFFFFF';
+          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;overflow:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.60);color:' + foreground + ';font-family:system-ui,sans-serif;';
           var card = document.createElement('section');
-          card.style.cssText = 'box-sizing:border-box;width:100%;max-width:560px;padding:24px;border:1px solid #354050;border-radius:18px;background:#1a2028;';
+          card.style.cssText = 'box-sizing:border-box;width:100%;max-width:560px;padding:24px;border:1px solid ' + border + ';border-radius:18px;background:' + surface + ';box-shadow:0 24px 64px rgba(0,0,0,.24);';
           var heading = document.createElement('h1');
           heading.textContent = 'Dugout Pulse couldn’t start correctly';
-          heading.style.cssText = 'font-size:22px;font-weight:700;margin:0 0 10px;';
+          heading.style.cssText = 'font-size:22px;font-weight:700;line-height:1.25;color:' + foreground + ';margin:0 0 10px;';
           var errorKind = document.createElement('p');
           errorKind.textContent = '';
-          errorKind.style.cssText = 'font-size:12px;line-height:1.5;color:#9ca3af;margin:0 0 8px;';
+          errorKind.style.cssText = 'font-size:12px;line-height:1.5;color:' + muted + ';margin:0 0 8px;';
           var message = document.createElement('p');
           // Keep the on-screen failure message user-friendly. Raw compiler/runtime
           // details belong in the opt-in diagnostic report, not the primary error text.
@@ -85,6 +150,8 @@
             data_reset: "Dugout Pulse couldn't complete the data reset safely. Do not repeat the reset yet. Review the diagnostic report and check your recovery points.",
             window_error: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
             unhandled_rejection: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
+            network_failure: "A network request made by Dugout Pulse failed. This may be expected while offline; review the diagnostic report if the operation did not complete.",
+            module_load_failure: "An optional part of Dugout Pulse could not load. Other features may still work; review the diagnostic report if you notice a problem.",
             runtime_error: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling.",
             native_failure: "Dugout Pulse encountered an unexpected technical problem. If the app is responsive, export the diagnostic report. Avoid clearing app data or reinstalling."
           };
@@ -93,23 +160,19 @@
             : (latest && friendlyMessages[latest.category]
               ? friendlyMessages[latest.category]
               : "Dugout Pulse encountered a problem. Review the diagnostic report and avoid clearing app data until the cause is known.");
-          message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:#fca5a5;margin:0 0 12px;';
-          var source = document.createElement('p');
-          source.textContent = latest && Array.isArray(latest.frames) && latest.frames.length
-            ? 'Source: ' + latest.frames.join(' · ')
-            : '';
-          source.style.cssText = 'font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:#d1d5db;margin:0 0 8px;';
+          message.style.cssText = 'font-size:14px;line-height:1.6;overflow-wrap:anywhere;color:' + (darkTheme ? '#FCA5A5' : '#B91C1C') + ';margin:0 0 12px;';
+          // Technical types and source frames stay in the opt-in diagnostic report.
           errorKind.textContent = latest
-            ? (latest.errorType || 'Error') + ' · ' + (latest.category || 'startup') + ' · build ' + (latest.build || 'unknown')
-            : 'Startup error details are not available.';
+            ? 'Technical details are available in the diagnostic report.'
+            : 'The technical details could not be recorded.';
           var referenceText = document.createElement('p');
           referenceText.id = 'dp-error-reference';
           referenceText.textContent = 'Error reference: ' + reference;
-          referenceText.style.cssText = 'font-size:12px;color:#9ca3af;margin-top:10px;';
+          referenceText.style.cssText = 'font-size:12px;color:' + muted + ';margin-top:10px;';
           var reportButton = document.createElement('button');
           reportButton.type = 'button';
           reportButton.textContent = 'Show diagnostic report';
-          reportButton.style.cssText = 'margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:#00d7bc;color:#101419;font-weight:600;cursor:pointer;';
+          reportButton.style.cssText = 'margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:' + (darkTheme ? '#00D7BC' : '#00BFA5') + ';color:#18212D;font-weight:600;cursor:pointer;';
           var report = document.createElement('textarea');
           report.readOnly = true;
           report.rows = 12;
@@ -136,7 +199,9 @@
           var recoveryButton = document.createElement('button');
           recoveryButton.type = 'button';
           recoveryButton.textContent = 'Open recovery tools';
-          recoveryButton.style.cssText = 'margin:12px 0 0 8px;padding:10px 14px;border:1px solid #00d7bc;border-radius:10px;background:transparent;color:#00d7bc;font-weight:600;cursor:pointer;';
+          recoveryButton.style.cssText = 'margin:12px 8px 0 0;padding:10px 14px;border:1px solid ' + (darkTheme ? '#00D7BC' : '#007A6A') + ';border-radius:10px;background:transparent;color:' + (darkTheme ? '#00D7BC' : '#007A6A') + ';font-weight:600;cursor:pointer;';
+          var recoveryCategories = ['storage_load', 'storage_read', 'data_corruption', 'storage_write', 'storage_write_games', 'storage_write_profiles', 'storage_write_opposition_teams', 'backup_import', 'recovery_checkpoint', 'recovery_restore', 'data_reset'];
+          recoveryButton.hidden = !(latest && recoveryCategories.indexOf(latest.category) !== -1);
           recoveryButton.addEventListener('click', function () {
             var recoveryUrl = new URL('startup-recovery.html', document.baseURI);
             if (capturedEvent && capturedEvent.id) recoveryUrl.searchParams.set('ref', capturedEvent.id);
@@ -145,12 +210,12 @@
           var restartButton = document.createElement('button');
           restartButton.type = 'button';
           restartButton.textContent = 'Restart app';
-          restartButton.style.cssText = 'margin:12px 0 0 8px;padding:10px 14px;border-radius:10px;border:1px solid #526071;background:transparent;color:#f8fafc;font-weight:600;cursor:pointer;';
+          restartButton.style.cssText = 'margin:12px 8px 0 0;padding:10px 14px;border-radius:10px;border:1px solid ' + border + ';background:transparent;color:' + foreground + ';font-weight:600;cursor:pointer;';
           restartButton.addEventListener('click', function () { window.location.reload(); });
           var note = document.createElement('p');
           note.textContent = 'The report stays on this device. Nothing is sent automatically.';
-          note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:#9ca3af;';
-          card.append(heading, errorKind, message, source, referenceText, reportButton, recoveryButton, restartButton, report, note);
+          note.style.cssText = 'margin-top:14px;font-size:12px;line-height:1.5;color:' + muted + ';';
+          card.append(heading, errorKind, message, referenceText, reportButton, recoveryButton, restartButton, report, note);
           panel.append(card);
           document.body.append(panel);
         }
@@ -240,13 +305,15 @@
           if (overlay) {
             var event = captureViteCompileError(overlay);
             overlay.remove();
-            showStartupFallback(event);
+            showStartupFallback(event || recordBootstrapFailure('A source module failed to compile before the app could start.'));
           }
         }
         if (typeof MutationObserver !== 'undefined') {
           new MutationObserver(detectViteOverlay).observe(document.documentElement, { childList: true, subtree: true });
         }
-        window.addEventListener('vite:preloadError', function () { showStartupFallback(); });
+        window.addEventListener('vite:preloadError', function () {
+          showStartupFallback(recordBootstrapFailure('An application module could not be loaded before startup completed.'));
+        });
         window.addEventListener('error', function (event) {
           if (event.target && event.target.tagName === 'SCRIPT') {
             window.setTimeout(function () {
@@ -263,8 +330,8 @@
       }
     </script>
   </head>
-  <body style="margin:0;background-color:#121923;color:#FAFAFA;" class="h-full bg-[#F4F6F8] text-[#18212D] antialiased selection:bg-[#00BFA5] selection:text-[#18212D] dark:bg-[#101419] dark:text-[#E2E8F0]">
-    <div id="root" class="h-full" style="min-height:100vh;background-color:#121923;"></div>
+  <body style="margin:0;" class="h-full bg-[#F4F6F8] text-[#18212D] antialiased selection:bg-[#00BFA5] selection:text-[#18212D] dark:bg-[#101419] dark:text-[#E2E8F0]">
+    <div id="root" class="h-full" style="min-height:100vh;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

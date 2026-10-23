@@ -4,14 +4,30 @@ import { processLogoImage } from './logoImage';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
 import { UserFacingError, explainFailure } from './userMessages';
-import { getLastDiagnosticReference } from './errorDiagnostics';
+import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagnostics';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
 const DIR = 'team-logos';
 const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-library-changed'));
+let logoLibraryReadFailureReported = false;
 export const readTeamLogoLibrary = (): TeamLogoItem[] => {
-  try { const parsed = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (!Array.isArray(parsed)) throw new SyntaxError('Saved team logo library did not contain a list.');
+    logoLibraryReadFailureReported = false;
+    return parsed as TeamLogoItem[];
+  } catch (error) {
+    if (!logoLibraryReadFailureReported) {
+      recordDiagnosticError(
+        error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
+        error,
+        'The saved custom-logo library could not be read. The stored value was not changed.',
+      );
+      logoLibraryReadFailureReported = true;
+    }
+    return [];
+  }
 };
 const writeTeamLogoLibrary = (items: TeamLogoItem[]): void => {
   if (!protectedStorageSetItem(KEY, JSON.stringify(items))) throw new Error('Could not safely update the saved team logo library.');

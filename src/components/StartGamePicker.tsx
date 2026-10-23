@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { PlayCircle, Upload, X } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
+import { ConfirmationModal } from './ConfirmationModal';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 const SCHEDULED_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 
@@ -33,15 +35,26 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   const { games, activeProfile, liveGame, reopenSavedGame, startLiveGame } = useGame();
   const [selectedGameId, setSelectedGameId] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
-  const [scheduledGames] = useState<ScheduledGame[]>(() => {
+  const [scheduledGamesLoad] = useState<{ games: ScheduledGame[]; error: string }>(() => {
     try {
       const stored = localStorage.getItem(SCHEDULED_GAMES_KEY);
       const parsed: unknown = stored ? JSON.parse(stored) : [];
-      return Array.isArray(parsed) ? parsed as ScheduledGame[] : [];
-    } catch {
-      return [];
+      if (!Array.isArray(parsed)) throw new Error('Scheduled-game storage did not contain a list.');
+      return { games: parsed as ScheduledGame[], error: '' };
+    } catch (loadError) {
+      recordDiagnosticError(
+        loadError instanceof SyntaxError ? 'data_corruption' : 'storage_read',
+        loadError,
+        'The saved scheduled-game list could not be read. No saved values were changed.',
+      );
+      return {
+        games: [],
+        error: "Dugout Pulse couldn't read the saved scheduled-game list. No saved data was intentionally changed. Review the diagnostic report before attempting recovery.",
+      };
     }
   });
+  const scheduledGames = scheduledGamesLoad.games;
+  const [scheduledGamesAlertOpen, setScheduledGamesAlertOpen] = useState(Boolean(scheduledGamesLoad.error));
 
   const matchingGames = useMemo(
     () => games
@@ -184,6 +197,17 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
           </div>
         )}
       </div>
+      <ConfirmationModal
+        isOpen={scheduledGamesAlertOpen}
+        title="Scheduled games could not be read"
+        message={scheduledGamesLoad.error}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => setScheduledGamesAlertOpen(false)}
+        onConfirm={() => setScheduledGamesAlertOpen(false)}
+      />
     </div>
   );
 };

@@ -52,6 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useGame();
 
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const [operationAlert, setOperationAlert] = useState<{ title: string; message: string; variant: 'danger' | 'warning' } | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSectionId>(initialSection);
 
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -93,23 +94,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 
   const handleExportBackup = async () => {
-    const result = await exportJsonBackup({
-      games,
-      profiles,
-      settings,
-    });
-    setBackupStatusTick((tick) => tick + 1);
-    if (result.outcome === 'failed') {
-      setStatusMessage({ text: result.error ?? 'We could not create your backup. Nothing was saved. Please try again.', isError: true });
-    } else if (result.outcome === 'cancelled') {
-      setStatusMessage({ text: 'Backup was not saved. Choose a place to keep the file (Drive, Files, email) to complete the backup.', isError: true });
-    } else {
-      const logoNote = result.missingLogos.length > 0
-        ? ` Warning: ${result.missingLogos.length} custom logo image(s) could not be read and are not in this backup.`
-        : '';
-      setStatusMessage({
-        text: `Backup file created. Make sure you saved it somewhere outside the app (Drive, Files, email or a computer) - a backup that stays only on this phone is lost if the app is uninstalled or the phone is lost.${logoNote}`,
-        isError: result.missingLogos.length > 0,
+    try {
+      const result = await exportJsonBackup({ games, profiles, settings });
+      setBackupStatusTick((tick) => tick + 1);
+      if (result.outcome === 'failed') {
+        setStatusMessage(null);
+        setOperationAlert({
+          title: 'Backup could not be created',
+          message: result.error ?? 'Dugout Pulse could not create the backup. Review the diagnostic report before retrying.',
+          variant: 'danger',
+        });
+      } else if (result.outcome === 'cancelled') {
+        setStatusMessage({ text: 'Backup was not saved. Choose a place to keep the file (Drive, Files, email) to complete the backup.', isError: true });
+      } else if (result.missingLogos.length > 0) {
+        setStatusMessage(null);
+        setOperationAlert({
+          title: 'Backup created with missing logo files',
+          message: 'The backup file was created, but ' + result.missingLogos.length + ' custom logo image(s) could not be included. Keep the original app data intact until you have reviewed the backup.',
+          variant: 'warning',
+        });
+      } else {
+        setStatusMessage({
+          text: 'Backup file created. Make sure you saved it somewhere outside the app (Drive, Files, email or a computer) - a backup that stays only on this phone is lost if the app is uninstalled or the phone is lost.',
+          isError: false,
+        });
+      }
+    } catch (error) {
+      setStatusMessage(null);
+      setOperationAlert({
+        title: 'Backup could not be created',
+        message: reportFailure('backup_export', error, 'Dugout Pulse could not create the backup. No backup file was confirmed as saved.'),
+        variant: 'danger',
       });
     }
   };
@@ -120,15 +135,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      if (content) {
+      try {
+        const content = event.target?.result as string;
+        if (!content) throw new Error('The selected backup file was empty or unreadable.');
         const result = await importJsonData(content);
-        setStatusMessage({ text: result.message, isError: !result.success });
+        if (!result.success) {
+          setStatusMessage(null);
+          setOperationAlert({ title: 'Backup could not be imported', message: result.message, variant: 'danger' });
+        } else if (result.partial) {
+          setStatusMessage(null);
+          setOperationAlert({ title: 'Backup imported with warnings', message: result.message, variant: 'warning' });
+        } else {
+          setStatusMessage({ text: result.message, isError: false });
+        }
         if (result.success) onRestoreComplete?.(result.message, Boolean(result.partial));
+      } catch (error) {
+        setStatusMessage(null);
+        setOperationAlert({
+          title: 'Backup could not be imported',
+          message: reportFailure('backup_import', error, 'The selected backup could not be read or imported. No data was intentionally changed.'),
+          variant: 'danger',
+        });
       }
     };
-    reader.onerror = () => setStatusMessage({ text: 'Could not read the selected backup file. No data was changed.', isError: true });
-    reader.readAsText(file);
+    reader.onerror = () => {
+      const error = new Error('The selected backup file could not be read.');
+      setStatusMessage(null);
+      setOperationAlert({
+        title: 'Backup file could not be read',
+        message: reportFailure('backup_import', error, 'The selected backup could not be read. No data was intentionally changed.'),
+        variant: 'danger',
+      });
+    };
+    try {
+      reader.readAsText(file);
+    } catch (error) {
+      setStatusMessage(null);
+      setOperationAlert({
+        title: 'Backup file could not be read',
+        message: reportFailure('backup_import', error, 'The selected backup could not be opened for reading. No data was intentionally changed.'),
+        variant: 'danger',
+      });
+    }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -245,6 +293,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
       <ConfirmationModal
+        isOpen={operationAlert !== null}
+        title={operationAlert?.title ?? 'Operation failed'}
+        message={operationAlert?.message ?? ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant={operationAlert?.variant ?? 'danger'}
+        onCancel={() => setOperationAlert(null)}
+        onConfirm={() => setOperationAlert(null)}
+      />
+      <ConfirmationModal
         isOpen={isResetConfirmOpen}
         title="Reset All Local Data?"
         message="This permanently deletes all recorded games, season statistics, settings, saved lists and your logo library from this device, then returns you to the setup screen. Export a backup first if you want to keep your data - backups include your logo images."
@@ -252,10 +311,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         variant="danger"
         onConfirm={async () => {
           setIsResetConfirmOpen(false);
-          const applied = await resetAllData();
-          setStatusMessage(applied
-            ? { text: 'All data has been reset.', isError: false }
-            : { text: explainFailure('Your data was NOT reset, because the app could not first make a safety copy of it. Nothing was changed.', getLastDiagnosticReference() || undefined), isError: true });
+          try {
+            const applied = await resetAllData();
+            if (applied) {
+              setStatusMessage({ text: 'All data has been reset.', isError: false });
+            } else {
+              setStatusMessage(null);
+              setOperationAlert({
+                title: 'Data reset was stopped',
+                message: explainFailure('Your data was NOT reset, because the app could not first make a safety copy of it. Nothing was changed.', getLastDiagnosticReference() || undefined),
+                variant: 'danger',
+              });
+            }
+          } catch (error) {
+            setStatusMessage(null);
+            setOperationAlert({
+              title: 'Data reset could not be completed',
+              message: reportFailure('data_reset', error, 'The data reset stopped unexpectedly. Do not repeat it until the diagnostic report has been reviewed.'),
+              variant: 'danger',
+            });
+          }
         }}
         onCancel={() => setIsResetConfirmOpen(false)}
       />

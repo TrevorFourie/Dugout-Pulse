@@ -1,5 +1,27 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
+function isMissingRecoveryFile(error: unknown): boolean {
+  const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return name === 'NotFoundError' || /file (?:does not exist|not found)|no such file|not found/i.test(message);
+}
+
+function recordRecoveryReadFailure(error: unknown, details: string, allowMissing = false): void {
+  if (allowMissing && isMissingRecoveryFile(error)) return; // An absent index/directory is normal on first launch.
+  recordDiagnosticError(error instanceof SyntaxError ? 'data_corruption' : 'recovery_checkpoint', error, details);
+}
+
+let recoveryIndexReadFailureReported = false;
+function recordRecoveryIndexFailure(error: unknown, details: string): void {
+  if (isMissingRecoveryFile(error)) {
+    recoveryIndexReadFailureReported = false;
+    return;
+  }
+  if (recoveryIndexReadFailureReported) return;
+  recoveryIndexReadFailureReported = true;
+  recordRecoveryReadFailure(error, details);
+}
+
 import { explainFailure } from '../utils/userMessages';
 
 const RECOVERY_DIR = 'dugout-pulse-recovery';
@@ -60,9 +82,14 @@ async function readIndex(): Promise<RecoveryIndex> {
   try {
     const result = await Filesystem.readFile({ path: INDEX_FILE, directory: Directory.Data, encoding: Encoding.UTF8 });
     const parsed = JSON.parse(result.data as string) as RecoveryIndex;
-    if (parsed.version === 1 && Array.isArray(parsed.checkpoints)) return parsed;
-  } catch {
-    // A missing or invalid index is treated as absent; individual checkpoint files remain untouched.
+    if (parsed.version === 1 && Array.isArray(parsed.checkpoints)) {
+      recoveryIndexReadFailureReported = false;
+      return parsed;
+    }
+    const error = new Error('Recovery journal index has an invalid structure.');
+    recordRecoveryIndexFailure(error, 'The recovery journal index had an unexpected format; individual checkpoint files were left untouched.');
+  } catch (error) {
+    recordRecoveryIndexFailure(error, 'The recovery journal index could not be read or parsed; individual checkpoint files were left untouched.');
   }
   return { version: 1, checkpoints: [] };
 }
@@ -183,7 +210,8 @@ async function reconcileRecoveryJournal(): Promise<void> {
           pinned: false, contentHash: checksum(JSON.stringify({ values: payload.values, logoFiles: payload.logoFiles || {} })),
           schemaVersion: 1,
         });
-      } catch {
+      } catch (error) {
+        recordRecoveryReadFailure(error, 'A recognized recovery checkpoint file could not be read during journal reconciliation; the file was retained.');
         // Track recognized but unreadable checkpoint files so retention can bound them
         // after another verified recovery point has been confirmed.
         const id = name.slice('checkpoint-'.length, -'.json'.length);
@@ -195,13 +223,17 @@ async function reconcileRecoveryJournal(): Promise<void> {
         });
       }
     }
-  } catch {
+  } catch (error) {
     // A missing/unreadable directory is not permission to prune existing checkpoint files.
+    recordRecoveryReadFailure(error, 'The recovery checkpoint directory could not be inspected; existing checkpoint files were not pruned.', true);
   }
   const checked: Checkpoint[] = [];
   for (const entry of discovered) {
     try { await readVerifiedCheckpoint(entry); checked.push({ ...entry, status: 'verified' }); }
-    catch { checked.push({ ...entry, status: 'failed' }); }
+    catch (error) {
+      recordRecoveryReadFailure(error, 'A recovery checkpoint failed integrity or saved-data validation and was excluded from the selectable recovery list.');
+      checked.push({ ...entry, status: 'failed' });
+    }
   }
   const keep = retentionKeepSet(checked);
   const retained = checked.filter((entry) => keep.has(entry.id));
@@ -217,7 +249,8 @@ export async function getRecoveryJournalStorageInfo(): Promise<{ checkpointCount
   let verifiedCount = 0;
   for (const entry of index.checkpoints) {
     estimatedBytes += entry.byteLength || 0;
-    try { await readVerifiedCheckpoint(entry); verifiedCount += 1; } catch { /* Not a verified point. */ }
+    try { await readVerifiedCheckpoint(entry); verifiedCount += 1; }
+    catch (error) { recordRecoveryReadFailure(error, 'A recovery checkpoint failed integrity verification while recovery storage status was being checked.'); }
   }
   return { checkpointCount: index.checkpoints.length, verifiedCount, estimatedBytes, warning: estimatedBytes >= STORAGE_WARNING_BYTES };
 }
@@ -231,7 +264,10 @@ export async function setRecoveryCheckpointPinned(id: string, pinned: boolean): 
     const next = { version: 1 as const, checkpoints: index.checkpoints.map((item) => item.id === id ? { ...item, status: 'verified' as const, pinned } : item) };
     await writeIndexSafely(next);
     return true;
-  } catch { return false; }
+  } catch (error) {
+    recordRecoveryReadFailure(error, 'A recovery checkpoint could not be pinned or unpinned because it failed validation or the journal update failed.');
+    return false;
+  }
 }
 
 async function writeAndVerify(path: string, content: string): Promise<void> {

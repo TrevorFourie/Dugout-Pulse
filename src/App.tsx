@@ -24,6 +24,7 @@ import { StartGamePicker } from './components/StartGamePicker';
 import { SettingsNavigationDrawer } from './components/SettingsNavigationDrawer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getRecoverySnapshotInfo, restoreRecoverySnapshot } from './context/gameStorageSafety';
+import { recordDiagnosticError } from './utils/errorDiagnostics';
 
 const getLocalDate = () => {
   const now = new Date();
@@ -38,6 +39,11 @@ const MainApp: React.FC = () => {
   const recoverySnapshot = getRecoverySnapshotInfo();
   const [isRecoveryConfirmOpen, setIsRecoveryConfirmOpen] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [isRecoveryAlertDismissed, setIsRecoveryAlertDismissed] = useState(false);
+
+  useEffect(() => {
+    if (restoreFailed) setIsRecoveryAlertDismissed(false);
+  }, [restoreFailed]);
 
   // On Android the full-screen splash artwork is the native launch window
   // background, visible through the transparent WebView from the first frame, so
@@ -69,7 +75,9 @@ const MainApp: React.FC = () => {
   // HitLocationModal lazy-load the same module, so this just warms it up.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void import('./components/HitField3D').catch(() => {});
+      void import('./components/HitField3D').catch((error: unknown) => {
+        recordDiagnosticError('module_load_failure', error, 'The optional 3D field module could not be preloaded.');
+      });
     }, 300);
     return () => window.clearTimeout(timer);
   }, []);
@@ -249,8 +257,15 @@ const MainApp: React.FC = () => {
     // mutate any storage while the main restore has been flagged as unsafe.
     if (restoreFailed) return;
     const syncReminders = () => {
-      void syncStoredGameReminders(settings.gameRemindersEnabled === true).catch(() => {
-        // The Notifications settings panel shows status and a test button for recovery.
+      void syncStoredGameReminders(settings.gameRemindersEnabled === true).catch((error: unknown) => {
+        // Keep the failure visible in diagnostics; distinguish corrupt saved reminder data from native plugin failures.
+        const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+        const category = error instanceof SyntaxError
+          ? 'data_corruption'
+          : errorName === 'SecurityError' || errorName === 'QuotaExceededError'
+            ? 'storage_read'
+            : 'native_failure';
+        recordDiagnosticError(category, error, 'Scheduled reminder synchronization failed. Check notification settings if reminders do not work.');
       });
     };
     syncReminders();
@@ -360,11 +375,8 @@ const MainApp: React.FC = () => {
 
   return (
       <div className="h-full overflow-hidden flex flex-col bg-[#F4F6F8] dark:bg-[#101419] text-[#18212D] dark:text-[#FAFAFA]">
-      {restoreFailed && (
-        <div
-          role="alert"
-          className="shrink-0 border-b border-amber-500/40 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
-        >
+      {restoreFailed && isRecoveryAlertDismissed && (
+        <div role="alert" className="shrink-0 border-b border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB]">
           <strong>Saved data needs recovery.</strong> Automatic saving is paused to protect existing browser data. Do not reset app data or clear browser storage.
           {recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? (
             <div className="mt-2 flex flex-col items-start gap-2">
@@ -373,7 +385,7 @@ const MainApp: React.FC = () => {
               </p>
               <button
                 type="button"
-                className="rounded-lg border border-amber-700/40 px-3 py-2 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                className="rounded-xl bg-[#00BFA5] px-3 py-2 font-semibold text-[#18212D] hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]"
                 onClick={() => {
                   setRecoveryError(null);
                   setIsRecoveryConfirmOpen(true);
@@ -394,8 +406,30 @@ const MainApp: React.FC = () => {
                 : 'No usable local recovery snapshot is available.'}
             </p>
           )}
+          <button type="button" className="mt-2 text-xs font-semibold text-[#007A6A] underline dark:text-[#00D7BC]" onClick={() => setIsRecoveryAlertDismissed(false)}>
+            Review recovery alert
+          </button>
         </div>
       )}
+      <ConfirmationModal
+        isOpen={restoreFailed && !isRecoveryAlertDismissed}
+        title="Saved data needs recovery"
+        message={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData
+          ? 'Automatic saving is paused to protect your existing data. A verified local recovery snapshot is available. Review the snapshot details before choosing whether to restore it. Do not clear app data or browser storage.'
+          : 'Automatic saving is paused to protect your existing data. No usable local recovery snapshot is available. Do not reset app data or clear browser storage. Review the diagnostic report before taking further action.'}
+        confirmLabel={recoverySnapshot.available && recoverySnapshot.hasMeaningfulData ? 'Review restore options' : 'OK'}
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => setIsRecoveryAlertDismissed(true)}
+        onConfirm={() => {
+          setIsRecoveryAlertDismissed(true);
+          if (recoverySnapshot.available && recoverySnapshot.hasMeaningfulData) {
+            setRecoveryError(null);
+            setIsRecoveryConfirmOpen(true);
+          }
+        }}
+      />
       <ConfirmationModal
         isOpen={isRecoveryConfirmOpen}
         title="Restore saved data?"

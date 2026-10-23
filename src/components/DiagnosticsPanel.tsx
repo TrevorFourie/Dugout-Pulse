@@ -9,6 +9,7 @@ export const DiagnosticsPanel: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [exportFailureAlert, setExportFailureAlert] = useState<string | null>(null);
   const currentError = getCurrentBuildDiagnosticEvent();
   const events = currentError ? [currentError] : [];
   void refresh;
@@ -17,8 +18,13 @@ export const DiagnosticsPanel: React.FC = () => {
     const report = createDiagnosticReport();
     const today = new Date().toISOString().slice(0, 10);
     const ok = await saveTextFile(`dugout-pulse-diagnostics-${today}.json`, report, 'application/json');
-    setMessage(ok ? 'Diagnostic report is ready to save or share.' : 'Could not export the report. You can review and copy the preview below.');
-    if (!ok) setShowPreview(true);
+    if (ok) {
+      setMessage('Diagnostic report is ready to save or share.');
+    } else {
+      setMessage(null);
+      setExportFailureAlert('Dugout Pulse could not export the diagnostic file. The report preview is open below so you can review and copy it manually.');
+      setShowPreview(true);
+    }
   };
 
   const clearLogs = () => {
@@ -87,6 +93,17 @@ export const DiagnosticsPanel: React.FC = () => {
           </div>
         )}
       </div>
+      <ConfirmationModal
+        isOpen={exportFailureAlert !== null}
+        title="Could not export diagnostic report"
+        message={exportFailureAlert || ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => setExportFailureAlert(null)}
+        onConfirm={() => setExportFailureAlert(null)}
+      />
       <ConfirmationModal
         isOpen={isClearConfirmOpen}
         title="Clear diagnostic log?"

@@ -13,6 +13,7 @@ import { useInningManagement } from './useInningManagement';
 import { useGamePlayActions } from './useGamePlayActions';
 import { useGameLifecycle } from './useGameLifecycle';
 import { useGameDataManagement } from './useGameDataManagement';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -59,7 +60,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       return true;
-    } catch {
+    } catch (error) {
+      recordDiagnosticError(error instanceof SyntaxError ? 'data_corruption' : 'storage_read', error, 'Initial setup/profile state could not be read from saved storage.');
       return false;
     }
   });

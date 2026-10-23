@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { NotificationBlockedModal } from './NotificationBlockedModal';
+import { ConfirmationModal } from './ConfirmationModal';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import {
   getReminderStatus,
   openAppNotificationSettings,
@@ -37,6 +39,18 @@ export const NotificationsSettingsPanel: React.FC = () => {
   const [showBlocked, setShowBlocked] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [failureAlert, setFailureAlert] = useState<string | null>(null);
+
+  const reportReminderFailure = (error: unknown, userMessage: string) => {
+    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+    const category = error instanceof SyntaxError
+      ? 'data_corruption'
+      : errorName === 'SecurityError' || errorName === 'QuotaExceededError'
+        ? 'storage_read'
+        : 'native_failure';
+    recordDiagnosticError(category, error, 'A notification reminder operation failed.');
+    setFailureAlert(userMessage);
+  };
 
   const refresh = useCallback(async () => {
     const next = await getReminderStatus();
@@ -57,7 +71,9 @@ export const NotificationsSettingsPanel: React.FC = () => {
     setMessage(null);
     if (enabled) {
       updateSettings({ gameRemindersEnabled: false });
-      await syncStoredGameReminders(false).catch(() => {});
+      await syncStoredGameReminders(false).catch((error: unknown) => {
+        reportReminderFailure(error, 'Dugout Pulse could not update scheduled reminders after reminders were turned off. Review the diagnostic report before retrying.');
+      });
       return;
     }
     const ok = await requestGameNotificationPermission();
@@ -67,7 +83,9 @@ export const NotificationsSettingsPanel: React.FC = () => {
       return;
     }
     updateSettings({ gameRemindersEnabled: true });
-    await syncStoredGameReminders(true).catch(() => setMessage('Some reminders could not be scheduled.'));
+    await syncStoredGameReminders(true).catch((error: unknown) => {
+      reportReminderFailure(error, 'Dugout Pulse could not schedule some reminders. Check notification settings and review the diagnostic report.');
+    });
     void refresh();
   };
 
@@ -79,7 +97,7 @@ export const NotificationsSettingsPanel: React.FC = () => {
       if (outcome === 'blocked') setShowBlocked(true);
       else setMessage(TEST_TEXT[outcome]);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'The test failed.');
+      reportReminderFailure(e, 'Dugout Pulse could not complete the notification test. Check notification settings and review the diagnostic report.');
     } finally {
       setTesting(false);
       void refresh();
@@ -101,6 +119,17 @@ export const NotificationsSettingsPanel: React.FC = () => {
   return (
     <div className="space-y-4">
       <NotificationBlockedModal isOpen={showBlocked} onClose={() => setShowBlocked(false)} />
+      <ConfirmationModal
+        isOpen={failureAlert !== null}
+        title="Notification operation failed"
+        message={failureAlert || ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => setFailureAlert(null)}
+        onConfirm={() => setFailureAlert(null)}
+      />
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]/40">
         <div className="flex items-center justify-between gap-4">

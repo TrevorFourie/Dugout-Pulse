@@ -6,17 +6,32 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
 import { TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibrary, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
+import { recordDiagnosticError } from './errorDiagnostics';
 
 const LOGO_LIBRARY_KEY = 'dugoutPulse.logoLibrary.v1';
 
 function readStoredArray(key: string): unknown[] {
+  let value: string | null;
   try {
-    const value = localStorage.getItem(key);
-    const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+    value = localStorage.getItem(key);
+  } catch (error) {
+    recordDiagnosticError('storage_read', error, 'A saved list needed for backup could not be read. The backup was stopped rather than omitting saved data.');
+    throw error;
   }
+  if (!value) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    recordDiagnosticError('data_corruption', error, 'A saved list needed for backup could not be parsed. The backup was stopped rather than omitting saved data.');
+    throw error;
+  }
+  if (!Array.isArray(parsed)) {
+    const error = new Error('A saved list needed for backup has an unexpected format.');
+    recordDiagnosticError('data_corruption', error, 'A saved list needed for backup has an unexpected format. The backup was stopped rather than omitting saved data.');
+    throw error;
+  }
+  return parsed;
 }
 
 function readStoredStrings(key: string): string[] {
@@ -26,7 +41,9 @@ function readStoredStrings(key: string): string[] {
 /** Preset lists and flags that live outside games/profiles/settings but are needed for a complete restore. */
 export function readBackupExtras(): BackupExtras {
   let setupCompleted = false;
-  try { setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true'; } catch { /* default false */ }
+  try { setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true'; } catch (error) {
+    recordDiagnosticError('storage_read', error, 'The setup-completed flag could not be read while preparing a backup.');
+  }
   return {
     savedTournaments: readStoredStrings(STORAGE_KEYS.SAVED_TOURNAMENTS),
     savedAgeGroups: readStoredStrings(STORAGE_KEYS.SAVED_AGE_GROUPS),
@@ -72,6 +89,10 @@ export async function buildFullBackup(data: {
     } catch {
       missingLogos.push(item.fileName);
     }
+  }
+
+  if (missingLogos.length > 0) {
+    recordDiagnosticError('logo_library', new Error('One or more custom logo images could not be read during backup.'), 'Missing custom logo file count: ' + missingLogos.length + '.');
   }
 
   const payload = sealBackup({

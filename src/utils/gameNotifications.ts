@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { recordDiagnosticError } from './errorDiagnostics';
 
 export interface GameReminder {
   id: string;
@@ -29,6 +30,12 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /* -------------------------------------------------------------------------- */
 
 let channelReady = false;
+let channelSetupFailureReported = false;
+let channelInspectionFailureReported = false;
+let permissionCheckFailureReported = false;
+let permissionRequestFailureReported = false;
+let notificationSettingsFailureReported = false;
+let reminderIdsReadFailureReported = false;
 
 /**
  * We own our channel instead of relying on the plugin's implicit "default" one.
@@ -46,8 +53,12 @@ const ensureChannel = async (): Promise<void> => {
       visibility: 1,
     });
     channelReady = true;
-  } catch {
-    /* retry next time */
+    channelSetupFailureReported = false;
+  } catch (error) {
+    if (!channelSetupFailureReported) {
+      recordDiagnosticError('native_failure', error, 'Android notification channel setup failed; the app will retry on the next reminder operation.');
+      channelSetupFailureReported = true;
+    }
   }
 };
 
@@ -61,7 +72,16 @@ const isDeliverable = async (): Promise<boolean> => {
   const [permission, system, channels] = await Promise.all([
     LocalNotifications.checkPermissions(),
     LocalNotifications.areEnabled(),
-    LocalNotifications.listChannels().catch(() => ({ channels: [] as { id: string; importance: number }[] })),
+    LocalNotifications.listChannels().then((result) => {
+      channelInspectionFailureReported = false;
+      return result;
+    }).catch((error: unknown) => {
+      if (!channelInspectionFailureReported) {
+        recordDiagnosticError('native_failure', error, 'Could not inspect notification channels; delivery status may be incomplete.');
+        channelInspectionFailureReported = true;
+      }
+      return { channels: [] as { id: string; importance: number }[] };
+    }),
   ]);
   const channel = channels.channels.find((c) => c.id === CHANNEL_ID);
   const channelOk = !channel || channel.importance === undefined || channel.importance > 0; // 0 = IMPORTANCE_NONE (blocked)
@@ -71,8 +91,14 @@ const isDeliverable = async (): Promise<boolean> => {
 export const checkGameNotificationPermission = async (): Promise<boolean> => {
   if (!isNative()) return false;
   try {
-    return await isDeliverable();
-  } catch {
+    const result = await isDeliverable();
+    permissionCheckFailureReported = false;
+    return result;
+  } catch (error) {
+    if (!permissionCheckFailureReported) {
+      recordDiagnosticError('native_failure', error, 'Could not check native notification permission or delivery status.');
+      permissionCheckFailureReported = true;
+    }
     return false;
   }
 };
@@ -84,8 +110,14 @@ export const requestGameNotificationPermission = async (): Promise<boolean> => {
     let permission = await LocalNotifications.checkPermissions();
     if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
     if (permission.display !== 'granted') return false;
-    return await isDeliverable();
-  } catch {
+    const result = await isDeliverable();
+    permissionRequestFailureReported = false;
+    return result;
+  } catch (error) {
+    if (!permissionRequestFailureReported) {
+      recordDiagnosticError('native_failure', error, 'Could not request or verify native notification permission.');
+      permissionRequestFailureReported = true;
+    }
     return false;
   }
 };
@@ -130,8 +162,13 @@ export const openAppNotificationSettings = async (): Promise<boolean> => {
     } catch {
       await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
     }
+    notificationSettingsFailureReported = false;
     return true;
-  } catch {
+  } catch (error) {
+    if (!notificationSettingsFailureReported) {
+      recordDiagnosticError('native_failure', error, 'Could not open notification settings from Dugout Pulse.');
+      notificationSettingsFailureReported = true;
+    }
     return false;
   }
 };
@@ -212,8 +249,18 @@ export const runNotificationTest = async (): Promise<TestOutcome> => {
 const readReminderIds = (): ReminderIdMap => {
   try {
     const value = localStorage.getItem(REMINDER_IDS_KEY);
-    return value ? (JSON.parse(value) as ReminderIdMap) : {};
-  } catch {
+    const parsed: unknown = value ? JSON.parse(value) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
+        !Object.values(parsed).every((id) => typeof id === 'number')) {
+      throw new SyntaxError('Saved notification reminder IDs have an invalid structure.');
+    }
+    reminderIdsReadFailureReported = false;
+    return parsed as ReminderIdMap;
+  } catch (error) {
+    if (!reminderIdsReadFailureReported) {
+      recordDiagnosticError(error instanceof SyntaxError ? 'data_corruption' : 'storage_read', error, 'Saved notification reminder IDs could not be read.');
+      reminderIdsReadFailureReported = true;
+    }
     return {};
   }
 };
@@ -290,6 +337,7 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
 /** Resync straight from device storage, even when the Upcoming Games screen is not mounted. */
 export const syncStoredGameReminders = async (enabled: boolean): Promise<void> => {
   const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
-  const games = raw ? (JSON.parse(raw) as GameReminder[]) : [];
-  await syncGameReminders(Array.isArray(games) ? games : [], enabled);
+  const parsed: unknown = raw ? JSON.parse(raw) : [];
+  if (!Array.isArray(parsed)) throw new SyntaxError('Saved scheduled-game reminders did not contain a list.');
+  await syncGameReminders(parsed as GameReminder[], enabled);
 };

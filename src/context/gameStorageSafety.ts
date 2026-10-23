@@ -10,6 +10,7 @@ const RECOVERY_VERSION = 1;
 // One pre-mutation snapshot per page lifetime. Preserve the best previous snapshot
 // separately so a later reload cannot replace the only useful backup with damaged state.
 let snapshotTakenForPage = false;
+const reportedSnapshotIssues = new Set<string>();
 
 interface RecoverySnapshot {
   version: number;
@@ -27,20 +28,50 @@ export interface RecoverySnapshotInfo {
   hasMeaningfulData: boolean;
 }
 
+function reportSnapshotReadIssue(key: string, error: unknown): void {
+  if (reportedSnapshotIssues.has(key)) return;
+  reportedSnapshotIssues.add(key);
+  const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+  const category = error instanceof SyntaxError ? 'data_corruption' : errorName === 'SecurityError' ? 'storage_read' : 'recovery_checkpoint';
+  recordDiagnosticError(
+    category,
+    error,
+    'Local recovery snapshot ' + key + ' could not be read or validated; it was not used.',
+  );
+}
+
 function readSnapshot(key: string): RecoverySnapshot | null {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const candidate = parsed as Partial<RecoverySnapshot>;
-    if (candidate.version !== RECOVERY_VERSION || typeof candidate.createdAt !== 'string' ||
-        !candidate.values || typeof candidate.values !== 'object' || Array.isArray(candidate.values)) return null;
-    if (!Object.values(candidate.values).every((value) => typeof value === 'string')) return null;
-    return candidate as RecoverySnapshot;
-  } catch {
+    raw = localStorage.getItem(key);
+  } catch (error) {
+    reportSnapshotReadIssue(key, error);
     return null;
   }
+  if (!raw) {
+    reportedSnapshotIssues.delete(key);
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    reportSnapshotReadIssue(key, error);
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    reportSnapshotReadIssue(key, new Error('Recovery snapshot payload has an invalid structure.'));
+    return null;
+  }
+  const candidate = parsed as Partial<RecoverySnapshot>;
+  if (candidate.version !== RECOVERY_VERSION || typeof candidate.createdAt !== 'string' ||
+      !candidate.values || typeof candidate.values !== 'object' || Array.isArray(candidate.values) ||
+      !Object.values(candidate.values).every((value) => typeof value === 'string')) {
+    reportSnapshotReadIssue(key, new Error('Recovery snapshot payload failed structural validation.'));
+    return null;
+  }
+  reportedSnapshotIssues.delete(key);
+  return candidate as RecoverySnapshot;
 }
 
 function getSnapshotMetrics(snapshot: RecoverySnapshot) {

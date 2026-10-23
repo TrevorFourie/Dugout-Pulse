@@ -7,6 +7,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoImage } from './TeamLogoImage';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
@@ -33,14 +34,25 @@ interface OppositionTeam {
   logo?: string;
 }
 
-const readJson = <T,>(key: string, fallback: T): T => {
+type StoredArrayRead<T> = { value: T; error: string | null };
+
+const readJson = <T,>(key: string, fallback: T): StoredArrayRead<T> => {
   try {
     const value = localStorage.getItem(key);
-    if (!value) return fallback;
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed as T : fallback;
-  } catch {
-    return fallback;
+    if (!value) return { value: fallback, error: null };
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) throw new SyntaxError('Saved list did not contain an array.');
+    return { value: parsed as T, error: null };
+  } catch (error) {
+    recordDiagnosticError(
+      error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
+      error,
+      'Saved local list ' + key + ' could not be read. The stored value was not changed.',
+    );
+    return {
+      value: fallback,
+      error: 'Dugout Pulse could not read a saved upcoming-game or opposition-team list. No saved values were changed. Review the diagnostic report before making changes.',
+    };
   }
 };
 
@@ -57,8 +69,11 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [gameType, setGameType] = useState(defaultPlayerTeam?.tournament || allTournaments[0] || 'League');
   const gameTypes = useMemo(() => Array.from(new Set([...(allTournaments || []), ...playerTeams.map((team) => team.tournament).filter((value): value is string => Boolean(value?.trim()))])), [allTournaments, playerTeams]);
   const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
-  const [games, setGames] = useState<ScheduledGame[]>(() => readJson(GAMES_KEY, []));
-  const [teams, setTeams] = useState<OppositionTeam[]>(() => readJson(OPPOSITION_TEAMS_KEY, []));
+  const [initialGames] = useState(() => readJson<ScheduledGame[]>(GAMES_KEY, []));
+  const [initialTeams] = useState(() => readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, []));
+  const [games, setGames] = useState<ScheduledGame[]>(initialGames.value);
+  const [teams, setTeams] = useState<OppositionTeam[]>(initialTeams.value);
+  const [failureAlert, setFailureAlert] = useState<string | null>(() => initialGames.error || initialTeams.error);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
@@ -79,11 +94,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     return () => window.clearInterval(timer);
   }, [nextOnly]);
 
-  useEffect(() => {
-    setGames(readJson<ScheduledGame[]>(GAMES_KEY, []));
-    setTeams(readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, []));
-  }, []);
-
   // Reflect venue renames immediately if Upcoming Games is still mounted.
   useEffect(() => {
     const handleVenueRenamed = (event: Event) => {
@@ -93,22 +103,22 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
         setMessage('Storage recovery is required before scheduled games can be changed.');
         return;
       }
-      setGames((current) => {
-        const next = current.map((game) =>
-          game.venue?.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
-            ? { ...game, venue: detail.newName }
-            : game
-        );
-        try {
-          if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-            setMessage('Could not protect saved data. Scheduled games were not changed.');
-            return current;
-          }
-        } catch {
-          setMessage('Venue was renamed, but scheduled games could not be saved. Please check your device storage.');
+      const next = games.map((game) =>
+        game.venue?.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
+          ? { ...game, venue: detail.newName }
+          : game
+      );
+      try {
+        if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
+          setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No scheduled-game changes were saved.');
+          return;
         }
-        return next;
-      });
+      } catch (error) {
+        recordDiagnosticError('storage_write', error, 'Scheduled games could not be saved after a venue rename.');
+        setFailureAlert('The venue was renamed, but scheduled games could not be saved. Review the diagnostic report before trying again.');
+        return;
+      }
+      setGames(next);
       setVenue((current) =>
         current.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
           ? detail.newName
@@ -117,12 +127,13 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     };
     window.addEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
     return () => window.removeEventListener('dugout-pulse-venue-renamed', handleVenueRenamed);
-  }, [restoreFailed]);
+  }, [games, restoreFailed]);
 
   useEffect(() => {
     if (isLoading || restoreFailed) return;
-    void syncGameReminders(games, settings.gameRemindersEnabled === true).catch(() => {
-      setMessage('Could not update game reminders. Check notification permissions in Android settings.');
+    void syncGameReminders(games, settings.gameRemindersEnabled === true).catch((error: unknown) => {
+      recordDiagnosticError('native_failure', error, 'Game reminder synchronization failed after the scheduled-game list changed.');
+      setFailureAlert('Dugout Pulse could not update game reminders. Your scheduled-game list remains saved; review notification settings and the diagnostic report.');
     });
   }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed]);
 
@@ -139,13 +150,14 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     }
     try {
       if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-        setMessage('Could not protect saved data. Scheduled games were not changed.');
+        setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No scheduled-game changes were saved.');
         return;
       }
       setGames(next);
       setMessage('');
-    } catch {
-      setMessage('Could not save this game on the device. Please free up storage and try again.');
+    } catch (error) {
+      recordDiagnosticError('storage_write', error, 'A scheduled-game write failed. The app did not confirm that the change was saved.');
+      setFailureAlert('Dugout Pulse could not save this game on the device. Do not assume the change was saved; review the diagnostic report before retrying.');
     }
   };
 
@@ -264,6 +276,17 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
 
   return (
     <>
+    <ConfirmationModal
+      isOpen={Boolean(failureAlert)}
+      title="Could not complete operation"
+      message={failureAlert || ''}
+      confirmLabel="OK"
+      showCancelButton={false}
+      closeOnBackdrop={false}
+      variant="warning"
+      onCancel={() => setFailureAlert(null)}
+      onConfirm={() => setFailureAlert(null)}
+    />
     <ConfirmationModal
       isOpen={Boolean(permissionPromptGame)}
       title="Allow game notifications"

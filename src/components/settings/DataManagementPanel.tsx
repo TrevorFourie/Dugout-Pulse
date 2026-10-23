@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, Upload, AlertOctagon, ShieldCheck } from 'lucide-react';
 import { DiagnosticsPanel } from '../DiagnosticsPanel';
+import { ConfirmationModal } from '../ConfirmationModal';
+import { ThemedDropdown } from '../ThemedDropdown';
 import { reportFailure } from '../../utils/userMessages';
 import { createVerifiedRecoveryCheckpoint, getRecoveryJournalStorageInfo, listVerifiedRecoveryCheckpoints, restoreVerifiedRecoveryCheckpoint, setRecoveryCheckpointPinned, type RecoveryCheckpointSummary } from '../../context/recoveryJournal';
 
@@ -19,6 +21,7 @@ const RecoveryJournalPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [failureAlert, setFailureAlert] = useState<string | null>(null);
   const [journalInfo, setJournalInfo] = useState<{ checkpointCount: number; verifiedCount: number; estimatedBytes: number; warning: boolean } | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -28,8 +31,9 @@ const RecoveryJournalPanel: React.FC = () => {
       setJournalInfo(info);
       setSelectedId((current) => items.some((item) => item.id === current) ? current : items[0]?.id || '');
       setMessage(items.length ? '' : 'No verified private recovery checkpoints are available.');
-    } catch {
-      setMessage('Could not read the private recovery journal. Your saved data has not been changed.');
+    } catch (error) {
+      setMessage('');
+      setFailureAlert(reportFailure('recovery_checkpoint', error, 'Could not read the private recovery journal. Your saved data has not been changed.'));
     } finally {
       setLoading(false);
     }
@@ -42,11 +46,15 @@ const RecoveryJournalPanel: React.FC = () => {
     try {
       const created = await createVerifiedRecoveryCheckpoint('User-created manual checkpoint');
       await refresh();
-      setMessage(created
-        ? 'Checkpoint created and verified. It is now available in the recovery-point list.'
-        : 'Checkpoint creation failed. No existing checkpoint was intentionally deleted; check whether saved custom logos are missing or unreadable, then review diagnostics.');
-    } catch {
-      setMessage('Checkpoint creation failed. Your saved data has not been intentionally changed.');
+      if (created) {
+        setMessage('Checkpoint created and verified. It is now available in the recovery-point list.');
+      } else {
+        setMessage('');
+        setFailureAlert('Checkpoint creation failed. No existing checkpoint was intentionally deleted; check whether saved custom logos are missing or unreadable, then review diagnostics.');
+      }
+    } catch (error) {
+      setMessage('');
+      setFailureAlert(reportFailure('recovery_checkpoint', error, 'Checkpoint creation failed. Your saved data has not been intentionally changed.'));
     } finally {
       setBusy(false);
     }
@@ -65,10 +73,12 @@ const RecoveryJournalPanel: React.FC = () => {
       // Refreshing the list also updates the status line, so do it first and
       // set the restore result last; otherwise the useful error flashes away.
       await refresh();
-      setMessage(result.message);
+      setMessage('');
+      setFailureAlert(result.message);
     } catch (error) {
       await refresh();
-      setMessage(reportFailure('recovery_restore', error, 'The recovery stopped unexpectedly. Your saved data has not been intentionally changed. Please do not try again yet.'));
+      setMessage('');
+      setFailureAlert(reportFailure('recovery_restore', error, 'The recovery stopped unexpectedly. Your saved data has not been intentionally changed. Please do not try again yet.'));
     } finally {
       setBusy(false);
     }
@@ -78,8 +88,13 @@ const RecoveryJournalPanel: React.FC = () => {
     if (!selected || busy) return;
     setBusy(true);
     const ok = await setRecoveryCheckpointPinned(selected.id, !selected.pinned);
-    setMessage(ok ? (selected.pinned ? 'Checkpoint unpinned.' : 'Checkpoint pinned; retention will preserve it.') : 'Could not update checkpoint protection. No checkpoint files were deleted.');
     await refresh();
+    if (ok) {
+      setMessage(selected.pinned ? 'Checkpoint unpinned.' : 'Checkpoint pinned; retention will preserve it.');
+    } else {
+      setMessage('');
+      setFailureAlert('Could not update checkpoint protection. No checkpoint files were deleted. Review the diagnostic report before trying again.');
+    }
     setBusy(false);
   };
   return (
@@ -105,9 +120,20 @@ const RecoveryJournalPanel: React.FC = () => {
           <>
             <label className="block space-y-1 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
               Verified recovery point
-              <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-normal text-slate-900 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]">
-                {checkpoints.map((item) => <option key={item.id} value={item.id}>{new Date(item.createdAt).toLocaleString()} · {item.reason}</option>)}
-              </select>
+              <ThemedDropdown<string>
+                ariaLabel="Choose a verified recovery journal point"
+                value={selectedId}
+                onChange={(value) => { if (value) setSelectedId(value); }}
+                options={checkpoints.map((item) => ({
+                  value: item.id,
+                  label: new Date(item.createdAt).toLocaleString() + ' · ' + item.reason,
+                }))}
+                placeholder="Select a verified recovery point"
+                allowClear={false}
+                disabled={busy || loading}
+                className="w-full"
+                buttonClassName="!rounded-lg !py-2 !text-xs !font-normal"
+              />
             </label>
             {selected && (
               <div className="rounded-lg border border-slate-200 bg-white p-3 text-[11px] text-slate-600 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#D1D5DB]">
@@ -127,6 +153,17 @@ const RecoveryJournalPanel: React.FC = () => {
         )}
         {message && <p role="status" aria-live="polite" className="text-xs leading-relaxed text-slate-700 dark:text-[#D1D5DB]">{message}</p>}
       </div>
+      <ConfirmationModal
+        isOpen={failureAlert !== null}
+        title="Recovery operation failed"
+        message={failureAlert || ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="warning"
+        onCancel={() => setFailureAlert(null)}
+        onConfirm={() => setFailureAlert(null)}
+      />
     </section>
   );
 };
