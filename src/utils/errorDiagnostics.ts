@@ -465,11 +465,25 @@ export function installGlobalDiagnosticHandlers(): void {
   };
   const captureHookOrderDiagnostic = (args: unknown[]): boolean => {
     const detail = formatConsoleArguments(args);
-    if (!/change in the order of Hooks called|Rendered (?:more|fewer) hooks than during the previous render/i.test(detail)) return false;
-    pendingReactHookDiagnostic = {
-      time: Date.now(),
-      details: safeDiagnosticDetail(detail),
-    };
+    const isHookComparison = /React has detected a change in the order of Hooks called|change in the order of Hooks called/i.test(detail)
+      && /Previous render[\\s\\S]*Next render/i.test(detail);
+    const isGenericHookException = /Rendered (?:more|fewer) hooks than during the previous render/i.test(detail);
+    if (!isHookComparison && !isGenericHookException) return false;
+
+    // React logs the useful previous/next Hook table first, then emits a much
+    // shorter caught-exception message. Never let that follow-up overwrite the
+    // table that explains which Hook changed.
+    const existingHasComparison = Boolean(
+      pendingReactHookDiagnostic &&
+      Date.now() - pendingReactHookDiagnostic.time <= 15000 &&
+      /Previous render[\\s\\S]*Next render/i.test(pendingReactHookDiagnostic.details)
+    );
+    if (isHookComparison || !existingHasComparison) {
+      pendingReactHookDiagnostic = {
+        time: Date.now(),
+        details: safeDiagnosticDetail(detail),
+      };
+    }
     return true;
   };
   const classifyConsoleFailure = (detail: string): string => {
