@@ -261,6 +261,14 @@ const MainApp: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [settings.gameRemindersEnabled, restoreFailed]);
 
+  // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
+  useEffect(() => {
+    if (!isFirstTimeUser) return;
+    setIsSettingsOpen(false);
+    setIsSettingsMenuOpen(false);
+    setActiveTab('dashboard');
+  }, [isFirstTimeUser]);
+
   // Keep the complete app shell hidden until persisted data has loaded. Rendering
   // Navigation/dashboard first and replacing them after localStorage loads caused
   // visible startup movement and layout shifts on slower Android WebViews.
@@ -304,14 +312,6 @@ const MainApp: React.FC = () => {
     setActiveTab('dashboard');
     setRestoreResult({ message, partial });
   };
-
-  // A data reset flips isFirstTimeUser back to true: leave Settings so the setup screen is what the user sees.
-  useEffect(() => {
-    if (!isFirstTimeUser) return;
-    setIsSettingsOpen(false);
-    setIsSettingsMenuOpen(false);
-    setActiveTab('dashboard');
-  }, [isFirstTimeUser]);
 
   const handleSelectSettingsSection = (section: SettingsSectionId) => {
     setSettingsInitialSection(section);
