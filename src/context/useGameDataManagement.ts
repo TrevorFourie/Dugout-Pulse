@@ -208,9 +208,10 @@ export function useGameDataManagement({
 
       const extras = (data && typeof data === 'object' ? (data as { extras?: Record<string, unknown> }).extras : undefined);
       if (!sqliteCutoverComplete && extras && typeof extras === 'object' &&
-          extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
+          typeof extras.setupCompleted === 'boolean' &&
+          (extras.setupCompleted === false || (Array.isArray(data.profiles) && data.profiles.length > 0))) {
         // A failed setup-flag write must stop the import before the restored state is published.
-        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
+        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, String(extras.setupCompleted))) {
           throw new Error('Could not protect storage before saving setup completion');
         }
       }
@@ -261,7 +262,9 @@ export function useGameDataManagement({
         const setupCompleted = extrasObject.setupCompleted === true &&
           Array.isArray(data.profiles) && data.profiles.length > 0
           ? true
-          : originalSQLiteState?.setupCompleted ?? false;
+          : extrasObject.setupCompleted === false
+            ? false
+            : originalSQLiteState?.setupCompleted ?? false;
         const nextState: SQLiteLiveState = {
           games: nextGames,
           profiles: nextProfiles,
