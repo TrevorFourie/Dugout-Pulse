@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
 import { NewGameForm } from './score/NewGameForm';
 import { PlayHistoryCard } from './score/PlayHistoryCard';
@@ -188,6 +189,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     title: string;
     subtitle: string;
   } | null>(null);
+  const [storageFailureAlert, setStorageFailureAlert] = useState<string | null>(null);
 
   // Pitcher Handedness Split toggle ('R' or 'L')
   const [pitcherHand, setPitcherHand] = useState<PitcherHand>(() => {
@@ -201,9 +203,12 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       if (!protectedStorageSetItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
         ...stored,
         [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
-      }))) throw new Error('Could not protect storage before saving scoring screen state');
+      }))) {
+        setStorageFailureAlert('Dugout Pulse could not safely save the scoring screen state. The game record is separate, but the selected inning or scoring view may not resume as expected. Review diagnostics before restarting.');
+      }
     } catch (error) {
-      console.error('Failed to persist scoring screen state:', error);
+      recordDiagnosticError('storage_write', error, 'The scoring screen state could not be persisted.');
+      setStorageFailureAlert('Dugout Pulse could not save the scoring screen state. The game record is separate, but the selected inning or scoring view may not resume as expected. Review diagnostics before restarting.');
     }
   }, [liveGame?.id, viewedInning, activeMode, pitcherHand, restoreFailed]);
 
@@ -258,10 +263,11 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     if (restoreFailed) return;
     try {
       if (!protectedStorageSetItem(RUNNER_WORKFLOW_STORAGE_KEY, JSON.stringify({ runnerSessions, runnerHistories, activeRunnerChips }))) {
-        throw new Error('Could not protect storage before saving runner workflow state');
+        setStorageFailureAlert('Dugout Pulse could not safely save the runner workflow state. Recorded plays are stored separately, but runner tracking may not resume as expected. Review diagnostics before restarting.');
       }
     } catch (error) {
-      console.error('Failed to persist runner workflow state:', error);
+      recordDiagnosticError('storage_write', error, 'The runner workflow state could not be persisted.');
+      setStorageFailureAlert('Dugout Pulse could not save the runner workflow state. Recorded plays are stored separately, but runner tracking may not resume as expected. Review diagnostics before restarting.');
     }
   }, [runnerSessions, runnerHistories, activeRunnerChips, restoreFailed]);
 
@@ -2083,6 +2089,18 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           </section>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={storageFailureAlert !== null}
+        title="Scoring state could not be saved"
+        message={storageFailureAlert || ''}
+        confirmLabel="OK"
+        showCancelButton={false}
+        closeOnBackdrop={false}
+        variant="danger"
+        onCancel={() => setStorageFailureAlert(null)}
+        onConfirm={() => setStorageFailureAlert(null)}
+      />
 
       <ScoreWorkflowModals
         lineupSpotPromptOpen={lineupSpotPromptOpen}
