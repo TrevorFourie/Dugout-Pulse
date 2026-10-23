@@ -3,7 +3,7 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import type { OppositionTeam } from '../context/gameContextTypes';
 import type { TeamLogoItem } from '../utils/teamLogoLibrary';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
-import { initializeSQLiteDatabase, withSQLiteTransaction } from './sqliteDatabase';
+import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteTransaction } from './sqliteDatabase';
 
 const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
 const CUTOVER_MARKER = 'legacy_storage_import_v1';
