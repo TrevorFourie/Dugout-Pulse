@@ -5,6 +5,8 @@ import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { protectedStorageRemoveItem, protectedStorageSetItem } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
+import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
+import { readTeamLogoLibraryStrict } from '../utils/teamLogoLibrary';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -25,104 +27,119 @@ interface GamePersistenceOptions {
   settings: AppSettings;
 }
 
-/** Every persisted state transition gets a verified private checkpoint before its write. */
+const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
+const UPCOMING_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
+
+function readUpcomingGamesForSQLite(): (Record<string, unknown> & { id: string })[] {
+  const raw = localStorage.getItem(UPCOMING_GAMES_KEY);
+  if (raw === null) return [];
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed) || !parsed.every((value) =>
+    !!value && typeof value === 'object' && !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { opponent?: unknown }).opponent === 'string' &&
+    typeof (value as { date?: unknown }).date === 'string' &&
+    typeof (value as { isHome?: unknown }).isHome === 'boolean'
+  )) {
+    throw new Error('Scheduled games could not be validated before saving SQLite state.');
+  }
+  return parsed as (Record<string, unknown> & { id: string })[];
+}
+
+/** Persists one coherent GameContext snapshot after a verified recovery checkpoint. */
 export function useGamePersistence({
   isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
   savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments, hiddenAgeGroups,
   hiddenSeasons, liveGame, editingGameId, reopenedGameId, profiles, settings,
 }: GamePersistenceOptions): void {
-  const persist = (reason: string, write: () => boolean, diagnostic?: string) => {
+  useEffect(() => {
+    if (isLoading) return;
+
     void (async () => {
       try {
-        const checkpointed = await createVerifiedRecoveryCheckpoint(reason);
+        const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed');
         if (!checkpointed) {
           onStorageProtectionFailure();
           recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested storage write was blocked.'));
           return;
         }
-        if (!write()) {
+
+        let cutoverComplete = false;
+        try {
+          cutoverComplete = await isLegacyStorageImportComplete();
+        } catch (error) {
+          // Before cutover, SQLite is optional and localStorage remains authoritative.
+          // After cutover, failure to inspect SQLite must stop writes rather than split the stores.
+          if (localStorage.getItem(LOCAL_CUTOVER_MARKER) === 'complete') throw error;
+        }
+        if (localStorage.getItem(LOCAL_CUTOVER_MARKER) === 'complete' && !cutoverComplete) {
+          throw new Error('The local and database cutover markers disagree; persistence was paused for recovery.');
+        }
+
+        if (cutoverComplete) {
+          const setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true';
+          await saveLiveSQLiteState({
+            games,
+            profiles,
+            settings,
+            liveGame,
+            editingGameId,
+            reopenedGameId,
+            setupCompleted,
+            savedOpponents,
+            savedTournaments,
+            savedAgeGroups,
+            savedSeasons,
+            hiddenTournaments,
+            hiddenAgeGroups,
+            hiddenSeasons,
+            oppositionTeams,
+            upcomingGames: readUpcomingGamesForSQLite(),
+            logoLibrary: readTeamLogoLibraryStrict(),
+          });
+        }
+
+        // Keep the established local recovery/backup/diagnostic paths usable as a
+        // compatibility mirror. SQLite commits first once the cutover is complete.
+        const results = [
+          protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(games)),
+          protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams)),
+          protectedStorageSetItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents)),
+          protectedStorageSetItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments)),
+          protectedStorageSetItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups)),
+          protectedStorageSetItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons)),
+          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments)),
+          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups)),
+          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons)),
+          liveGame
+            ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame))
+            : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME),
+          editingGameId
+            ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId))
+            : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID),
+          reopenedGameId
+            ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId))
+            : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID),
+          protectedStorageSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles)),
+          protectedStorageSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)),
+        ];
+        if (results.some((success) => !success)) {
           onStorageProtectionFailure();
-          if (diagnostic) recordDiagnosticError(diagnostic, new Error('Protected storage write failed'));
+          recordDiagnosticError('storage_write', new Error('One or more compatibility-mirror writes failed verification.'));
         }
       } catch (error) {
-        // A thrown serializer/storage error must also pause later writes; an unhandled
-        // rejection alone would diagnose the problem but leave state mutations enabled.
         onStorageProtectionFailure();
         try {
-          recordDiagnosticError(diagnostic || 'storage_write', error, 'A saved-data persistence operation threw before it could be verified. Automatic storage writes were paused.');
+          recordDiagnosticError('storage_write', error, 'A saved-data persistence operation failed before it could be verified. Automatic storage writes were paused.');
         } catch {
           // Preserve the storage pause even if diagnostic recording is unavailable.
         }
       }
     })();
-  };
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before saved games changed', () => protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(games)), 'storage_write_games');
-  }, [games, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before opposition teams changed', () => protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams)), 'storage_write_opposition_teams');
-  }, [oppositionTeams, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before saved opponents changed', () => protectedStorageSetItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents)));
-  }, [savedOpponents, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before saved tournaments changed', () => protectedStorageSetItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments)));
-  }, [savedTournaments, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before saved age groups changed', () => protectedStorageSetItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups)));
-  }, [savedAgeGroups, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before saved seasons changed', () => protectedStorageSetItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons)));
-  }, [savedSeasons, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before hidden presets changed', () =>
-      protectedStorageSetItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments)) &&
-      protectedStorageSetItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups)) &&
-      protectedStorageSetItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons)));
-  }, [hiddenTournaments, hiddenAgeGroups, hiddenSeasons, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before live game changed', () => liveGame
-      ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame))
-      : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME));
-  }, [liveGame, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before editing game reference changed', () => editingGameId
-      ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId))
-      : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID));
-  }, [editingGameId, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before reopened game reference changed', () => reopenedGameId
-      ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId))
-      : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID));
-  }, [reopenedGameId, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before player profiles changed', () => protectedStorageSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles)), 'storage_write_profiles');
-  }, [profiles, isLoading, onStorageProtectionFailure]);
-
-  useEffect(() => {
-    if (isLoading) return;
-    persist('Before app settings changed', () => protectedStorageSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)));
-  }, [settings, isLoading, onStorageProtectionFailure]);
+  }, [
+    isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
+    savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments,
+    hiddenAgeGroups, hiddenSeasons, liveGame, editingGameId, reopenedGameId,
+    profiles, settings,
+  ]);
 }
