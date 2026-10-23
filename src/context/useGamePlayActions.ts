@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, DefensivePosition, HitLocation, PitcherHand, Play, PlayCode, PlayMode, PlayScoringContext, RunnerOutReason } from '../types/baseball';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
-import { STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { protectedStorageSetItem } from './gameStorageSafety';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
@@ -27,16 +27,32 @@ export function useGamePlayActions({
 }: GamePlayActionsOptions) {
   const commitLiveGame = useCallback((nextGame: Game): boolean => {
     if (storageWritesBlocked) return false;
+    const serialized = JSON.stringify(nextGame);
+    // Write the complete pending game before updating its compatibility key. Startup
+    // can replay this journal into SQLite if the app closes before the persistence effect.
     try {
-      if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(nextGame))) {
-        onStorageProtectionFailure();
-        return false;
+      localStorage.setItem(PENDING_LIVE_GAME_WRITE_KEY, serialized);
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== serialized) {
+        throw new Error('The pending live-game write could not be verified.');
       }
-      return true;
     } catch (error) {
-      try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be saved and verified.'); } catch { /* Preserve the blocked write outcome. */ }
+      try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be journaled safely.'); } catch { /* Preserve the blocked write outcome. */ }
       onStorageProtectionFailure();
       return false;
+    }
+
+    try {
+      if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, serialized)) {
+        recordDiagnosticError('storage_write_games', new Error('The live-game compatibility write failed; its verified pending journal was retained for recovery.'));
+        onStorageProtectionFailure();
+      }
+      // The write-ahead journal is durable and verified even if the compatibility
+      // mirror fails; keep the in-memory action aligned with the recoverable record.
+      return true;
+    } catch (error) {
+      try { recordDiagnosticError('storage_write_games', error, 'The live-game compatibility write failed; its verified pending journal was retained for recovery.'); } catch { /* Preserve the journaled outcome. */ }
+      onStorageProtectionFailure();
+      return true;
     }
   }, [storageWritesBlocked, onStorageProtectionFailure]);
 
