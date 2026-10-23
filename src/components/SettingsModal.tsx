@@ -346,7 +346,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               setStatusMessage(null);
               setOperationAlert({
                 title: 'Data reset was stopped',
-                message: explainFailure('Your data was NOT reset, because the app could not first make a safety copy of it. Nothing was changed.', getLastDiagnosticReference() || undefined),
+                message: explainFailure('The reset did not complete safely. Storage removal could not be fully verified, so some items may already have been removed from active storage. Your recovery checkpoints were retained. Do not repeat the reset; review diagnostics and use the Recovery Journal if needed.', getLastDiagnosticReference() || undefined),
                 variant: 'danger',
               });
             }
