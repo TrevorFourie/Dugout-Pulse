@@ -1,6 +1,6 @@
 # SQLite schema and migration contract
 
-Status: SQLite foundation and a non-destructive legacy snapshot importer are committed; live-storage cutover and end-to-end migration verification remain outstanding.
+Status: guarded startup hydration and live-storage cutover are source-committed; backup/reset/recovery coordination and end-to-end migration verification remain outstanding.
 
 ## Compatibility pin
 
@@ -38,7 +38,7 @@ IDs must be derived from validated existing records. If a recognised dataset can
 
 ## Startup and write ordering
 
-- Startup must await database initialization/migration before GameContext restores domain state or enables persistence.
+- Startup must await database initialization/migration before GameContext restores domain state or enables persistence. The current hook gates child-screen mounting until the verified SQLite or legacy restore path completes; the cutover path uses a local pending marker so an interrupted commit is not mistaken for permission to fall back to stale localStorage.
 - The synchronous first-time setup read in GameContext and synchronous pre-React theme/diagnostics reads in `index.html` are existing early-start paths. Do not casually convert them to async reads; either keep their legacy read path until a separately verified handoff exists, or deliberately redesign and test their startup ordering.
 - Every domain write should be committed transactionally, then flushed to the web store on Chrome. Do not report persistence success before both steps resolve.
 - Do not run the existing localStorage persistence writer and a new SQLite writer concurrently as independent authorities; that risks split-brain state. Define a single cutover gate.
@@ -59,10 +59,10 @@ IDs must be derived from validated existing records. If a recognised dataset can
 
 - Dependency commit: `12bdff1` added `@capacitor-community/sqlite@7.0.3` and `jeep-sqlite@2.8.0` with the locally generated lockfile.
 - Source foundation: `src/storage/sqliteDatabase.ts` is committed. It creates the initial tables transactionally, checks the schema version, holds one shared connection, and flushes web transactions through `saveToStore`.
-- Repository groundwork: `src/storage/sqliteRepository.ts` includes a read-only source audit, a transaction-based snapshot importer, `readVerifiedSQLiteSnapshot()` for pre-cutover integrity verification, and transactional `saveLiveSQLiteState()` / `readLiveSQLiteState()` APIs. The live writer replaces all typed domain tables in one transaction, verifies row contents, and can set the cutover marker atomically with the state write. It leaves `legacy_values` as an immutable record of the original import. These live APIs are source-committed but are not yet wired into GameContext or external schedule/logo write paths.
+- Repository/startup wiring: `src/storage/sqliteRepository.ts` includes the non-destructive snapshot importer, pre-cutover integrity verification, transactional live-state read/write APIs, and a pending/completed cutover marker. `useGameRestore.ts` now hydrates from verified SQLite after cutover and mirrors the state before mounting app screens; on first cutover it imports and verifies the snapshot, creates a recovery checkpoint, then writes the complete live state and marker transactionally. `useGamePersistence.ts`, scheduled-game writes, and logo metadata writes are connected to the repository. These paths are source-committed but have not been typechecked or runtime-verified.
 - Import safety: identical snapshots are no-ops; a changed source fingerprint or existing unmarked destination data stops the import without automatic replacement. The importer checks that localStorage did not change during the import. If source data changed since a previous import, it refreshes only after the previous SQLite snapshot has been verified and only before any live-state writes have begun.
 - Runtime evidence from the user's Chrome session: the snapshot import returned successfully, the snapshot marker was present, `sourceKeysUnchanged` was true, and a later `readVerifiedSQLiteSnapshot()` returned `integrityVerified: true` with `localStorageUnchanged: true`. Exact count values were collapsed by the console output and were not available for independent review here.
-- The repository is intentionally not connected to GameContext yet. Existing localStorage remains authoritative. Full app persistence, backup/recovery integration, and native checks remain unverified.
+- GameContext startup and ongoing persistence are now wired to the guarded cutover path, but the migration is not ready for normal use until backup import/reset, recovery coordination, and end-to-end regressions are reviewed and runtime-verified. Native checks remain unverified.
 - The web WASM asset is committed at `public/assets/sql-wasm.wasm`. Chrome runtime checks confirmed schema initialization (10 tables), a write/read-back, persistence across page reload, and removal of the temporary smoke-test marker.
 - Static checks, the source-import runtime test, full app persistence/backup/recovery integration, and native checks remain unverified. Builds must not be triggered.
 
