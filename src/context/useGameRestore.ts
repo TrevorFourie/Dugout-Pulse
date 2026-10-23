@@ -315,7 +315,25 @@ export function useGameRestore({
         // An unreadable database status is not evidence that cutover did not commit.
       }
       const localMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
-      if (databaseCutoverComplete || localMarker === 'complete' || localMarker === 'pending') {
+      if (databaseCutoverComplete) {
+        // A competing startup or a failed final marker mirror may have committed
+        // the database transaction. Read that authoritative snapshot and reconcile
+        // it instead of leaving the app blocked unnecessarily.
+        try {
+          const committedState = await readLiveSQLiteState();
+          await mirrorLiveState(committedState);
+          applyLiveState(committedState);
+          setIsLoading(false);
+          return;
+        } catch (reconcileError) {
+          setRestoreFailed(true);
+          setIsLoading(false);
+          recordDiagnosticError('storage_load', reconcileError, 'SQLite cutover committed, but the live state could not be reconciled safely. Automatic saving is paused.');
+          console.error('Committed SQLite cutover could not be reconciled.', reconcileError);
+          return;
+        }
+      }
+      if (localMarker === 'complete' || localMarker === 'pending') {
         setRestoreFailed(true);
         setIsLoading(false);
         recordDiagnosticError('storage_load', error, 'SQLite cutover or startup reconciliation could not be verified; automatic saving is paused to protect saved data.');
