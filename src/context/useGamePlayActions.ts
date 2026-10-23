@@ -43,16 +43,8 @@ export function useGamePlayActions({
 
     try {
       if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, serialized)) {
-        // The protected write rolled back to the prior live game. Remove the marker
-        // when possible; if removal fails, startup safely replays that prior value.
-        try {
-          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
-          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-            throw new Error('The unused pending live-game marker could not be cleared.');
-          }
-        } catch (cleanupError) {
-          recordDiagnosticError('storage_write_games', cleanupError, 'The scoring write failed and its unused recovery marker could not be cleared.');
-        }
+        // Keep the journal when a protected write fails: rollback itself can fail,
+        // so startup must reconcile whichever live-game value actually survived.
         onStorageProtectionFailure();
         return false;
       }
