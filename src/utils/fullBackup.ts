@@ -140,7 +140,7 @@ export async function buildFullBackup(data: {
         hiddenTournaments: current?.hiddenTournaments ?? state.hiddenTournaments,
         hiddenAgeGroups: current?.hiddenAgeGroups ?? state.hiddenAgeGroups,
         hiddenSeasons: current?.hiddenSeasons ?? state.hiddenSeasons,
-        setupCompleted: state.setupCompleted || localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true',
+        setupCompleted: state.setupCompleted,
       },
     };
     library = state.logoLibrary;
