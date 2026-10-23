@@ -213,7 +213,7 @@ export function useGameDataManagement({
         const nextOppositionTeams = data && Array.isArray(data.oppositionTeams)
           ? data.oppositionTeams as OppositionTeam[]
           : oppositionTeams;
-        const extrasObject = extras && typeof extras === 'object' ? extras : {};
+        const extrasObject: Record<string, unknown> = extras && typeof extras === 'object' ? extras : {};
         const mergePresets = (saved: string[], hidden: string[], incoming: unknown) => {
           let nextSaved = [...saved];
           let nextHidden = [...hidden];
