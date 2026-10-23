@@ -229,13 +229,14 @@ async function verifyRows(
   database: SQLiteDBConnection,
   table: string,
   keyColumn: string,
+  valueColumn: string,
   expected: Map<string, string>,
 ): Promise<void> {
-  const rows = await readRows(database, `SELECT ${keyColumn}, value_json FROM ${table}`);
+  const rows = await readRows(database, `SELECT ${keyColumn}, ${valueColumn} FROM ${table}`);
   if (rows.length !== expected.size) throw new Error(`SQLite verification failed for ${table}: row count differs from source.`);
   for (const row of rows) {
     const key = row[keyColumn];
-    const value = row.value_json;
+    const value = row[valueColumn];
     if (typeof key !== 'string' || typeof value !== 'string' || expected.get(key) !== value) {
       throw new Error(`SQLite verification failed for ${table}: saved content differs from source.`);
     }
@@ -272,10 +273,12 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
       throw new Error('A legacy SQLite import has already been marked complete. No data was changed.');
     }
 
-    await database.execute(
-      'DELETE FROM games; DELETE FROM profiles; DELETE FROM named_lists; DELETE FROM opposition_teams; DELETE FROM upcoming_games; DELETE FROM logo_library; DELETE FROM app_state; DELETE FROM legacy_values;',
-      false,
-    );
+    for (const table of [
+      'games', 'profiles', 'named_lists', 'opposition_teams',
+      'upcoming_games', 'logo_library', 'app_state', 'legacy_values',
+    ]) {
+      await database.run(`DELETE FROM ${table}`, [], false);
+    }
 
     for (const entry of snapshot.entries) {
       await database.run(
@@ -307,48 +310,68 @@ export async function importLegacyStorageSnapshot(): Promise<LegacyStorageAudit>
       profileExpected.set(profile.id, json);
     }
 
+    const namedListExpected = new Map<string, string>();
     for (const [key, list] of snapshot.namedLists) {
+      const json = JSON.stringify(list);
       await database.run(
         'INSERT INTO named_lists (key, value_json) VALUES (?, ?)',
-        [key, JSON.stringify(list)],
+        [key, json],
         false,
       );
+      namedListExpected.set(key, json);
     }
 
+    const oppositionExpected = new Map<string, string>();
     for (const team of snapshot.oppositionTeams) {
+      const json = JSON.stringify(team);
       await database.run(
         'INSERT INTO opposition_teams (id, value_json) VALUES (?, ?)',
-        [team.id, JSON.stringify(team)],
+        [team.id, json],
         false,
       );
+      oppositionExpected.set(team.id, json);
     }
 
+    const upcomingExpected = new Map<string, string>();
     for (const game of snapshot.upcomingGames) {
+      const json = JSON.stringify(game);
       await database.run(
         'INSERT INTO upcoming_games (id, value_json) VALUES (?, ?)',
-        [String(game.id), JSON.stringify(game)],
+        [String(game.id), json],
         false,
       );
+      upcomingExpected.set(String(game.id), json);
     }
 
+    const logoExpected = new Map<string, string>();
     for (const logo of snapshot.logoLibrary) {
+      const json = JSON.stringify(logo);
       await database.run(
         'INSERT INTO logo_library (id, value_json) VALUES (?, ?)',
-        [logo.id, JSON.stringify(logo)],
+        [logo.id, json],
         false,
       );
+      logoExpected.set(logo.id, json);
     }
 
+    const appStateExpected = new Map<string, string>();
     for (const [key, value] of snapshot.appState) {
+      const json = JSON.stringify(value);
       await database.run(
         'INSERT INTO app_state (key, value_json) VALUES (?, ?)',
-        [key, JSON.stringify(value)],
+        [key, json],
         false,
       );
+      appStateExpected.set(key, json);
     }
 
-    await verifyRows(database, 'games', 'id', gameExpected);
-    await verifyRows(database, 'profiles', 'id', profileExpected);
+    await verifyRows(database, 'games', 'id', 'value_json', gameExpected);
+    await verifyRows(database, 'profiles', 'id', 'value_json', profileExpected);
+    await verifyRows(database, 'named_lists', 'key', 'value_json', namedListExpected);
+    await verifyRows(database, 'opposition_teams', 'id', 'value_json', oppositionExpected);
+    await verifyRows(database, 'upcoming_games', 'id', 'value_json', upcomingExpected);
+    await verifyRows(database, 'logo_library', 'id', 'value_json', logoExpected);
+    await verifyRows(database, 'app_state', 'key', 'value_json', appStateExpected);
 
     const sourceRows = await readRows(database, 'SELECT key, value FROM legacy_values');
     if (sourceRows.length !== snapshot.entries.length) {
