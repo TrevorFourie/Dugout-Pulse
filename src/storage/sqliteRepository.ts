@@ -627,6 +627,14 @@ export async function saveLiveSQLiteState(state: SQLiteLiveState): Promise<void>
   ];
 
   await withSQLiteTransaction(async (database) => {
+    const imported = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [SNAPSHOT_MARKER],
+    );
+    if (typeof imported.values?.[0]?.value !== 'string') {
+      throw new Error('SQLite live-state write was blocked because no verified legacy snapshot exists yet.');
+    }
+
     const tables = [
       'games', 'profiles', 'named_lists', 'opposition_teams',
       'upcoming_games', 'logo_library', 'app_state',
