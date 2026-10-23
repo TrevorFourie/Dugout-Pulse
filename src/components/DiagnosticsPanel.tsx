@@ -39,7 +39,7 @@ export const DiagnosticsPanel: React.FC = () => {
         <div className="flex items-start gap-2">
           <ShieldCheck className="w-5 h-5 shrink-0 text-teal-600 dark:text-[#00D7BC]" />
           <p className="text-xs leading-relaxed text-slate-600 dark:text-[#D1D5DB]">
-            Diagnostics stay on this device. Nothing is sent automatically. The report records technical error types, app build, platform, rounded times and sanitised source locations—not game contents, player/team names, account details, full device identifiers or full file paths. Resetting game data keeps this log; clearing browser/app storage or uninstalling the app deletes it. Review the report before choosing to share it.
+            Diagnostics stay on this device. Nothing is sent automatically. The report records technical error types, app build, platform, exact timestamps, sanitised source locations and relevant technical diagnostics—not game contents, player/team names, account details, full device identifiers or full file paths. Resetting game data keeps this log; clearing browser/app storage or uninstalling the app deletes it. Review the report before choosing to share it.
           </p>
         </div>
         <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">
@@ -56,6 +56,9 @@ export const DiagnosticsPanel: React.FC = () => {
             <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.time}</p>
             {currentError.frames?.length ? (
               <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF]">{currentError.frames.join(' · ')}</p>
+            ) : null}
+            {currentError.details ? (
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-100 dark:bg-[#1A2028] p-2 text-[10px] leading-relaxed text-slate-700 dark:text-[#D1D5DB]">{currentError.details}</pre>
             ) : null}
           </div>
         )}

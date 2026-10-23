@@ -3,7 +3,9 @@ const MAX_EVENTS = 40;
 const MAX_STORAGE_CHARS = 48_000;
 // The diagnostic report must show the TRUE error, so keep enough of it to be useful.
 const MAX_MESSAGE_CHARS = 400;
+const MAX_DETAIL_CHARS = 2400;
 let lastReference = '';
+let pendingReactHookDiagnostic: { time: number; details: string } | undefined;
 
 declare const __BUILD_ID__: string;
 
@@ -14,6 +16,7 @@ export interface DiagnosticEvent {
   errorType?: string;
   errorMessage?: string;
   frames?: string[];
+  details?: string;
   platform: 'Android' | 'iOS' | 'Web';
   build: string;
 }
@@ -101,6 +104,10 @@ function safeErrorMessage(error: unknown): string | undefined {
   // Preserve actionable details while stripping query strings, full paths, and likely personal data.
   message = message
     .replace(/https?:\/\/[^\s)]+/gi, (url) => {
+      // React component stacks can encode source locations inside a URL. Keep the
+      // basename and line/column while removing origin, full path and Vite query.
+      const sourceLocation = url.match(/\/([^/?#]+\.(?:tsx?|jsx?|mjs|cjs|json))(?:\?[^:]*)?:(\d+):(\d+)$/i);
+      if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
       try {
         const parsed = new URL(url);
         return parsed.origin + '/' + parsed.pathname.split('/').slice(-2).join('/');
@@ -132,6 +139,31 @@ function safeStackFrames(error: unknown): string[] {
     .filter(Boolean)
     .slice(0, 8);
 }
+function safeDiagnosticDetail(value: string): string {
+  return value
+    .replace(/https?:\/\/[^\s)]+/gi, (url) => {
+      // React component stacks can encode source locations inside a URL. Keep the
+      // basename and line/column while removing origin, full path and Vite query.
+      const sourceLocation = url.match(/\/([^/?#]+\.(?:tsx?|jsx?|mjs|cjs|json))(?:\?[^:]*)?:(\d+):(\d+)$/i);
+      if (sourceLocation) return sourceLocation[1] + ':' + sourceLocation[2] + ':' + sourceLocation[3];
+      try {
+        const parsed = new URL(url);
+        return parsed.origin + '/' + parsed.pathname.split('/').slice(-2).join('/');
+      } catch {
+        return '[url]';
+      }
+    })
+    .replace(/(?:[A-Z]:)?[\\/](?:[^\s:'"<>]+[\\/])+([^\s\\/'"<>]+\.(?:tsx?|jsx?|mjs|cjs|json))/gi, '$1')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email]')
+    .replace(/\b(?:token|password|authorization)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, MAX_DETAIL_CHARS);
+}
+
 function readEvents(): DiagnosticEvent[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -171,6 +203,9 @@ function readEvents(): DiagnosticEvent[] {
             ? { errorMessage: item.errorMessage.replace(/[^\x20-\x7E]/g, ' ').slice(0, MAX_MESSAGE_CHARS) }
             : {}),
           ...(cleanFrames?.length ? { frames: cleanFrames } : {}),
+          ...(typeof item.details === 'string' && item.details.length
+            ? { details: safeDiagnosticDetail(item.details) }
+            : {}),
           platform: item.platform,
           build: typeof item.build === 'string' ? item.build.replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 32) : 'unknown',
         };
@@ -195,15 +230,27 @@ function persist(event: DiagnosticEvent): void {
 }
 
 /** Record only a fixed operation label, error class and sanitised source locations. */
-export function recordDiagnosticError(category: string, error: unknown): string {
+export function recordDiagnosticError(category: string, error: unknown, additionalDetails?: string): string {
+  const normalisedCategory = safeCategory(category);
+  const hookDiagnostic = pendingReactHookDiagnostic &&
+    Date.now() - pendingReactHookDiagnostic.time <= 15000
+    ? pendingReactHookDiagnostic.details
+    : undefined;
+  if (normalisedCategory === 'react_render') pendingReactHookDiagnostic = undefined;
+  const diagnosticDetails = [hookDiagnostic, additionalDetails]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(safeDiagnosticDetail)
+    .filter(Boolean)
+    .join('\n\n');
   const event: DiagnosticEvent = {
     id: createReference(),
     // Preserve exact time to correlate diagnostics with the browser console.
     time: new Date().toISOString(),
-    category: safeCategory(category),
+    category: normalisedCategory,
     errorType: safeErrorType(error),
     errorMessage: safeErrorMessage(error),
     frames: safeStackFrames(error),
+    ...(normalisedCategory === 'react_render' && diagnosticDetails ? { details: diagnosticDetails } : {}),
     platform: getPlatform(),
     build: getBuild(),
   };
@@ -326,6 +373,34 @@ export function installGlobalDiagnosticHandlers(): void {
   const target = window as Window & { __dugoutPulseDiagnosticsInstalled?: boolean };
   if (target[marker]) return;
   target[marker] = true;
+
+  const captureHookOrderDiagnostic = (args: unknown[]) => {
+    const strings = args.map((arg) => {
+      if (typeof arg === 'string') return arg;
+      if (arg instanceof Error) return arg.name + ': ' + arg.message;
+      return '';
+    }).filter(Boolean);
+    const detail = strings.join('\n');
+    if (!/change in the order of Hooks called|Rendered (?:more|fewer) hooks than during the previous render/i.test(detail)) return;
+    pendingReactHookDiagnostic = {
+      time: Date.now(),
+      details: safeDiagnosticDetail(detail),
+    };
+  };
+
+  // React emits the Hook-by-Hook comparison through console.error before the
+  // render exception reaches ErrorBoundary. Preserve that specific diagnostic
+  // so the exported report contains the comparison, not just the final exception.
+  const originalConsoleError = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    try { captureHookOrderDiagnostic(args); } catch { /* diagnostics must never affect rendering */ }
+    originalConsoleError(...args);
+  };
+  const originalConsoleWarn = console.warn.bind(console);
+  console.warn = (...args: unknown[]) => {
+    try { captureHookOrderDiagnostic(args); } catch { /* diagnostics must never affect rendering */ }
+    originalConsoleWarn(...args);
+  };
 
   window.addEventListener('error', (event) => {
     // Ignore resource-loading events; index.html owns startup/module-load failures.

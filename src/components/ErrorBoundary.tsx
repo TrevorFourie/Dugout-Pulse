@@ -13,8 +13,10 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error): void {
-    const reference = recordDiagnosticError('react_render', error);
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    // React's component stack is separate from Error.stack and is essential for
+    // locating render failures in the component tree on mobile devices.
+    const reference = recordDiagnosticError('react_render', error, info.componentStack);
     this.setState({ errorReference: reference });
     showDiagnosticScreen(reference);
   }
