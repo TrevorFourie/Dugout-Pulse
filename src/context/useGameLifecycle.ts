@@ -2,7 +2,9 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { getInningsPlayed } from './gameContextDefaults';
+import { getInningsPlayed, PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
+import { saveCompletedSQLiteGame } from '../storage/sqliteRepository';
+import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -42,6 +44,7 @@ export function useGameLifecycle({
   saveSeason,
   triggerHaptic,
   storageWritesBlocked,
+  onStorageProtectionFailure,
 }: GameLifecycleOptions) {
   // Start new live game
   const startLiveGame = useCallback(
@@ -158,8 +161,8 @@ export function useGameLifecycle({
   );
 
   // Save current game (either adding new or updating edited)
-  const saveGame = useCallback((finalResult: string) => {
-    if (storageWritesBlocked || !liveGame) return;
+  const saveGame = useCallback(async (finalResult: string): Promise<boolean> => {
+    if (storageWritesBlocked || !liveGame) return false;
     const gameToSave = { ...liveGame, finalResult, innings: getInningsPlayed(liveGame) };
 
     if (liveGame.tournament && liveGame.tournament.trim()) {
@@ -172,10 +175,37 @@ export function useGameLifecycle({
       saveSeason(liveGame.season.trim());
     }
 
-    // Commit the completed game to localStorage in the same operation as the React state
-    // update. This prevents a Save + unmount/navigation from ever losing the finished game.
     const existingGameId = editingGameId ?? reopenedGameId;
     const completedGame = existingGameId ? { ...gameToSave, id: existingGameId } : gameToSave;
+
+    // Once SQLite is authoritative, finish the database transaction before clearing
+    // the live game from React state. A quick close/reload can therefore never leave
+    // the saved game only in memory. Before cutover, the existing persistence effect
+    // remains responsible for the legacy localStorage-backed path.
+    try {
+      const persisted = await saveCompletedSQLiteGame(completedGame);
+      if (persisted && localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+        // The completed-game transaction also stored all current plays and cleared the
+        // SQLite live-game reference, so the scoring write-ahead journal is now obsolete.
+        localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+          throw new Error('The pending scoring journal could not be cleared after the completed game was verified in SQLite.');
+        }
+      }
+    } catch (error) {
+      try {
+        recordDiagnosticError(
+          'storage_write_games',
+          error,
+          'The completed game could not be fully confirmed in SQLite. The live game remains available for recovery; automatic storage writes have been paused.',
+        );
+      } catch {
+        // Preserve the blocked persistence outcome even if diagnostics are unavailable.
+      }
+      onStorageProtectionFailure();
+      return false;
+    }
+
     setGames((prevGames) => {
       let updated: Game[];
       if (existingGameId) {
@@ -184,17 +214,18 @@ export function useGameLifecycle({
       } else {
         updated = [...prevGames, completedGame];
       }
-      const sorted = sortGames(updated, 'oldestFirst');
-      // useGamePersistence checkpoints and verifies before persisting completed games.
-      return sorted;
+      return sortGames(updated, 'oldestFirst');
     });
 
-    // useGamePersistence checkpoints and verifies before removing live-game references.
     setLiveGame(null);
     setEditingGameId(null);
     setReopenedGameId(null);
     triggerHaptic();
-  }, [liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament, saveAgeGroup, saveSeason, storageWritesBlocked]);
+    return true;
+  }, [
+    liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament,
+    saveAgeGroup, saveSeason, storageWritesBlocked, onStorageProtectionFailure,
+  ]);
 
   // Discard current live game
   const discardLiveGame = useCallback(() => {
