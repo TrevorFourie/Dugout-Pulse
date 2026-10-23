@@ -158,26 +158,67 @@ export function snapshotBeforeGameWrite(): boolean {
   }
 }
 
-/** Snapshot before a write; refuse the write if the snapshot cannot be created. */
+/** Snapshot before a write; verify the write and roll back the key if it fails. */
 export function protectedStorageSetItem(key: string, value: string): boolean {
   if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
+  let previousValue: string | null | undefined;
   try {
+    previousValue = localStorage.getItem(key);
     localStorage.setItem(key, value);
+    if (localStorage.getItem(key) !== value) {
+      throw new Error('Saved value failed read-back verification.');
+    }
     return true;
   } catch (error) {
-    console.error(`Could not save browser storage key "${key}".`, error);
+    if (previousValue !== undefined) {
+      try {
+        if (previousValue === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, previousValue);
+        if (localStorage.getItem(key) !== previousValue) {
+          throw new Error('The previous saved value failed read-back verification during rollback.');
+        }
+      } catch (rollbackError) {
+        recordDiagnosticError(
+          'storage_write',
+          rollbackError,
+          'A failed storage write could not be rolled back and verified. The recovery snapshots were retained.',
+        );
+      }
+    }
+    recordDiagnosticError('storage_write', error, 'A protected storage write failed verification; the previous value was restored when possible.');
+    console.error(`Could not save browser storage key "${key}" and verify its previous value.`, error);
     return false;
   }
 }
 
-/** Snapshot before a removal; refuse the removal if the snapshot cannot be created. */
+/** Snapshot before a removal; verify removal and restore the key if it fails. */
 export function protectedStorageRemoveItem(key: string): boolean {
   if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
+  let previousValue: string | null | undefined;
   try {
+    previousValue = localStorage.getItem(key);
     localStorage.removeItem(key);
+    if (localStorage.getItem(key) !== null) {
+      throw new Error('Removed value is still present after the storage operation.');
+    }
     return true;
   } catch (error) {
-    console.error(`Could not remove browser storage key "${key}".`, error);
+    if (previousValue !== undefined && previousValue !== null) {
+      try {
+        localStorage.setItem(key, previousValue);
+        if (localStorage.getItem(key) !== previousValue) {
+          throw new Error('The removed value failed read-back verification during rollback.');
+        }
+      } catch (rollbackError) {
+        recordDiagnosticError(
+          'storage_write',
+          rollbackError,
+          'A failed storage removal could not be rolled back and verified. The recovery snapshots were retained.',
+        );
+      }
+    }
+    recordDiagnosticError('storage_write', error, 'A protected storage removal failed verification; the previous value was restored when possible.');
+    console.error(`Could not remove browser storage key "${key}" and verify the removal.`, error);
     return false;
   }
 }
