@@ -1,6 +1,7 @@
 import { Game, PlayerProfile } from '../types/baseball';
 import { saveTextFileDetailed } from './saveFile';
 import { buildFullBackup } from './fullBackup';
+import type { SQLiteLiveState } from '../storage/sqliteRepository';
 import { recordBackupExported } from './backupReminder';
 import { getLastDiagnosticReference } from './errorDiagnostics';
 import { reportFailure, explainFailure } from './userMessages';
@@ -21,6 +22,10 @@ export async function exportJsonBackup(data: {
   games: Game[];
   profiles: PlayerProfile[];
   settings: unknown;
+  liveState?: Partial<Pick<SQLiteLiveState,
+    'oppositionTeams' | 'savedOpponents' | 'savedTournaments' | 'savedAgeGroups' |
+    'savedSeasons' | 'hiddenTournaments' | 'hiddenAgeGroups' | 'hiddenSeasons'
+  >>;
 }): Promise<BackupExportResult> {
   const today = new Date().toISOString().split('T')[0];
   const filename = `dugout-pulse-backup-${today}.json`;
