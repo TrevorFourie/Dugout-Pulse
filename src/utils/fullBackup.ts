@@ -16,7 +16,7 @@ function isScheduledGameBackupRecord(value: unknown): boolean {
   const game = value as Record<string, unknown>;
   return typeof game.id === 'string' && game.id.length > 0 &&
     typeof game.opponent === 'string' && typeof game.date === 'string' && game.date.length > 0 &&
-    typeof game.isHome === 'boolean';
+    (game.isHome === undefined || typeof game.isHome === 'boolean');
 }
 
 function isOppositionTeamBackupRecord(value: unknown): boolean {
