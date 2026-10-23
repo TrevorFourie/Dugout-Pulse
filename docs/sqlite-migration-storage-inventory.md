@@ -1,6 +1,6 @@
 # SQLite Migration — CP1 Storage Inventory
 
-Status: **audit in progress; not yet safe to switch the app to SQLite**.
+Status: **audit in progress; SQLite foundation committed, but not yet safe to switch app persistence**.
 
 This document records the actual persistence surfaces inspected on `main`. It is a migration checklist, not evidence that SQLite integration or runtime tests have passed.
 
@@ -10,7 +10,7 @@ This document records the actual persistence surfaces inspected on `main`. It is
 - Approved SQLite stack: `@capacitor-community/sqlite` 7.x, `jeep-sqlite` browser adapter, and `sql.js`.
 - The plugin's current latest major is 8.x; do not install it into this Capacitor 7 app without a deliberate platform upgrade.
 - Web setup requires the `jeep-sqlite` custom element, `initWebStore()`, persistence via `saveToStore()`, and the `sql-wasm.wasm` asset under `public/assets`. This needs verification in the actual Vite/Chrome runtime.
-- No SQLite dependencies have been added yet. `package.json` and `package-lock.json` must be updated consistently; do not hand-edit only the root dependency list.
+- Dependencies were installed locally and committed together in `package.json` and `package-lock.json` by commit `12bdff1` (`@capacitor-community/sqlite@7.0.3`, `jeep-sqlite@2.8.0`). The resolved `jeep-sqlite` version satisfies the plugin's `^2.7.2` dependency range.
 
 ## Existing storage surfaces
 
@@ -51,7 +51,7 @@ From `src/context/gameContextDefaults.ts`:
 
 ## Required migration strategy
 
-1. Install the Capacitor 7-compatible dependency set and update the lockfile with the package manager; do not switch runtime storage yet.
+1. **Done (source/lockfile only):** install the Capacitor 7-compatible dependency set and commit the package-manager-generated lockfile. Do not switch runtime storage yet.
 2. Build a typed SQLite repository with versioned schema and transaction boundaries.
 3. Implement an idempotent importer that reads and validates every supported existing key, writes into a transaction, reads back and compares counts/content, and only then records a migration-complete marker. Do not delete legacy values.
 4. Gate app startup on database initialization/migration before publishing GameContext state; if SQLite is unavailable or validation fails, show a recoverable error and retain source data rather than starting with empty defaults.
@@ -65,12 +65,13 @@ The repository backup `Migrate-Data/dugout-pulse-backup-2026-10-23.json` was pre
 
 ## Current evidence level
 
-- Source inspected: yes, for the paths listed above.
+- Source inspected: yes, for the paths listed above; the repository-wide direct storage inventory remains incomplete.
 - Backup integrity: verified for the committed repository backup.
-- SQLite code integrated: no.
-- Dependency lock updated: no.
-- Static checks: not run.
+- SQLite foundation: `src/storage/sqliteDatabase.ts` is committed. It defines the initial schema, single-connection lifecycle, transaction helper, and explicit web-store flush. It is not called by GameContext and does not migrate user data yet.
+- Dependency lock updated: yes, by commit `12bdff1`.
+- Static checks: not run after the SQLite source was added.
+- Browser WASM asset: not yet copied to `public/assets/sql-wasm.wasm`; required before the web adapter can be exercised.
 - Build: intentionally not run per repository rules.
 - Chrome runtime/regression tests: not run.
 
-Do not describe the migration as ready to test until the dependency lock, startup gating, safe importer, and persistence/backup/recovery integration are implemented and verified.
+Do not describe the migration as ready for normal app testing until the database foundation is checked locally, the browser WASM asset is present, the safe importer and startup gate are implemented, and persistence/backup/recovery integration is verified.
