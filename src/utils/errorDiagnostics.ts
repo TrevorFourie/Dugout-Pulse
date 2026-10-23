@@ -45,9 +45,9 @@ export function friendlyErrorMessage(category: string): string {
     case 'storage_write_opposition_teams':
     case 'storage_write_games':
     case 'storage_write_profiles':
-      return "Dugout Pulse had trouble saving that change. Please check the recovery tools before trying again. Your last change may not have been saved, so it is best to confirm the saved information first.";
+      return "Dugout Pulse had trouble saving that change. It may not have been saved, so please check the saved information before trying again. If the problem continues, share the diagnostic report so it can be investigated.";
     case 'backup_import':
-      return "Dugout Pulse couldn't complete the backup import. Your existing information has not been verified as part of this attempt. Please review the recovery tools and diagnostic report before trying again.";
+      return "Dugout Pulse couldn't complete the backup import. Please keep the app installed and avoid clearing its data. If the problem continues, share the diagnostic report before trying another import.";
     case 'recovery_checkpoint':
       return "Dugout Pulse couldn't verify that recovery point. Please check whether another verified recovery point is available. Keep the app installed and avoid clearing its data while you review your options.";
     case 'recovery_restore':
