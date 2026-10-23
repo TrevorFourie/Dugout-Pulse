@@ -2,7 +2,8 @@ import type { SQLiteDBConnection } from '@capacitor-community/sqlite';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import type { OppositionTeam } from '../context/gameContextTypes';
 import type { TeamLogoItem } from '../utils/teamLogoLibrary';
-import { STORAGE_KEYS } from '../context/gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from '../context/gameContextDefaults';
+import { sortGames } from '../utils/stats';
 import { getSQLiteDatabase, initializeSQLiteDatabase, withSQLiteRead, withSQLiteTransaction } from './sqliteDatabase';
 
 const SNAPSHOT_MARKER = 'legacy_storage_snapshot_v1';
@@ -949,6 +950,47 @@ export async function readLiveSQLiteState(): Promise<SQLiteLiveState> {
 }
 
 
+
+/**
+ * Convert a fully restored, validated compatibility store into the live SQLite
+ * shape. Used by the recovery journal only after it has verified every restored
+ * key and logo file; legacy_values remains the original migration provenance.
+ */
+export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void> {
+  if (!(await isLegacyStorageImportComplete())) {
+    throw new Error('SQLite recovery restore was blocked because SQLite is not the active storage store.');
+  }
+  const snapshot = validateSnapshot(readAllLocalStorage());
+  const appState = snapshot.appState;
+  const setupCompleted = appState.get(STORAGE_KEYS.SETUP_COMPLETED);
+  const editingGameId = appState.get(STORAGE_KEYS.EDITING_GAME_ID);
+  const reopenedGameId = appState.get(STORAGE_KEYS.REOPENED_GAME_ID);
+  const settings = snapshot.settings;
+  if (typeof setupCompleted !== 'boolean' ||
+      (editingGameId !== undefined && editingGameId !== null && typeof editingGameId !== 'string') ||
+      (reopenedGameId !== undefined && reopenedGameId !== null && typeof reopenedGameId !== 'string')) {
+    throw new Error('The restored local state is missing valid setup or game-reference values.');
+  }
+  await saveLiveSQLiteState({
+    games: sortGames(snapshot.games, 'oldestFirst'),
+    profiles: snapshot.profiles.length > 0 ? snapshot.profiles.map(withTeams) : [DEFAULT_PROFILE],
+    settings: { ...DEFAULT_SETTINGS, ...(settings || {}) } as AppSettings,
+    liveGame: snapshot.liveGame,
+    editingGameId: typeof editingGameId === 'string' ? editingGameId : null,
+    reopenedGameId: typeof reopenedGameId === 'string' ? reopenedGameId : null,
+    setupCompleted,
+    savedOpponents: snapshot.namedLists.get(STORAGE_KEYS.SAVED_OPPONENTS) || [],
+    savedTournaments: snapshot.namedLists.get(STORAGE_KEYS.SAVED_TOURNAMENTS) || [],
+    savedAgeGroups: snapshot.namedLists.get(STORAGE_KEYS.SAVED_AGE_GROUPS) || [],
+    savedSeasons: snapshot.namedLists.get(STORAGE_KEYS.SAVED_SEASONS) || [],
+    hiddenTournaments: snapshot.namedLists.get(STORAGE_KEYS.HIDDEN_TOURNAMENTS) || [],
+    hiddenAgeGroups: snapshot.namedLists.get(STORAGE_KEYS.HIDDEN_AGE_GROUPS) || [],
+    hiddenSeasons: snapshot.namedLists.get(STORAGE_KEYS.HIDDEN_SEASONS) || [],
+    oppositionTeams: snapshot.oppositionTeams,
+    upcomingGames: snapshot.upcomingGames as SQLiteLiveState['upcomingGames'],
+    logoLibrary: snapshot.logoLibrary,
+  });
+}
 
 /** Updates scheduled games transactionally after cutover; before cutover localStorage remains authoritative. */
 export async function saveSQLiteUpcomingGames(
