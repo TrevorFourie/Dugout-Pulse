@@ -1,6 +1,6 @@
 # SQLite Migration — CP1 Storage Inventory
 
-Status: **audit in progress; SQLite foundation committed, but not yet safe to switch app persistence**.
+Status: **SQLite foundation and snapshot-import groundwork committed; live app persistence is still localStorage and is not yet safe to switch**.
 
 This document records the actual persistence surfaces inspected on `main`. It is a migration checklist, not evidence that SQLite integration or runtime tests have passed.
 
@@ -52,8 +52,7 @@ From `src/context/gameContextDefaults.ts`:
 ## Required migration strategy
 
 1. **Done (source/lockfile only):** install the Capacitor 7-compatible dependency set and commit the package-manager-generated lockfile. Do not switch runtime storage yet.
-2. Build a typed SQLite repository with versioned schema and transaction boundaries.
-3. Implement an idempotent importer that reads and validates every supported existing key, writes into a transaction, reads back and compares counts/content, and only then records a migration-complete marker. Do not delete legacy values.
+2. **Source implementation committed, runtime import test pending:** add a typed SQLite repository and transactional snapshot importer with versioned schema, exact legacy-value retention, typed projections, read-back checks, and separate snapshot/cutover markers. Do not delete legacy values.
 4. Gate app startup on database initialization/migration before publishing GameContext state; if SQLite is unavailable or validation fails, show a recoverable error and retain source data rather than starting with empty defaults.
 5. Migrate backup/import/reset, logos, recovery, and diagnostics as a coordinated set. Preserve the current recovery checkpoint requirement and the existing JSON backup format.
 6. Test on Chrome with a copied browser profile or disposable test data first. Verify first import, reload persistence, live-game resume, scoring edits/undo, profile/settings changes, schedule/team/logo records, backup export/import, interrupted/failed migration, and old-key retention.
@@ -67,11 +66,12 @@ The repository backup `Migrate-Data/dugout-pulse-backup-2026-10-23.json` was pre
 
 - Source inspected: yes, for the paths listed above; the repository-wide direct storage inventory remains incomplete.
 - Backup integrity: verified for the committed repository backup.
-- SQLite foundation: `src/storage/sqliteDatabase.ts` is committed. It defines the initial schema, single-connection lifecycle, transaction helper, and explicit web-store flush. It is not called by GameContext and does not migrate user data yet.
+- SQLite foundation: `src/storage/sqliteDatabase.ts` is committed. It defines the initial schema, single-connection lifecycle, transaction helper, and explicit web-store flush. It is not connected to GameContext.
+- Repository/importer groundwork: `src/storage/sqliteRepository.ts` is committed. It audits recognised localStorage values, validates before writing, copies every raw key/value to `legacy_values`, stores typed projections transactionally, verifies row contents/counts, and keeps the live cutover marker separate. The import function is not called automatically.
 - Dependency lock updated: yes, by commit `12bdff1`.
-- Static checks: not run after the SQLite source was added.
-- Browser WASM asset: not yet copied to `public/assets/sql-wasm.wasm`; required before the web adapter can be exercised.
-- Build: intentionally not run per repository rules.
-- Chrome runtime/regression tests: not run.
+- Browser WASM asset: present at `public/assets/sql-wasm.wasm`.
+- Chrome runtime evidence: schema initialization and 10-table query passed; transaction write/read-back passed; the marker survived page reload; the temporary marker was then removed and verified absent.
+- Static checks: not run. Build: intentionally not run per repository rules.
+- Actual localStorage import, app-level SQLite read/write integration, backup/recovery regression, and native platform checks: not yet verified.
 
-Do not describe the migration as ready for normal app testing until the database foundation is checked locally, the browser WASM asset is present, the safe importer and startup gate are implemented, and persistence/backup/recovery integration is verified.
+The next user test should be one combined, non-destructive Chrome import check. Do not describe the migration as ready for normal use until the source import, startup gate, live persistence cutover, backup/recovery integration, and regression checks are complete.
