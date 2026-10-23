@@ -452,7 +452,10 @@ function validateCheckpointPayload(value: unknown): value is RecoveryPayload {
   return true;
 }
 
-export async function writeLogoFiles(files: Record<string, string>): Promise<void> {
+export async function writeLogoFiles(
+  files: Record<string, string>,
+  onFileWritten?: (fileName: string) => void,
+): Promise<void> {
   // writeFile uses recursive:true below, which creates the directory when needed.
   // Avoid mkdir here: some Capacitor platforms reject mkdir when the directory already exists.
   for (const [fileName, base64] of Object.entries(files)) {
@@ -461,6 +464,7 @@ export async function writeLogoFiles(files: Record<string, string>): Promise<voi
     }
     // Capacitor Filesystem represents binary file contents as base64 when encoding is omitted.
     await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, recursive: true });
+    onFileWritten?.(fileName);
     const verify = await readLogoFileAsBase64(fileName);
     if (verify !== base64) throw new Error('Custom logo file could not be read back exactly after recovery.');
   }
