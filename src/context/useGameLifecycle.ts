@@ -165,7 +165,7 @@ export function useGameLifecycle({
     if (storageWritesBlocked || !liveGame) return false;
     const gameToSave = { ...liveGame, finalResult, innings: getInningsPlayed(liveGame) };
 
-    const existingGameId = editingGameId ?? reopenedGameId;
+    const existingGameId = editingGameId ?? reopenedGameId ?? (games.some((game) => game.id === liveGame.id) ? liveGame.id : null);
     const completedGame = existingGameId ? { ...gameToSave, id: existingGameId } : gameToSave;
 
     // Once SQLite is authoritative, finish the database transaction before clearing
@@ -226,7 +226,7 @@ export function useGameLifecycle({
     triggerHaptic();
     return true;
   }, [
-    liveGame, editingGameId, reopenedGameId, triggerHaptic, saveTournament,
+    liveGame, games, editingGameId, reopenedGameId, triggerHaptic, saveTournament,
     saveAgeGroup, saveSeason, storageWritesBlocked, onStorageProtectionFailure,
   ]);
 
