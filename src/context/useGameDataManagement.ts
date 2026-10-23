@@ -16,22 +16,6 @@ import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
-function readUpcomingGamesForSQLite(): SQLiteLiveState['upcomingGames'] {
-  const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
-  if (raw === null) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed) || !parsed.every((value) =>
-    !!value && typeof value === 'object' && !Array.isArray(value) &&
-    typeof (value as { id?: unknown }).id === 'string' &&
-    typeof (value as { opponent?: unknown }).opponent === 'string' &&
-    typeof (value as { date?: unknown }).date === 'string' &&
-    ((value as { isHome?: unknown }).isHome === undefined || typeof (value as { isHome?: unknown }).isHome === 'boolean')
-  )) {
-    throw new Error('Scheduled games could not be validated before backup import.');
-  }
-  return parsed as SQLiteLiveState['upcomingGames'];
-}
-
 interface GameDataManagementOptions {
   games: Game[];
   liveGame: Game | null;
