@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Capacitor } from '@capacitor/core';
 import { createDiagnosticReport, installGlobalDiagnosticHandlers, recordDiagnosticError, showDiagnosticScreen } from './utils/errorDiagnostics';
 import './index.css';
@@ -106,7 +107,11 @@ installGlobalDiagnosticHandlers();
 // Resolve from Vite's project root explicitly. This avoids a malformed relative URL
 // if the dev server's document/base URL is not a directory URL.
 void import('/src/App.tsx').then(({ default: App }) => {
-  createRoot(root).render(<App />);
+  createRoot(root).render(
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>,
+  );
 }).catch(async (error: unknown) => {
   // A failed module import can be a generic browser rejection. Ask Vite for the
   // transformed module response so the shared diagnostic screen can show the
