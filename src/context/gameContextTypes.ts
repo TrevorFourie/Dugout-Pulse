@@ -160,7 +160,7 @@ export interface GameContextType {
   removeEmptyLastInning: () => boolean;
   /** Bench or un-bench any inning (not just the current one). */
   setInningBench: (inning: number, benched: boolean) => void;
-  saveGame: (finalResult: string) => void;
+  saveGame: (finalResult: string) => Promise<boolean>;
   discardLiveGame: () => void;
   startEditingSavedGame: (gameId: string) => boolean;
   /** Resume a completed game in normal live-scoring mode, without entering historical edit mode. */
