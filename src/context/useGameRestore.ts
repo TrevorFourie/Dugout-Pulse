@@ -379,6 +379,29 @@ export function useGameRestore({
       recordDiagnosticError('storage_load', error, 'SQLite cutover did not complete; the app is continuing with its original localStorage state.');
     }
 
+    // If SQLite is unavailable or cutover did not commit, localStorage remains
+    // authoritative. Replay a pending scoring journal into that store before hydration.
+    try {
+      const pendingGame = readPendingLiveGame();
+      if (pendingGame) {
+        if (!(await createVerifiedRecoveryCheckpoint('Before restoring a pending live-game write to local storage'))) {
+          throw new Error('A recovery checkpoint could not be verified before restoring the pending live-game write.');
+        }
+        const serialized = JSON.stringify(pendingGame);
+        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, serialized);
+        if (localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized) {
+          throw new Error('The pending live-game write could not be restored to local storage.');
+        }
+        clearPendingLiveGame();
+      }
+    } catch (error) {
+      setRestoreFailed(true);
+      setIsLoading(false);
+      recordDiagnosticError('storage_load', error, 'A pending live-game write could not be reconciled safely. Automatic saving is paused to protect scoring data.');
+      console.error('Pending live-game recovery failed; saved scoring data was not overwritten.', error);
+      return;
+    }
+
     // Restore each key independently. A malformed game record must not abort
     // profile/settings restoration simply because it appears earlier in storage.
     const read = <T,>(key: string, apply: (parsed: T) => void, validate: (value: unknown) => value is T) => {
