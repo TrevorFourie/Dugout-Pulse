@@ -123,6 +123,12 @@ export function useGameDataManagement({
       // Validate before anything is changed: a damaged, truncated or unrelated file is rejected outright.
       const check = verifyBackup(parsedData);
       if (!check.ok) return { success: false, message: check.message };
+      if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
+        return {
+          success: false,
+          message: 'A game save is still awaiting recovery. Reload the app to recover that game before importing a backup.',
+        };
+      }
       if (!(await createVerifiedRecoveryCheckpoint('Before importing a JSON backup'))) {
         return { success: false, message: explainFailure('The restore was not started because the app could not first make a safety copy of your current data. Nothing was changed.', getLastDiagnosticReference() || undefined) };
       }
