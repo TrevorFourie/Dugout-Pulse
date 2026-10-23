@@ -463,8 +463,8 @@ export async function writeLogoFiles(
       throw new Error('A saved custom logo has invalid file data.');
     }
     // Capacitor Filesystem represents binary file contents as base64 when encoding is omitted.
-    await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, recursive: true });
     onFileWritten?.(fileName);
+    await Filesystem.writeFile({ path: 'team-logos/' + fileName, data: base64, directory: Directory.Data, recursive: true });
     const verify = await readLogoFileAsBase64(fileName);
     if (verify !== base64) throw new Error('Custom logo file could not be read back exactly after recovery.');
   }
