@@ -717,11 +717,20 @@ export async function saveLiveSQLiteState(
         'SELECT value FROM app_meta WHERE key = ?',
         [SNAPSHOT_MARKER],
       );
-    if (typeof imported.values?.[0]?.value !== 'string') {
-      throw new Error('SQLite live-state write was blocked because no verified legacy snapshot exists yet.');
-    }
+      if (typeof imported.values?.[0]?.value !== 'string') {
+        throw new Error('SQLite live-state write was blocked because no verified legacy snapshot exists yet.');
+      }
+      if (options.completeCutover === true) {
+        const existingCutover = await database.query(
+          'SELECT value FROM app_meta WHERE key = ?',
+          [CUTOVER_MARKER],
+        );
+        if (existingCutover.values?.[0]?.value === 'complete') {
+          throw new Error('SQLite cutover was already completed elsewhere. Startup must read the existing live state instead of overwriting it.');
+        }
+      }
 
-    const tables = [
+      const tables = [
       'games', 'profiles', 'named_lists', 'opposition_teams', 'app_state',
       ...(includeAuxiliary ? ['upcoming_games', 'logo_library'] : []),
     ];
