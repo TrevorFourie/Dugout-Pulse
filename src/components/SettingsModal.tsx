@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import { ScoringSettingsPanel } from './settings/ScoringSettingsPanel';
 import { ThemeSettingsPanel } from './settings/ThemeSettingsPanel';
@@ -7,6 +7,7 @@ import { describeBackupAge, getBackupStatus } from '../utils/backupReminder';
 import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
 import { explainFailure, reportFailure } from '../utils/userMessages';
 import { ConfirmationModal } from './ConfirmationModal';
+import { ToastMessage } from './ToastMessage';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -82,12 +83,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [games.length, profiles, backupStatusTick],
   );
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeout = window.setTimeout(() => setToastMessage(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [toastMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -324,15 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </div>
 
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-slate-200 bg-[#18212D] px-4 py-3 text-sm font-medium text-white shadow-xl dark:border-[#354050]"
-        >
-          {toastMessage}
-        </div>
-      )}
+      <ToastMessage message={toastMessage} onDismiss={useCallback(() => setToastMessage(null), [])} />
       <ConfirmationModal
         isOpen={operationAlert !== null}
         title={operationAlert?.title ?? 'Operation failed'}
