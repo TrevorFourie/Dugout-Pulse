@@ -36,7 +36,7 @@ export function friendlyErrorMessage(category: string): string {
     case 'app_startup':
       return "Dugout Pulse ran into a problem while starting. You can open the recovery tools to review your available recovery points. If the problem continues, please share the diagnostic report. Please keep the app installed and avoid clearing its data while we look into this.";
     case 'react_render':
-      return "Dugout Pulse had trouble displaying this screen. You can open the recovery tools to review your available recovery points. If the problem happens again, please share the diagnostic report. For now, please keep the app installed and avoid clearing its data.";
+      return "Dugout Pulse had trouble displaying this screen. Please restart the app to try again. If the problem happens again, please share the diagnostic report so we can investigate. For now, please keep the app installed and avoid clearing its data.";
     case 'storage_load':
     case 'storage_read':
     case 'data_corruption':
