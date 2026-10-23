@@ -6,6 +6,7 @@ import { TeamLogoPicker } from './TeamLogoPicker';
 import { migrateLegacyLogoDataUrl, resolveTeamLogoSrc } from '../utils/teamLogoLibrary';
 import { reportFailure } from '../utils/userMessages';
 import { TeamLogoImage } from './TeamLogoImage';
+import { ConfirmationModal } from './ConfirmationModal';
 
 const fieldClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
@@ -15,6 +16,7 @@ export const OppositionTeamsSettings: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [error, setError] = useState('');
+  const [failureAlert, setFailureAlert] = useState<string | null>(null);
   const [success, setSuccess] = useState('');
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current); }, []);
@@ -32,7 +34,7 @@ export const OppositionTeamsSettings: React.FC = () => {
           const logo = await migrateLegacyLogoDataUrl(team.logo);
           if (!cancelled) updateOppositionTeam(team.id, { logo });
         } catch (cause) {
-          if (!cancelled) setError(reportFailure('team_logo_migration', cause, 'We could not update an existing team logo. Your original image has been kept.'));
+          if (!cancelled) setFailureAlert(reportFailure('team_logo_migration', cause, 'We could not update an existing team logo. Your original image has been kept.'));
         }
       }
     };
@@ -44,8 +46,12 @@ export const OppositionTeamsSettings: React.FC = () => {
     event.preventDefault();
     const name = newName.trim();
     if (!name) return;
+    if (teams.some((team) => team.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setError('An opposition team with that name already exists.');
+      return;
+    }
     if (!addOppositionTeam(name)) {
-      setError('Could not add this team. It may already exist, or there may not be enough storage.');
+      setFailureAlert(reportFailure('storage_write', new Error('Opposition team could not be added.'), 'Dugout Pulse could not save this opposition team.'));
       return;
     }
     setError('');
@@ -56,7 +62,7 @@ export const OppositionTeamsSettings: React.FC = () => {
   const setTeamLogo = (teamId: string, logo?: string) => {
     setSuccess('');
     if (!updateOppositionTeam(teamId, { logo })) {
-      setError('Could not update this team logo.');
+      setFailureAlert(reportFailure('storage_write', new Error('Opposition team logo could not be updated.'), 'Dugout Pulse could not save the team logo change.'));
       return;
     }
     setError('');
@@ -66,7 +72,7 @@ export const OppositionTeamsSettings: React.FC = () => {
   const removeLogo = (teamId: string) => {
     setSuccess('');
     if (!updateOppositionTeam(teamId, { logo: undefined })) {
-      setError('Could not save this team. The logo may be too large or storage may be full.');
+      setFailureAlert(reportFailure('storage_write', new Error('Opposition team logo removal could not be saved.'), 'Dugout Pulse could not save the team logo change.'));
       return;
     }
     setError('');
@@ -75,7 +81,7 @@ export const OppositionTeamsSettings: React.FC = () => {
 
   const removeTeam = (teamId: string) => {
     if (!deleteOppositionTeam(teamId)) {
-      setError('Could not delete this team. Please try again.');
+      setFailureAlert(reportFailure('storage_write', new Error('Opposition team could not be deleted.'), 'Dugout Pulse could not delete the opposition team.'));
       return;
     }
     setError('');
@@ -90,7 +96,7 @@ export const OppositionTeamsSettings: React.FC = () => {
       return;
     }
     if (!updateOppositionTeam(team.id, { name })) {
-      setError('Could not save this team. Check the name and available storage.');
+      setFailureAlert(reportFailure('storage_write', new Error('Opposition team rename could not be saved.'), 'Dugout Pulse could not save the opposition team name.'));
       return;
     }
     setError('');
@@ -99,6 +105,18 @@ export const OppositionTeamsSettings: React.FC = () => {
   };
 
   return (
+    <>
+    <ConfirmationModal
+      isOpen={failureAlert !== null}
+      title="Could not save opposition team changes"
+      message={failureAlert ?? ''}
+      confirmLabel="OK"
+      showCancelButton={false}
+      closeOnBackdrop={false}
+      variant="danger"
+      onCancel={() => setFailureAlert(null)}
+      onConfirm={() => setFailureAlert(null)}
+    />
     <div className="space-y-4">
       <div>
         <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]"><Shield className="h-4 w-4 text-[#007A6A] dark:text-[#00D7BC]" /> Opposition Teams</h3>
@@ -149,6 +167,7 @@ export const OppositionTeamsSettings: React.FC = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 
