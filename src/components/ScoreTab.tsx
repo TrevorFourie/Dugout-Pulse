@@ -708,8 +708,14 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
       const battedDone = isBatting || hasBattedThisInning(currentInning);
       const fieldedDone = isDefense || hasFieldedThisInning(currentInning);
       const bothConditionsMet = battedDone && fieldedDone;
+      // In this single-player scorer, explicitly ending the defensive half advances the
+      // live inning even when no batting plays were entered for the current inning.
+      // Automatic third-outs keep the normal both-halves-complete rule.
+      const shouldAdvance = bothConditionsMet || Boolean(
+        opts?.allowModeSwitch && isDefense && currentInning === liveGame.innings
+      );
 
-      if (bothConditionsMet && currentInning >= settings.inningsPerGame && !opts?.allowExtraInning) {
+      if (shouldAdvance && currentInning >= settings.inningsPerGame && !opts?.allowExtraInning) {
         // The scheduled innings are done. Never roll into an extra inning automatically:
         // the scorer chooses End Game or Add Another Inning.
         updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
@@ -724,9 +730,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           `Inning ${currentInning} updated`,
           `Historical inning complete. Live scoring remains on Inning ${liveGame.innings}.`
         );
-      } else if (bothConditionsMet) {
-        // Both fielded and batted are complete for the live inning.
-        // Move on to the next inning ONLY now!
+      } else if (shouldAdvance) {
+        // Both halves are complete, or the scorer explicitly ended the defensive half.
+        // Move on to the next inning for the live game.
         updateLiveGameDetails({ halfInningStatus: updatedHalfStatusMap });
         nextInning(); // changes liveGame.innings to currentInning + 1
 
@@ -1343,7 +1349,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   // At (or past) the scheduled number of innings, moving on becomes End Game / Add Another Inning.
   const showEndGameChoice =
     currentInning >= settings.inningsPerGame &&
-    (isBenchedCurrentInning || canAdvanceToNextInning(activeMode));
+    (isBenchedCurrentInning || canAdvanceToNextInning(activeMode) || activeMode === 'pitching' || activeMode === 'fielding');
 
   // Re-sync the UI from the plays that remain  // Re-sync the UI from the plays that remain. A primary batting play owns the plate appearance;
   // runner actions that happened after it must never prevent that batter from being reopened when
@@ -1881,7 +1887,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             ) : (
               <>
                 <span className="font-semibold text-xl text-white">End Defense Half</span>
-                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next: switch to batting, Inning {currentInning}</span>
+                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next: Inning {currentInning + 1}</span>
               </>
             )}
           </button>
