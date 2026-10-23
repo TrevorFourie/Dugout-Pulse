@@ -211,20 +211,68 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
   const existingLibrary = readTeamLogoLibraryStrict();
 
   const toWrite: Record<string, string> = {};
-  for (const entry of usable) toWrite[entry.fileName] = fileMap[entry.fileName];
-  await writeLogoFiles(toWrite); // writes each file, reads it back and compares
-
-  const restored: TeamLogoItem[] = [];
+  const previousFiles: Record<string, string> = {};
+  const filesNotPreviouslyPresent = new Set<string>();
   for (const entry of usable) {
-    const fileUri = await Filesystem.getUri({ path: 'team-logos/' + entry.fileName, directory: Directory.Data });
-    const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
-    restored.push({ ...entry, uri });
+    toWrite[entry.fileName] = fileMap[entry.fileName];
+    try {
+      previousFiles[entry.fileName] = await readLogoFileAsBase64(entry.fileName);
+    } catch {
+      // Distinguish an absent file from an existing file that cannot be read safely.
+      let exists = false;
+      try {
+        await Filesystem.stat({ path: 'team-logos/' + entry.fileName, directory: Directory.Data });
+        exists = true;
+      } catch {
+        // A missing file is expected for a logo being restored for the first time.
+      }
+      if (exists) {
+        throw new Error('An existing custom logo could not be preserved before restore. No logo files were changed.');
+      }
+      filesNotPreviouslyPresent.add(entry.fileName);
+    }
   }
-  const restoredIds = new Set(restored.map((entry) => entry.id));
-  const merged = [...restored, ...existingLibrary.filter((entry) => !restoredIds.has(entry.id))];
-  if (!protectedStorageSetItem(LOGO_LIBRARY_KEY, JSON.stringify(merged))) {
-    throw new Error('Could not safely update the logo library while restoring the backup.');
+
+  const writtenFiles = new Set<string>();
+  try {
+    await writeLogoFiles(toWrite, (fileName) => writtenFiles.add(fileName));
+
+    const restored: TeamLogoItem[] = [];
+    for (const entry of usable) {
+      const fileUri = await Filesystem.getUri({ path: 'team-logos/' + entry.fileName, directory: Directory.Data });
+      const uri = Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(fileUri.uri) : fileUri.uri;
+      restored.push({ ...entry, uri });
+    }
+    const restoredIds = new Set(restored.map((entry) => entry.id));
+    const merged = [...restored, ...existingLibrary.filter((entry) => !restoredIds.has(entry.id))];
+    if (!protectedStorageSetItem(LOGO_LIBRARY_KEY, JSON.stringify(merged))) {
+      throw new Error('Could not safely update the logo library while restoring the backup.');
+    }
+    window.dispatchEvent(new CustomEvent(TEAM_LOGO_LIBRARY_EVENT));
+    return restored.length;
+  } catch (restoreError) {
+    let rollbackError: unknown = null;
+    for (const fileName of writtenFiles) {
+      try {
+        if (filesNotPreviouslyPresent.has(fileName)) {
+          await Filesystem.deleteFile({ path: 'team-logos/' + fileName, directory: Directory.Data });
+          try {
+            await Filesystem.stat({ path: 'team-logos/' + fileName, directory: Directory.Data });
+            rollbackError = rollbackError || new Error('A newly restored logo file still exists after rollback.');
+          } catch {
+            // File absence confirmed after deletion.
+          }
+        } else {
+          await writeLogoFiles({ [fileName]: previousFiles[fileName] });
+        }
+      } catch (error) {
+        rollbackError = rollbackError || error;
+      }
+    }
+    if (rollbackError) {
+      throw new Error('Logo restore failed and the previous logo files could not all be verified after rollback. ' +
+        (rollbackError instanceof Error ? rollbackError.message : String(rollbackError)));
+    }
+    throw restoreError;
   }
-  window.dispatchEvent(new CustomEvent(TEAM_LOGO_LIBRARY_EVENT));
-  return restored.length;
 }
