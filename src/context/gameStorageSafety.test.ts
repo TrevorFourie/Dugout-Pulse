@@ -5,9 +5,10 @@
  * the app or triggering a build.
  */
 import test from 'node:test';
-import { PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
 import assert from 'node:assert/strict';
 import {
+  readPendingCompletedGameSaveFromStorage,
   readPendingLiveGameFromStorage,
   protectedStorageRemoveItem,
   protectedStorageSetItem,
@@ -53,6 +54,8 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
   values.clear();
   values.set('baseball_hub_games_v1', JSON.stringify([{ id: 'original-game' }]));
   values.set(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
+  const completedGame = { id: 'completed-game', innings: 1, plays: [], finalResult: 'W 2-1' };
+  values.set(PENDING_COMPLETED_GAME_SAVE_KEY, JSON.stringify({ version: 1, game: completedGame }));
 
   assert.equal(snapshotBeforeGameWrite(), true);
   const checkpointRaw = values.get(RECOVERY_STORAGE_KEY);
@@ -62,6 +65,11 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
     (JSON.parse(checkpointRaw!) as { values: Record<string, string> }).values[PENDING_LIVE_GAME_WRITE_KEY],
     undefined,
     'the transient scoring journal is not captured as recoverable app data',
+  );
+  assert.equal(
+    (JSON.parse(checkpointRaw!) as { values: Record<string, string> }).values[PENDING_COMPLETED_GAME_SAVE_KEY],
+    undefined,
+    'the completed-game journal is not captured as ordinary app data',
   );
 
   assert.equal(protectedStorageSetItem('test-protected-key', 'saved-value'), true);
@@ -93,6 +101,7 @@ test('recovery snapshot is verified and a failed restore rolls back the current 
   assert.equal(restoreRecoverySnapshot(), true);
   assert.equal(values.get('baseball_hub_games_v1'), JSON.stringify([{ id: 'original-game' }]));
   assert.equal(values.get(PENDING_LIVE_GAME_WRITE_KEY), 'pending', 'restoring an old snapshot does not replace the live scoring journal');
+  assert.equal(values.get(PENDING_COMPLETED_GAME_SAVE_KEY), JSON.stringify({ version: 1, game: completedGame }), 'restoring an old snapshot does not replace the completed-game journal');
   assert.equal(values.has('user-preference'), false);
   assert.equal(values.has('test-protected-key'), false);
 });
@@ -122,4 +131,19 @@ test('legacy full-game scoring marker remains readable', () => {
   const game = { id: 'legacy-live-game', innings: 1, plays: [] };
   values.set(PENDING_LIVE_GAME_WRITE_KEY, JSON.stringify(game));
   assert.deepEqual(readPendingLiveGameFromStorage(), game);
+});
+
+
+test('pending completed-game save returns the validated completed game', () => {
+  values.clear();
+  const game = { id: 'completed-game-1', date: '2026-10-23', teamName: 'Home', innings: 2, plays: [], finalResult: 'W 3-1' };
+  values.set(PENDING_COMPLETED_GAME_SAVE_KEY, JSON.stringify({ version: 1, game }));
+  assert.deepEqual(readPendingCompletedGameSaveFromStorage(), game);
+});
+
+test('malformed completed-game save journal fails closed and remains available', () => {
+  values.clear();
+  values.set(PENDING_COMPLETED_GAME_SAVE_KEY, JSON.stringify({ version: 1, game: { plays: [] } }));
+  assert.throws(readPendingCompletedGameSaveFromStorage, /failed validation/);
+  assert.ok(values.has(PENDING_COMPLETED_GAME_SAVE_KEY), 'the invalid journal remains available for diagnosis');
 });
