@@ -4,7 +4,7 @@ import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/base
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
 import { readTeamLogoLibrary } from '../utils/teamLogoLibrary';
-import { clearAppDataPreservingDiagnostics } from '../utils/errorDiagnostics';
+import { clearAppDataPreservingDiagnostics, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
@@ -13,6 +13,7 @@ import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
 import { getLastDiagnosticReference } from '../utils/errorDiagnostics';
 import { explainFailure, reportFailure } from '../utils/userMessages';
+import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -196,12 +197,54 @@ export function useGameDataManagement({
         setRestoreFailed(true);
         return false;
       }
-    // Do not publish an empty in-memory state until every app-data key has been
-    // removed and read back as absent. The verified private checkpoint remains intact.
-    if (!clearAppDataPreservingDiagnostics()) {
-      setRestoreFailed(true);
-      return false;
-    }
+
+      let sqliteCutoverComplete = false;
+      try {
+        sqliteCutoverComplete = await isLegacyStorageImportComplete();
+      } catch (error) {
+        const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
+        if (marker === 'complete' || marker === 'pending') {
+          setRestoreFailed(true);
+          recordDiagnosticError('storage_write', error, 'Reset was stopped because the active SQLite store could not be checked safely.');
+          return false;
+        }
+        // Before cutover, localStorage remains authoritative and reset can proceed.
+      }
+
+      // Do not publish an empty in-memory state until the legacy keys have been
+      // removed and, after cutover, the matching empty SQLite snapshot has committed.
+      // The verified private checkpoint remains available if any step fails.
+      if (!clearAppDataPreservingDiagnostics()) {
+        setRestoreFailed(true);
+        return false;
+      }
+      if (sqliteCutoverComplete) {
+        try {
+          await saveLiveSQLiteState({
+            games: [],
+            profiles: [DEFAULT_PROFILE],
+            settings: DEFAULT_SETTINGS,
+            liveGame: null,
+            editingGameId: null,
+            reopenedGameId: null,
+            setupCompleted: false,
+            savedOpponents: [],
+            savedTournaments: [],
+            savedAgeGroups: [],
+            savedSeasons: [],
+            hiddenTournaments: [],
+            hiddenAgeGroups: [],
+            hiddenSeasons: [],
+            oppositionTeams: [],
+            upcomingGames: [],
+            logoLibrary: [],
+          });
+        } catch (error) {
+          setRestoreFailed(true);
+          recordDiagnosticError('storage_write', error, 'Local app data was cleared, but the reset could not be committed to SQLite. The verified recovery checkpoint was retained; automatic saving is paused.');
+          return false;
+        }
+      }
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
