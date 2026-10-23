@@ -1060,6 +1060,77 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
  * relative to complete GameContext snapshots. Returns false before cutover, when
  * localStorage is still the authoritative store.
  */
+/**
+ * Commit a completed game and clear its live/editing references in one transaction.
+ * Returns false while localStorage is still the pre-cutover authoritative store.
+ */
+export async function saveCompletedSQLiteGame(game: Game): Promise<boolean> {
+  if (!isGame(game)) {
+    throw new Error('SQLite completed-game write was blocked because the game failed validation.');
+  }
+
+  const localCutover = localStorage.getItem(LOCAL_CUTOVER_MARKER);
+  if (localCutover !== 'complete' && localCutover !== 'pending') return false;
+
+  const serializedGame = serializeJson(game);
+  return withSQLiteTransaction(async (database) => {
+    const cutover = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [CUTOVER_MARKER],
+    );
+    if (cutover.values?.[0]?.value !== 'complete') {
+      if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== null) {
+        throw new Error('SQLite and local storage disagree about cutover; the completed game was not changed.');
+      }
+      return false;
+    }
+
+    const liveState = await database.query(
+      'SELECT value FROM app_meta WHERE key = ?',
+      [LIVE_STATE_MARKER],
+    );
+    if (liveState.values?.[0]?.value !== '1') {
+      throw new Error('SQLite completed-game write was blocked because no complete live-state snapshot is available.');
+    }
+
+    await database.run(
+      'INSERT INTO games (id, value_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at',
+      [game.id, serializedGame, typeof game.date === 'string' ? game.date : null],
+      false,
+    );
+    const clearedState: [string, string][] = [
+      [STORAGE_KEYS.LIVE_GAME, 'null'],
+      [STORAGE_KEYS.EDITING_GAME_ID, 'null'],
+      [STORAGE_KEYS.REOPENED_GAME_ID, 'null'],
+    ];
+    for (const [key, value] of clearedState) {
+      await database.run(
+        'INSERT INTO app_state (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
+        [key, value],
+        false,
+      );
+    }
+
+    const saved = await database.query(
+      'SELECT value_json FROM games WHERE id = ?',
+      [game.id],
+    );
+    if (saved.values?.[0]?.value_json !== serializedGame) {
+      throw new Error('SQLite completed-game write failed read-back verification.');
+    }
+    for (const [key, expected] of clearedState) {
+      const result = await database.query(
+        'SELECT value_json FROM app_state WHERE key = ?',
+        [key],
+      );
+      if (result.values?.[0]?.value_json !== expected) {
+        throw new Error('SQLite could not verify the completed-game live-state transition.');
+      }
+    }
+    return true;
+  });
+}
+
 export async function saveSQLiteLiveGame(game: Game | null): Promise<boolean> {
   // Do not initialize/open SQLite for ordinary scoring before cutover. Until the
   // local authority marker is present, the legacy store remains the intended writer.
