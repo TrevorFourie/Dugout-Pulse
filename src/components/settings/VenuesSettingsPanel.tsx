@@ -72,7 +72,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                     <div className="space-y-2">
                       {(settings.venues || []).map((venue) => {
                         const isEditingVenue = editingVenue === venue;
-                        const saveVenueEdit = () => {
+                        const saveVenueEdit = async () => {
                           const renamedVenue = editingVenueValue.trim();
                           if (!renamedVenue) {
                             onStatusMessage({ text: 'Venue name cannot be empty.', isError: true });
