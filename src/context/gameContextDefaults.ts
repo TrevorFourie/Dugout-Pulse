@@ -2,6 +2,8 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 
 export const PENDING_LIVE_GAME_WRITE_KEY = 'dugoutPulse.pendingLiveGameWrite.v1';
 export const PENDING_COMPLETED_GAME_SAVE_KEY = 'dugoutPulse.pendingCompletedGameSave.v1';
+export const SCORE_UI_STATE_KEY = 'dugout_pulse_resume_ui_v1';
+export const RUNNER_WORKFLOW_STATE_KEY = 'dugout_pulse_runner_workflow_v1';
 
 export const STORAGE_KEYS = {
   GAMES: 'baseball_hub_games_v1',
