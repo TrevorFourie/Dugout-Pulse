@@ -5,7 +5,7 @@ import { sortGames } from '../utils/stats';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage, readPendingLiveGameFromStorage } from './gameStorageSafety';
+import { readPendingCompletedGameSaveFromStorage, readPendingLiveGameFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
 import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 import { setTeamLogoLibraryCache } from '../utils/teamLogoLibrary';
