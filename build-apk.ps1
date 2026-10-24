@@ -709,10 +709,9 @@ foreach ($stale in @("android\app\build\intermediates\compressed_assets", "andro
 $appGradlePath = Join-Path $WorkDir "android\app\build.gradle"
 $appGradle = Get-Content -LiteralPath $appGradlePath -Raw
 if ($appGradle -notmatch '(?s)\bsplits\s*\{\s*abi\s*\{') {
-    $lastBrace = $appGradle.LastIndexOf('}')
-    if ($lastBrace -lt 0) { throw "Could not locate the end of android/app/build.gradle for ABI configuration." }
     $abiSplitConfig = @'
 
+android {
     splits {
         abi {
             enable true
@@ -721,8 +720,11 @@ if ($appGradle -notmatch '(?s)\bsplits\s*\{\s*abi\s*\{') {
             universalApk false
         }
     }
+}
 '@
-    $appGradle = $appGradle.Insert($lastBrace, $abiSplitConfig)
+    # ABI splits belong inside the Android Gradle extension, not at project level.
+    # A separate android { } block configures the existing extension safely.
+    $appGradle += $abiSplitConfig
     Set-Content -LiteralPath $appGradlePath -Value $appGradle -NoNewline
     Write-Host "Configured standalone APK outputs for supported Android ABIs." -ForegroundColor Green
 }
