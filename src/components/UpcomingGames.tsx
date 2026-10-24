@@ -467,6 +467,9 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
               const logo = logos.get(game.opponent.trim().toLocaleLowerCase());
               const playerTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName) || (!game.playerTeamName ? defaultPlayerTeam : undefined);
               const playerTeamName = game.playerTeamName || playerTeam?.name;
+              const fieldName = game.fieldId
+                ? (settings.fields || []).find((item) => item.id === game.fieldId && item.venue.trim().toLocaleLowerCase() === (game.venue || '').trim().toLocaleLowerCase())?.name
+                : game.field;
               const gameDate = new Date(`${game.date}T00:00:00`);
               return (
                 <article key={game.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#354050] dark:bg-[#1A2028]/60">
@@ -487,7 +490,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                         <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} @ {game.time}</span>
                         {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.venue}</span>}
-                        {((game.fieldId ? (settings.fields || []).find((item) => item.id === game.fieldId)?.name : undefined) || game.field) && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />Field: {(game.fieldId ? (settings.fields || []).find((item) => item.id === game.fieldId)?.name : undefined) || game.field}</span>}
+                        {fieldName && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />Field: {fieldName}</span>}
                         {game.gameType && <span className="inline-flex items-center gap-1"><Shield className="h-3 w-3" />{game.gameType}</span>}
                       </div>
                     </div>
