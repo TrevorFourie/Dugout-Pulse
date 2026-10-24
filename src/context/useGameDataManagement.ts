@@ -3,7 +3,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
+import { restoreLocalLogoReferences } from '../utils/logoBackup';
 import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, setTeamLogoLibraryCache, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
