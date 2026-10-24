@@ -61,9 +61,8 @@ export function readPendingCompletedGameSaveFromStorage(): Game | undefined {
 
 /**
  * Read and validate the write-ahead live-game marker used by scoring actions.
- * A missing mirror while the marker is pending is ambiguous, not proof that the
- * live game was cleared; callers must stop reconciliation rather than overwrite
- * SQLite with a potentially stale snapshot.
+ * New journals contain the full game payload. The legacy sentinel form is still
+ * recognized during upgrades; a missing legacy mirror is ambiguous and fails closed.
  */
 export function readPendingLiveGameFromStorage(): Game | undefined {
   const marker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
