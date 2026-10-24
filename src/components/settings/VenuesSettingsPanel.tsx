@@ -95,7 +95,12 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                                   : game
                               );
                               await saveSQLiteUpcomingGames(updatedGames);
-                              updateSettings({ venues: updatedVenues });
+                              updateSettings({
+                                venues: updatedVenues,
+                                fields: (settings.fields || []).map((field) => field.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
+                                  ? { ...field, venue: renamedVenue }
+                                  : field),
+                              });
                               window.dispatchEvent(new CustomEvent('dugout-pulse-venue-renamed', {
                                 detail: { oldName: venue, newName: renamedVenue },
                               }));
@@ -172,6 +177,11 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    const linkedFields = (settings.fields || []).filter((field) => field.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase());
+                                    if (linkedFields.length > 0) {
+                                      onStatusMessage({ text: `Remove or relink the ${linkedFields.length} field(s) linked to "${venue}" before removing this venue.`, isError: true });
+                                      return;
+                                    }
                                     updateSettings({ venues: (settings.venues || []).filter((item) => item !== venue) });
                                     if (editingVenue === venue) { setEditingVenue(null); setEditingVenueValue(''); }
                                     onStatusMessage({ text: `Venue "${venue}" removed.`, isError: false });
