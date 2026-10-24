@@ -19,7 +19,7 @@
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 7.5fr) minmax(0, 2.5fr);
   align-items: center;
   padding: 0 8px 0 0;
   background: transparent;
