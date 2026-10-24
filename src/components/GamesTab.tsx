@@ -254,7 +254,7 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
   const handleStartEdit = (gameId: string) => {
     if (liveGame && editingGameId !== gameId) {
       setEditBlockedMessage(
-        'A live game is currently in progress! Please save or discard the live game before editing a past game.'
+        'You're in the middle of a live game. Save it or discard it before editing an older game.'
       );
       return;
     }
@@ -335,7 +335,7 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
               {lastSavedGame.opponent ? ('vs ' + lastSavedGame.opponent) : 'Most recently saved game'} · {lastSavedGame.date}
             </p>
             <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-              Continue live scoring from the saved plays. This is separate from Edit Game.
+              Pick up scoring from the plays already saved. To change the game record itself, use Edit Game.
             </p>
           </div>
           <button
@@ -457,12 +457,12 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
           </div>
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-[#FAFAFA]">
-              No matching games found
+              No games to show here just yet
             </h3>
             <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1 max-w-sm mx-auto">
               {isFilterActive
-                ? 'Try clearing or changing your filters above to see more games.'
-                : 'Start a live game to build your season history.'}
+                ? 'Try changing or clearing the filters to bring more games back.'
+                : 'Your game history will appear here after you score your first game.'}
             </p>
           </div>
           {isFilterActive ? (
@@ -480,7 +480,7 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
               onClick={onNavigateToScore}
               className="px-5 py-2.5 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] font-semibold text-xs hover:bg-[#00A892] dark:hover:bg-[#00C4AB] transition-colors inline-flex items-center gap-2 shadow-md"
             >
-              Start First Game
+              Score Your First Game
             </button>
           )}
         </div>
@@ -548,9 +548,9 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
         isOpen={Boolean(gameToDelete)}
-        title="Delete Game Log?"
-        message="Are you sure you want to permanently delete this game? Its plays will be removed from your season totals."
-        confirmLabel="Yes, Delete Game"
+        title="Delete this game?"
+        message="Delete this game and its recorded plays? They'll also be removed from your season totals."
+        confirmLabel="Delete Game"
         variant="danger"
         onConfirm={() => {
           if (gameToDelete) {
