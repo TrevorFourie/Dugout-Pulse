@@ -507,8 +507,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                           <TeamLogoImage value={playerSide.logo} alt={`${playerSide.name} logo`} className="h-full w-full rounded-full object-contain" />
                         </div>
                         <p className="mt-2 w-full break-words text-sm font-bold leading-tight text-[#18212D] dark:text-[#FAFAFA]">{playerSide.name}</p>
-                        {game.isHome && <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">Home</span>}
-                        {!game.isHome && <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">Away</span>}
+                        <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">Home</span>
                       </div>
 
                       <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#00BFA5] bg-[#E6FBF8] text-xs font-extrabold tracking-wide text-[#006B5D] dark:border-[#00D7BC] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC] sm:h-12 sm:w-12">
@@ -520,7 +519,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                           <TeamLogoImage value={opponentSide.logo} alt={`${opponentSide.name} logo`} className="h-full w-full rounded-full object-contain" />
                         </div>
                         <p className="mt-2 w-full break-words text-sm font-bold leading-tight text-[#18212D] dark:text-[#FAFAFA]">{opponentSide.name}</p>
-                        <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">{game.isHome ? 'Away' : 'Home'}</span>
+                        <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">{game.isHome ? 'Away' : 'Away'}</span>
                       </div>
                     </div>
 
@@ -546,7 +545,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                     {nextOnly && <p className="mt-4 flex min-h-12 w-full items-center justify-center rounded-full bg-[#00BFA5] px-4 py-3 text-center text-sm font-bold tabular-nums text-white shadow-sm dark:bg-[#00D7BC] dark:text-[#101419]" aria-live="off">{formatCountdown(game)}</p>}
                   </div>
                 </article>
-              );            })}
+              );
+            })}
           </div>
         )}
         {message && <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-[#D4626D]">{message}</p>}
