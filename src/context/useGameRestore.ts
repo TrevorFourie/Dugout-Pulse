@@ -393,7 +393,9 @@ export function useGameRestore({
         // the database transaction. Read that authoritative snapshot and reconcile
         // it instead of leaving the app blocked unnecessarily.
         try {
-          const committedState = await reconcilePendingLiveGame(await readLiveSQLiteState());
+          const committedSnapshot = await readLiveSQLiteState();
+          const completedReconciled = await reconcilePendingCompletedGameSave(committedSnapshot);
+          const committedState = await reconcilePendingLiveGame(completedReconciled);
           await mirrorLiveState(committedState);
           applyLiveState(committedState);
           setIsLoading(false);
