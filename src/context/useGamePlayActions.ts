@@ -3,8 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, DefensivePosition, HitLocation, PitcherHand, Play, PlayCode, PlayMode, PlayScoringContext, RunnerOutReason } from '../types/baseball';
 import type { PlaySeed } from '../utils/pitchingFlow';
 import { getAttachedRbiPlayIds } from '../utils/sprayChart';
-import { PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
-import { protectedStorageSetItem } from './gameStorageSafety';
+import { PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { saveSQLiteLiveGame } from '../storage/sqliteRepository';
 
@@ -34,12 +33,12 @@ export function useGamePlayActions({
     if (storageWritesBlocked) return false;
     const serialized = JSON.stringify(nextGame);
     const writeGeneration = ++scoringWriteGeneration.current;
-    // This small write-ahead marker lets startup distinguish a live-game mirror that
-    // may be newer than SQLite without duplicating a potentially large game payload.
+    // The recovery journal contains the full latest game payload. No duplicate
+    // application-data copy is written under the legacy live-game key.
     try {
-      localStorage.setItem(PENDING_LIVE_GAME_WRITE_KEY, 'pending');
-      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== 'pending') {
-        throw new Error('The pending live-game marker could not be verified.');
+      localStorage.setItem(PENDING_LIVE_GAME_WRITE_KEY, serialized);
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== serialized) {
+        throw new Error('The pending live-game journal could not be verified.');
       }
     } catch (error) {
       try { recordDiagnosticError('storage_write_games', error, 'A live-game scoring change could not be journaled safely.'); } catch { /* Preserve the blocked write outcome. */ }
@@ -48,28 +47,17 @@ export function useGamePlayActions({
     }
 
     try {
-      if (!protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, serialized)) {
-        // Keep the journal when a protected write fails: rollback itself can fail,
-        // so startup must reconcile whichever live-game value actually survived.
-        onStorageProtectionFailure();
-        return false;
-      }
-
-      // Once SQLite is authoritative, start the matching database transaction at
-      // the scoring action itself instead of waiting for React's persistence effect.
-      // SQLite's shared transaction queue orders this with whole-context snapshots.
-      // Before cutover the existing localStorage-first importer path remains intact.
+      // SQLite is the authoritative store after cutover; before cutover, startup
+      // can replay this full-payload journal into the one-time legacy import.
       void saveSQLiteLiveGame(nextGame).then((persisted) => {
         if (
           !persisted ||
           writeGeneration !== scoringWriteGeneration.current ||
-          localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized
+          localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== serialized
         ) return;
+        localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
         if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
-          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-            throw new Error('The scoring journal could not be cleared after SQLite confirmed the live game.');
-          }
+          throw new Error('The scoring journal could not be cleared after SQLite confirmed the live game.');
         }
       }).catch((error) => {
         // Always record the failed transaction. Only pause scoring when the failed
@@ -78,8 +66,7 @@ export function useGamePlayActions({
         let failedWriteIsCurrent = writeGeneration === scoringWriteGeneration.current;
         try {
           failedWriteIsCurrent = failedWriteIsCurrent &&
-            localStorage.getItem(STORAGE_KEYS.LIVE_GAME) === serialized &&
-            localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
+            localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) === serialized;
         } catch {
           // If storage cannot be inspected, fail closed for the latest write.
           failedWriteIsCurrent = writeGeneration === scoringWriteGeneration.current;
