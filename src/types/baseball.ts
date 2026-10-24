@@ -242,7 +242,6 @@ export interface PlayerProfile {
   id: string;
   playerName: string;
   teamName: string;
-  jerseyNumber?: string;
   isDefault?: boolean;
   teams?: PlayerTeam[]; // Multiple teams this player plays for
   defaultAgeGroup?: string;
