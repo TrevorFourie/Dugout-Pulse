@@ -125,7 +125,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       return;
     }
     if (liveGame) {
-      setError('You're already scoring a live game. Save it or discard it before opening another.');
+      setError("You're already scoring a live game. Save it or discard it before opening another.");
       return;
     }
     if (selectedGameId.startsWith('scheduled:')) {
