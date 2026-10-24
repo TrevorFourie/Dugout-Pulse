@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
-import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell, Trophy } from 'lucide-react';
+import { CalendarDays, MapPin, Plus, Pencil, Trash2, X, Check, Bell, Trophy } from 'lucide-react';
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 import { DatePicker } from './DatePicker';
@@ -539,7 +539,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                     {nextOnly && <p className="upcoming-match-card__countdown" aria-live="off">{formatCountdown(game)}</p>}
                   </div>
                 </article>
-              );}
+              );
+            })}
           </div>
         )}
         {message && <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-[#D4626D]">{message}</p>}
