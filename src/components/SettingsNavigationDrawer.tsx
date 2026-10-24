@@ -2,7 +2,7 @@ import React from 'react';
 import {
   X, LayoutDashboard, UserRound, SlidersHorizontal, CalendarDays, ChevronDown,
   FileText, Settings2, PlayCircle, History, Users, Shield, Trophy, UsersRound,
-  MapPin, Bell, ClipboardList, Palette, Database, UserCog, CalendarRange, Scale, Image,
+  MapPin, Bell, ClipboardList, Palette, Database, UserCog, CalendarRange, Scale, Image, LayoutGrid,
 } from 'lucide-react';
 import type { Game, PlayerProfile } from '../types/baseball';
 import type { TabId } from './Navigation';
@@ -113,7 +113,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
                 <button type="button" onClick={() => handleSelectSettingsSection('tournaments')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><Trophy className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Tournaments &amp; Leagues</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('ageGroups')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><UsersRound className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Age Groups</button>
                 <button type="button" onClick={() => handleSelectSettingsSection('venue')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><MapPin className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Venues</button>
-                <button type="button" onClick={() => handleSelectSettingsSection('fields')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><MapPin className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Fields</button>
+                <button type="button" onClick={() => handleSelectSettingsSection('fields')} className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-2.5 text-left text-xs font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-px hover:border-[#00BFA5] hover:shadow dark:border-[#354050] dark:bg-[#252D38] dark:text-[#D1D5DB] dark:hover:border-[#00D7BC] dark:hover:bg-[#303A47]"><LayoutGrid className="h-3.5 w-3.5 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />Fields</button>
               </div>
             )}
 
