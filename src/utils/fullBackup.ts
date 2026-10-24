@@ -15,7 +15,7 @@ export interface FullBackupResult {
 }
 
 /** Build a complete, self-verifying backup including the actual logo images. */
-export async function buildFullBackup(data: {
+export async function buildFullBackup(_data: {
   games: Game[];
   profiles: PlayerProfile[];
   settings: unknown;
