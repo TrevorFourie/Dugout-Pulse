@@ -1,4 +1,4 @@
-import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
@@ -291,6 +291,30 @@ async function writeAndVerify(path: string, content: string): Promise<void> {
 async function createCheckpointSerially(reason: string): Promise<boolean> {
   try {
     const values = captureStorage();
+    // After cutover, checkpoints must capture the authoritative SQLite snapshot,
+    // never the intentionally stale legacy localStorage copies.
+    if (await isLegacyStorageImportComplete()) {
+      const state = await readLiveSQLiteState();
+      Object.assign(values, {
+        [STORAGE_KEYS.GAMES]: JSON.stringify(state.games),
+        [STORAGE_KEYS.PROFILES]: JSON.stringify(state.profiles),
+        [STORAGE_KEYS.SETTINGS]: JSON.stringify(state.settings),
+        [STORAGE_KEYS.LIVE_GAME]: state.liveGame === null ? '' : JSON.stringify(state.liveGame),
+        [STORAGE_KEYS.EDITING_GAME_ID]: state.editingGameId === null ? '' : JSON.stringify(state.editingGameId),
+        [STORAGE_KEYS.REOPENED_GAME_ID]: state.reopenedGameId === null ? '' : JSON.stringify(state.reopenedGameId),
+        [STORAGE_KEYS.SETUP_COMPLETED]: JSON.stringify(state.setupCompleted),
+        [STORAGE_KEYS.SAVED_OPPONENTS]: JSON.stringify(state.savedOpponents),
+        [STORAGE_KEYS.SAVED_TOURNAMENTS]: JSON.stringify(state.savedTournaments),
+        [STORAGE_KEYS.SAVED_AGE_GROUPS]: JSON.stringify(state.savedAgeGroups),
+        [STORAGE_KEYS.SAVED_SEASONS]: JSON.stringify(state.savedSeasons),
+        [STORAGE_KEYS.HIDDEN_TOURNAMENTS]: JSON.stringify(state.hiddenTournaments),
+        [STORAGE_KEYS.HIDDEN_AGE_GROUPS]: JSON.stringify(state.hiddenAgeGroups),
+        [STORAGE_KEYS.HIDDEN_SEASONS]: JSON.stringify(state.hiddenSeasons),
+        'dugoutPulse.oppositionTeams.v1': JSON.stringify(state.oppositionTeams),
+        'dugoutPulse.upcomingGames.v1': JSON.stringify(state.upcomingGames),
+        'dugoutPulse.logoLibrary.v1': JSON.stringify(state.logoLibrary),
+      });
+    }
     const logoFiles = await captureLogoFiles(values);
     const logoItems: unknown = (() => { try { return JSON.parse(values['dugoutPulse.logoLibrary.v1'] || '[]'); } catch { return []; } })();
     if (Array.isArray(logoItems) && logoItems.some((item) => item && typeof item === 'object' &&
