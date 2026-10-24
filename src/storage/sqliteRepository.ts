@@ -643,7 +643,7 @@ export interface SQLiteLiveState {
  */
 export async function saveLiveSQLiteState(
   state: SQLiteLiveState,
-  options: { completeCutover?: boolean; includeAuxiliary?: boolean } = {},
+  options: { completeCutover?: boolean; includeAuxiliary?: boolean; clearScoringUiState?: boolean } = {},
 ): Promise<void> {
   if (!Array.isArray(state.games) || !state.games.every(isGame)) {
     throw new Error('SQLite save stopped because saved games failed validation.');
@@ -811,6 +811,15 @@ export async function saveLiveSQLiteState(
       const result = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
       if (result.values?.[0]?.value_json !== expected) {
         throw new Error(`SQLite app state failed read-back verification for "${key}".`);
+      }
+    }
+    if (options.clearScoringUiState === true) {
+      for (const key of [SCORE_UI_STATE_KEY, RUNNER_WORKFLOW_STATE_KEY]) {
+        await database.run('DELETE FROM app_state WHERE key = ?', [key], false);
+        const result = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+        if ((result.values?.length || 0) !== 0) {
+          throw new Error(`SQLite scoring UI state "${key}" could not be cleared during reset.`);
+        }
       }
     }
 
