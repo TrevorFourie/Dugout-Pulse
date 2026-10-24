@@ -506,14 +506,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       <span>{matchContext}</span>
                     </p>
                     <div className="upcoming-match-card__actions">
-                      <button
-                        type="button"
-                        onClick={() => toggleGameReminder(game)}
-                        disabled={!game.time}
-                        aria-label={'Disable reminder for ' + game.opponent}
-                        title={!game.time ? 'Add a start time to enable a reminder' : reminderEnabled ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
-                        className={'upcoming-match-card__action ' + (reminderEnabled ? 'upcoming-match-card__action--active' : '')}
-                      ><Bell className="h-4 w-4" /></button>
                       <button type="button" onClick={() => startEdit(game)} aria-label={'Edit game against ' + game.opponent} title="Edit upcoming game" className="upcoming-match-card__action"><Pencil className="h-4 w-4" /></button>
                       <button type="button" onClick={() => persist(games.filter((item) => item.id !== game.id))} aria-label={'Delete game against ' + game.opponent} title="Delete upcoming game" className="upcoming-match-card__action upcoming-match-card__action--delete"><Trash2 className="h-4 w-4" /></button>
                     </div>
@@ -555,7 +547,22 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       </div>}
                     </div>
 
-                    {nextOnly && <p className="upcoming-match-card__countdown" aria-live="off">{formatCountdown(game)}</p>}
+                    {nextOnly && (
+                      <div className="upcoming-match-card__countdown">
+                        <span className="upcoming-match-card__countdown-time" aria-live="off">{formatCountdown(game)}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleGameReminder(game)}
+                          disabled={!game.time}
+                          aria-label={!game.time ? 'Add a start time to enable a reminder for ' + game.opponent : reminderEnabled ? 'Turn off reminder for ' + game.opponent : 'Set a reminder for ' + game.opponent}
+                          title={!game.time ? 'Add a start time to enable a reminder' : reminderEnabled ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
+                          className={'upcoming-match-card__reminder-action ' + (reminderEnabled ? 'upcoming-match-card__reminder-action--active' : '')}
+                        >
+                          <Bell className="h-4 w-4" aria-hidden="true" />
+                          <span>{!game.time ? 'Add start time' : reminderEnabled ? 'Reminder on' : 'Remind me'}</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
