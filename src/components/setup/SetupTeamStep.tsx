@@ -46,7 +46,7 @@ export const SetupTeamStep: React.FC<SetupTeamStepProps> = ({
                   Team Name & Link Options
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1">
-                  Name the team. Your chosen age group, season, and tournament will be permanently linked to this team.
+                  Give this team a name. The age group, season and tournament you've chosen will stay linked to it.
                 </p>
               </div>
 
@@ -85,7 +85,7 @@ export const SetupTeamStep: React.FC<SetupTeamStepProps> = ({
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
-                  Jersey numbers are linked to each specific team because players often wear different numbers for school, travel, or tournament teams.
+                  A player can wear a different number for each team, so jersey numbers are saved separately.
                 </p>
 
                 {/* THE LINKED CONFIGURATION CARD */}
@@ -136,7 +136,7 @@ export const SetupTeamStep: React.FC<SetupTeamStepProps> = ({
                   </div>
 
                   <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] leading-relaxed">
-                    ✓ All games scored for this team will automatically default to these options. You can easily switch or add more teams later in Settings.
+                    Games for this team will start with these details. You can change them or add another team anytime in Settings.
                   </p>
                 </div>
               </div>
@@ -160,7 +160,7 @@ export const SetupTeamStep: React.FC<SetupTeamStepProps> = ({
                   className="px-6 py-3 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:opacity-50 text-[#18212D] dark:text-[#101419] font-semibold text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Complete Setup & Start Scoring</span>
+                  <span>Finish Setup & Start Scoring</span>
                 </button>
               </div>
             </form>
