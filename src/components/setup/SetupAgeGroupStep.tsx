@@ -44,7 +44,7 @@ export const SetupAgeGroupStep: React.FC<SetupAgeGroupStepProps> = ({
                   What age group does {playerName || 'your player'} play in?
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1">
-                  Select their division. This helps tailor pitch count rest guidelines and game stats.
+                  Choose the player's age group so pitch-count rest guidance and stats fit their division.
                 </p>
               </div>
 
@@ -121,7 +121,7 @@ export const SetupAgeGroupStep: React.FC<SetupAgeGroupStepProps> = ({
                   onClick={handleNextFromAge}
                   className="px-5 py-2.5 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-semibold text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer"
                 >
-                  <span>Continue to Season</span>
+                  <span>Next: Season</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
