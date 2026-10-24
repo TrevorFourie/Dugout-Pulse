@@ -419,7 +419,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                 aria-label="Or type a venue / field"
                 className={inputClass + ' mt-1'}
               />
-              {!(settings.venues || []).length && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add saved venues in Settings → Venues to select them here.</span>}
+              {!(settings.venues || []).length && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a venue in Settings → Venues, and it'll be available here.</span>}
             </label>
             <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Field (optional)
               <ThemedDropdown<string>
@@ -429,8 +429,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                   .filter((item: any) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase() && (settings.venues || []).some((savedVenue: string) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()))
                   .map((item: any) => ({ value: item.id, label: item.name }))}
                 placeholder={venue.trim() && (settings.venues || []).some((savedVenue: string) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase())
-                  ? ((settings.fields || []).some((item: any) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) ? 'Select field (optional)' : 'No fields linked to this venue')
-                  : 'Select a saved venue first'}
+                  ? ((settings.fields || []).some((item: any) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) ? 'Select field (optional)' : 'No fields added for this venue yet')
+                  : 'Choose a venue first'}
                 allowClear={true}
                 ariaLabel="Field (optional)"
                 disabled={!venue.trim() || !(settings.venues || []).some((savedVenue: string) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) || !(settings.fields || []).some((item: any) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase())}
@@ -454,8 +454,8 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                 allowClear={false}
                 className="mt-1 w-full"
               />
-              {!time && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a start time to schedule a reminder.</span>}
-              {time && settings.gameRemindersEnabled === true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">All games are reminded by default. Use the bell on a game to opt out.</span>}
+              {!time && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add a start time and we'll remind you before the game.</span>}
+              {time && settings.gameRemindersEnabled === true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Reminders are on for every game by default. Tap a game's bell to turn its reminder off.</span>}
               {time && settings.gameRemindersEnabled !== true && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">This game can have its own reminder even when all-game reminders are off.</span>}
             </label>
           </div>
