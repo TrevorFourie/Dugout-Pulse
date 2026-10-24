@@ -463,7 +463,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
                   Every part of the game counts
                 </h3>
                 <p className="mt-0.5 text-sm text-slate-600 dark:text-[#D1D5DB]">
-                  Keep recording games to unlock batting, pitching and fielding highlights.
+                  Keep scoring games to see your batting, pitching and fielding highlights here.
                 </p>
               </div>
             </div>
