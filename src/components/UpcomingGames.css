@@ -19,7 +19,7 @@
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  grid-template-columns: minmax(0, 7.5fr) minmax(0, 2.5fr);
+  grid-template-columns: minmax(0, 1fr) 64px;
   align-items: center;
   padding: 0 8px 0 0;
   background: transparent;
@@ -37,7 +37,7 @@
   background: #648B8E; 
   color: #FFF;
   height: 38px;
-  padding: 0 8px 0 16px; 
+  padding: 0 16px 0 16px; 
   
   /* Continuous smooth S-curve wave geometry hooks */
   border-bottom-right-radius: 2.25rem;
@@ -67,8 +67,8 @@
   min-width: 0;
   box-sizing: border-box;
   align-items: center;
-  justify-content: space-around;
-  gap: 0;
+  justify-content: flex-end;
+  gap: 4px;
   height: 38px;
   margin-left: 0;
 }
@@ -77,10 +77,10 @@
 /* Management Action Icons Layout Styling */
 .upcoming-match-card__action {
   display: inline-flex;
-  width: 24px;
-  min-width: 0;
+  width: 28px;
+  min-width: 28px;
   height: 28px;
-  flex: 1 1 24px;
+  flex: 0 0 28px;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -185,9 +185,9 @@
 .upcoming-match-card__details {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   border-top: 1px solid #E2E8F0;
-  padding-top: 14px;
+  padding-top: 10px;
   margin: 0 4px;
   color: #475569;
   font-size: 0.8125rem;
@@ -241,15 +241,17 @@
 .upcoming-match-card__reminder-action {
   display: inline-flex;
   min-width: 0;
-  min-height: 34px;
-  flex: 0 0 auto;
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  flex: 0 0 32px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border: 1px solid rgb(24 33 45 / 22%);
+  gap: 0;
+  border: 0;
   border-radius: 8px;
-  background: rgb(255 255 255 / 72%);
-  padding: 6px 10px;
+  background: transparent;
+  padding: 4px;
   color: #18212D;
   font-size: 0.75rem;
   font-weight: 700;
@@ -258,7 +260,7 @@
   transition: background-color 120ms ease, opacity 120ms ease;
 }
 .upcoming-match-card__reminder-action:hover:not(:disabled) {
-  background: #FFF;
+  background: rgb(24 33 45 / 10%);
 }
 .upcoming-match-card__reminder-action:focus-visible {
   outline: 2px solid #18212D;
@@ -284,11 +286,9 @@
 }
 @media (max-width: 360px) {
   .upcoming-match-card__countdown {
-    align-items: stretch;
-    flex-direction: column;
     gap: 8px;
-  }
-  .upcoming-match-card__reminder-action {
-    align-self: stretch;
+    padding-right: 8px;
+    padding-left: 10px;
+    font-size: 0.875rem;
   }
 }
