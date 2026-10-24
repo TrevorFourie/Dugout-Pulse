@@ -282,6 +282,12 @@ export interface GroupedStats {
   fielding: FieldingStats;
 }
 
+export interface VenueField {
+  id: string;
+  name: string;
+  venue: string;
+}
+
 export interface AppSettings {
   inningsPerGame: number; // default 7
   homeRunAddsRunAndRbi: boolean; // default true
@@ -291,7 +297,8 @@ export interface AppSettings {
   pitchCountLimit: number; // default 85 (youth/highschool limit)
   trackHitLocation?: boolean; // default true - enables hit direction tapper prompt during batting
   gameRemindersEnabled?: boolean; // master switch for local upcoming-game notifications; defaults off
-  venues?: string[]; // saved ballparks and fields managed in Settings
+  venues?: string[]; // saved ballparks managed in Settings
+  fields?: VenueField[]; // named fields linked to a saved venue
 }
 
 export interface BattingStats {
