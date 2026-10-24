@@ -350,8 +350,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       />
       <ConfirmationModal
         isOpen={isResetConfirmOpen}
-        title="Reset All Local Data?"
-        message="This permanently deletes all recorded games, season statistics, settings, saved lists and your logo library from this device, then returns you to the setup screen. Export a backup first if you want to keep your data - backups include your logo images."
+        title="Reset this app?"
+        message="This permanently removes all saved games, season stats, settings, lists and team logos from this device, then takes you back to setup. Export a backup first if you want to keep a separate copy, including your logo images."
         confirmLabel="Yes, Reset Everything"
         variant="danger"
         onConfirm={async () => {
