@@ -65,12 +65,12 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
               className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${activeTab === 'dashboard' ? 'border-[#00BFA5] bg-[#E6FBF8] dark:border-[#00D7BC] dark:bg-[#252D38]' : 'border-slate-200 bg-white hover:border-[#00BFA5] hover:bg-slate-50 dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]'}`}
             >
               <LayoutDashboard className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Dashboard</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Your season at a glance</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Dashboard</span><span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">Your season at a glance</span></span>
             </button>
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'profile' ? null : 'profile')} aria-expanded={expandedMenuGroup === 'profile'} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <UserRound className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Player Profile</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Player details, profiles and report</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Player Profile</span><span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">Manage your player identity and reports</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'profile' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'profile' && (
@@ -83,7 +83,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'matches' ? null : 'matches')} aria-expanded={expandedMenuGroup === 'matches'} className="mt-1 flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <CalendarRange className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Matches</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Schedule, manage and review games</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Matches</span><span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">View scheduled games and review results</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'matches' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'matches' && (
@@ -102,7 +102,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'setup' ? null : 'setup')} aria-expanded={expandedMenuGroup === 'setup'} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <Settings2 className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Setup &amp; Settings</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Teams, opponents, seasons, venues and fields</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Setup &amp; Settings</span><span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">Configure teams and competition details</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'setup' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'setup' && (
@@ -119,7 +119,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'preferences' ? null : 'preferences')} aria-expanded={expandedMenuGroup === 'preferences'} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <SlidersHorizontal className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">App Preferences</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Notifications, scoring, display and data</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">App Preferences</span><span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">Personalise scoring and app preferences</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'preferences' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'preferences' && (
@@ -143,7 +143,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
                 <Scale className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Legal</span>
-                  <span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Terms and privacy information</span>
+                  <span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-[#9CA3AF]">Review the app’s terms and privacy</span>
                 </span>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'legal' ? 'rotate-180' : ''}`} />
               </button>
