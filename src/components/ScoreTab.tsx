@@ -1700,10 +1700,10 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             className="w-full max-w-md rounded-md border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#354050] dark:bg-[#1A2028]"
           >
             <h2 id="lineup-spot-prompt-title" className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA]">
-              Select batting lineup spot
+              Choose batting spot
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">
-              Choose the player&apos;s spot before recording a batting play.
+              First, choose where this player bats in the lineup.
             </p>
             <ThemedDropdown<number>
               value={currentInningLineupSpot}
@@ -1928,7 +1928,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             className="min-h-[92px] rounded-md p-3 flex flex-col items-center justify-center text-center transition-all active:scale-[0.97] cursor-pointer border-[#00BFA5] dark:border-[#00D7BC] bg-[#00BFA5] dark:bg-[#00D7BC] text-[#18212D] dark:text-[#101419] hover:bg-[#00BFA5]/90 ring-2 ring-inset ring-[#efefef] dark:ring-[#354050]"
           >
             <span className="font-semibold text-xl">End Game</span>
-            <span className="text-[13px] font-normal text-white">Enter final score &amp; save</span>
+            <span className="text-[13px] font-normal text-white">Add the final score and save the game</span>
           </button>
           <button
             type="button"
@@ -1957,7 +1957,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
             ) : activeMode === 'batting' ? (
               <>
                 <span className="font-semibold text-xl text-white">End Batting Half</span>
-                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next: switch to defense, Inning {currentInning}</span>
+                <span className="text-[13px] font-normal text-white dark:text-[#9CA3AF]">Next up: defense · Inning {currentInning}</span>
               </>
             ) : (
               <>
@@ -2380,7 +2380,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
           <div role="dialog" aria-modal="true" aria-labelledby="roe-decision-title" className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#1A2028] shadow-2xl p-5 space-y-4">
             <div>
               <h2 id="roe-decision-title" className="text-lg font-bold text-[#18212D] dark:text-[#FAFAFA]">Did a defensive error change the play?</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">Consider whether an average effort would have got the batter out. A fielder misplaying the ball does not automatically make this an error for the batter.</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-[#D1D5DB]">Ask yourself: would an ordinary play have got the batter out? A misplay isn't automatically an error on the batter's hit.</p>
             </div>
             <div className="grid gap-2">
               <button type="button" onClick={() => {
@@ -2398,7 +2398,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
                 setRoeModalOpen(true);
               }} className="w-full rounded-lg border border-slate-300 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3 text-left hover:border-[#00BFA5] dark:hover:border-[#00D7BC] transition-colors">
                 <span className="block font-semibold text-[#18212D] dark:text-[#FAFAFA]">Yes — score Reached on Error</span>
-                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Use only when the batter likely would have been out without the misplay.</span>
+                <span className="mt-0.5 block text-xs text-slate-600 dark:text-[#D1D5DB]">Choose this only if the batter probably would have been out without the misplay.</span>
               </button>
               <button type="button" onClick={() => {
                 setRoeDecisionMode('extraBases');
@@ -2562,7 +2562,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
         <ConfirmationModal
           isOpen={isBatterStrikeoutModalOpen}
           title="Third strike — what happened?"
-          message="The batter may be safe at first on a dropped third strike because first base is unoccupied or there are two outs. Choose the result that happened."
+          message="On a dropped third strike, the batter can sometimes run to first if the base is empty or there are two outs. Choose what happened on this play."
           confirmLabel="Safe at 1st (D3S)"
           cancelLabel="Strikeout"
           onConfirm={() => recordBatterStrikeout(true)}
