@@ -24,6 +24,7 @@ import {
 
 interface MilestoneTrackerProps {
   games: Game[];
+  view: 'personalBest' | 'milestones';
   onViewStats?: () => void;
 }
 
@@ -320,6 +321,7 @@ function ProgressCard({ milestone }: { milestone: ProgressMilestone }) {
 
 export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
   games,
+  view,
   onViewStats,
 }) => {
   const data = useMemo(() => {
@@ -388,6 +390,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
 
   return (
     <>
+    {view === 'milestones' && (
     <section className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <div>
@@ -481,8 +484,10 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
       </div>
 
     </section>
+    )}
 
     {/* Personal bests: standalone category, separate from progress milestones */}
+    {view === 'personalBest' && (
     <section className="space-y-3">
       <div className="px-1">
         <h2 className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">
@@ -554,6 +559,7 @@ export const MilestoneTracker: React.FC<MilestoneTrackerProps> = ({
         <Activity className="h-5 w-5 text-slate-300 dark:text-[#6B7280]" />
       </div>
     </section>
+    )}
     </>
   );
 };
