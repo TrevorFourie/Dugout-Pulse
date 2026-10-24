@@ -1,7 +1,27 @@
 import React from 'react';
-import type { PlayerProfile } from '../../types/baseball';
+import type { DefensivePosition, PlayerProfile } from '../../types/baseball';
 import TeamIcon from '../../assets/TeamIcon.png';
 import { ImagePlus, UserPlus } from 'lucide-react';
+import { ThemedDropdown } from '../ThemedDropdown';
+
+const FIELDING_POSITION_OPTIONS: { value: DefensivePosition; label: string }[] = [
+  { value: 'P', label: 'Pitcher' },
+  { value: 'C', label: 'Catcher' },
+  { value: '1B', label: 'First Base' },
+  { value: '2B', label: 'Second Base' },
+  { value: '3B', label: 'Third Base' },
+  { value: 'SS', label: 'Shortstop' },
+  { value: 'LF', label: 'Left Field' },
+  { value: 'CF', label: 'Center Field' },
+  { value: 'RF', label: 'Right Field' },
+  { value: 'DH', label: 'Designated Hitter' },
+];
+
+const HANDEDNESS_OPTIONS = [
+  { value: 'Right' as const, label: 'Right' },
+  { value: 'Left' as const, label: 'Left' },
+  { value: 'Both' as const, label: 'Both' },
+];
 
 interface PlayerDetailsPanelProps {
   activeProfile: PlayerProfile;
@@ -64,6 +84,63 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
                   <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                     Saved with primary team. You can set a different jersey number for each team in the Teams section.
                   </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <div className="mb-2">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
+                      Fielding Positions (Optional)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3">
+                      {FIELDING_POSITION_OPTIONS.map((position) => {
+                        const selected = activeProfile.fieldingPositions || [];
+                        const checked = selected.includes(position.value);
+                        return (
+                          <label key={position.value} className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-700 dark:text-[#D1D5DB]">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => updateActiveProfile({
+                                fieldingPositions: checked
+                                  ? selected.filter((value) => value !== position.value)
+                                  : [...selected, position.value],
+                              })}
+                              className="h-4 w-4 shrink-0 accent-[#00BFA5] dark:accent-[#00D7BC]"
+                            />
+                            <span>{position.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
+                      Select any positions that apply. Uncheck all to remove them.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
+                        Batting (Optional)
+                      </label>
+                      <ThemedDropdown
+                        value={activeProfile.battingSide}
+                        onChange={(value) => updateActiveProfile({ battingSide: value })}
+                        options={HANDEDNESS_OPTIONS}
+                        placeholder="Choose batting side"
+                        ariaLabel="Player batting side"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
+                        Throwing Arm (Optional)
+                      </label>
+                      <ThemedDropdown
+                        value={activeProfile.throwingArm}
+                        onChange={(value) => updateActiveProfile({ throwingArm: value })}
+                        options={HANDEDNESS_OPTIONS}
+                        placeholder="Choose throwing arm"
+                        ariaLabel="Player throwing arm"
+                      />
+                    </div>
+                  </div>
                 </div>
                 {/* Custom logo */}
                 <div className="sm:col-span-2 flex items-center gap-3">
