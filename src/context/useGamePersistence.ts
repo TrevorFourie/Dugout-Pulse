@@ -5,7 +5,7 @@ import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
-import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState } from '../storage/sqliteRepository';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -28,20 +28,18 @@ interface GamePersistenceOptions {
 
 const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
 
-/** A newer scoring action owns the live-game mirror while its journal is pending. */
+/** A newer scoring action owns the live-game write-ahead journal while it is pending. */
 function hasNewerPendingLiveGameWrite(expectedLiveGame: string | null): boolean {
   if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) === null) return false;
   return localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== expectedLiveGame;
 }
 
-/** Persists one coherent GameContext snapshot after a verified recovery checkpoint. */
+/** Persist context state to SQLite after cutover; localStorage remains only for migration/recovery metadata. */
 export function useGamePersistence({
   isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
   savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments, hiddenAgeGroups,
   hiddenSeasons, liveGame, editingGameId, reopenedGameId, profiles, settings,
 }: GamePersistenceOptions): void {
-  // Effects can overlap while recovery checkpoints or SQLite writes are awaiting I/O.
-  // Serialize complete snapshots so an older render cannot commit after a newer one.
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -52,9 +50,7 @@ export function useGamePersistence({
         const expectedLiveGame = liveGame === null ? null : JSON.stringify(liveGame);
         const matchesPendingCompletedSave = (pendingGame: Game) =>
           games.some((game) => game.id === pendingGame.id && JSON.stringify(game) === JSON.stringify(pendingGame)) &&
-          (liveGame?.id !== pendingGame.id ||
-            editingGameId === pendingGame.id ||
-            reopenedGameId === pendingGame.id);
+          (liveGame?.id !== pendingGame.id || editingGameId === pendingGame.id || reopenedGameId === pendingGame.id);
         const shouldAbortForNewerWrite = () => {
           const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
           if (pendingCompletedGame && !matchesPendingCompletedSave(pendingCompletedGame)) return true;
@@ -62,37 +58,21 @@ export function useGamePersistence({
         };
         if (shouldAbortForNewerWrite()) return;
 
-        const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed');
-        if (!checkpointed) {
-          onStorageProtectionFailure();
-          recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested storage write was blocked.'));
-          return;
-        }
-
-        if (shouldAbortForNewerWrite()) return;
-
         let cutoverComplete = false;
         try {
           cutoverComplete = await isLegacyStorageImportComplete();
         } catch (error) {
-          // Before cutover, SQLite is optional and localStorage remains authoritative.
-          // After cutover, failure to inspect SQLite must stop writes rather than split the stores.
           if (localStorage.getItem(LOCAL_CUTOVER_MARKER) === 'complete') throw error;
         }
         if (localStorage.getItem(LOCAL_CUTOVER_MARKER) === 'complete' && !cutoverComplete) {
           throw new Error('The local and database cutover markers disagree; persistence was paused for recovery.');
         }
-        if (cutoverComplete && localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
-          localStorage.setItem(LOCAL_CUTOVER_MARKER, 'complete');
-          if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
-            throw new Error('SQLite is authoritative, but its local cutover marker could not be reconciled.');
-          }
-        }
-
-        if (shouldAbortForNewerWrite()) return;
 
         if (cutoverComplete) {
-          const setupCompleted = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED) === 'true';
+          // A committed SQLite snapshot is the source of truth. Do not checkpoint or
+          // rewrite application data into localStorage after cutover.
+          if (shouldAbortForNewerWrite()) return;
+          const persistedState = await readLiveSQLiteState();
           await saveLiveSQLiteState({
             games,
             profiles,
@@ -100,7 +80,7 @@ export function useGamePersistence({
             liveGame,
             editingGameId,
             reopenedGameId,
-            setupCompleted,
+            setupCompleted: persistedState.setupCompleted,
             savedOpponents,
             savedTournaments,
             savedAgeGroups,
@@ -109,13 +89,10 @@ export function useGamePersistence({
             hiddenAgeGroups,
             hiddenSeasons,
             oppositionTeams,
-            // Scheduled games and logo metadata have their own serialized write paths.
-            // Do not rewrite them from a potentially stale compatibility mirror here.
-            upcomingGames: [],
-            logoLibrary: [],
-          });
-          // SQLite has committed the complete state, so clear completed-save and
-          // scoring journals only after the exact current snapshot is durable.
+            upcomingGames: persistedState.upcomingGames,
+            logoLibrary: persistedState.logoLibrary,
+          }, { includeAuxiliary: true });
+
           const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
           if (pendingCompletedGame && matchesPendingCompletedSave(pendingCompletedGame)) {
             localStorage.removeItem(PENDING_COMPLETED_GAME_SAVE_KEY);
@@ -123,23 +100,25 @@ export function useGamePersistence({
               throw new Error('The completed-game journal could not be cleared after SQLite committed the matching snapshot.');
             }
           }
-        }
-
-        // A scoring action may have landed while SQLite was committing this snapshot.
-        // Leave its pending journal intact and let the queued newer snapshot reconcile it.
-        if (shouldAbortForNewerWrite()) return;
-
-        if (cutoverComplete) {
+          if (shouldAbortForNewerWrite()) return;
           if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
             localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
             if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
               throw new Error('The pending live-game journal could not be cleared after SQLite committed.');
             }
           }
+          return;
         }
 
-        // Keep the established local recovery/backup/diagnostic paths usable as a
-        // compatibility mirror. SQLite commits first once the cutover is complete.
+        // One-time legacy mode only: preserve the old storage behavior until the
+        // validated SQLite import transaction completes. This is not the post-cutover path.
+        const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed during legacy migration');
+        if (!checkpointed) {
+          onStorageProtectionFailure();
+          recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested legacy storage write was blocked.'));
+          return;
+        }
+        if (shouldAbortForNewerWrite()) return;
         const results = [
           protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(games)),
           protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams)),
@@ -150,35 +129,22 @@ export function useGamePersistence({
           protectedStorageSetItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments)),
           protectedStorageSetItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups)),
           protectedStorageSetItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons)),
-          liveGame
-            ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame))
-            : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME),
-          editingGameId
-            ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId))
-            : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID),
-          reopenedGameId
-            ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId))
-            : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID),
+          liveGame ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame)) : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME),
+          editingGameId ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId)) : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID),
+          reopenedGameId ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId)) : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID),
           protectedStorageSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles)),
           protectedStorageSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)),
         ];
         if (results.some((success) => !success)) {
           onStorageProtectionFailure();
-          recordDiagnosticError('storage_write', new Error('One or more compatibility-mirror writes failed verification.'));
+          recordDiagnosticError('storage_write', new Error('One or more legacy storage writes failed verification.'));
           return;
         }
-
-        // Before cutover, localStorage remains authoritative, so retain the journal
-        // until all compatibility writes have been verified.
-        if (!cutoverComplete && localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-          try {
-            localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
-            if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-              throw new Error('The pending live-game journal could not be cleared after localStorage persistence.');
-            }
-          } catch (error) {
+        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
+          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
             onStorageProtectionFailure();
-            recordDiagnosticError('storage_write_games', error, 'The live game was saved, but its pending journal could not be cleared. Saving has been paused so startup can safely reconcile it.');
+            recordDiagnosticError('storage_write_games', new Error('The pending live-game journal could not be cleared after legacy storage persistence.'));
           }
         }
       } catch (error) {
