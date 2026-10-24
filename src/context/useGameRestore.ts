@@ -31,6 +31,7 @@ interface GameRestoreOptions {
   setResumePromptPending: StateSetter<boolean>;
   setRestoreFailed: StateSetter<boolean>;
   setIsFirstTimeUser: StateSetter<boolean>;
+  setSetupCompleted: StateSetter<boolean>;
 }
 
 /**
@@ -56,6 +57,7 @@ export function useGameRestore({
   setResumePromptPending,
   setRestoreFailed,
   setIsFirstTimeUser,
+  setSetupCompleted,
 }: GameRestoreOptions): void {
   useEffect(() => {
     void (async () => {
@@ -162,6 +164,7 @@ export function useGameRestore({
         setHiddenTournaments(state.hiddenTournaments);
         setHiddenAgeGroups(state.hiddenAgeGroups);
         setHiddenSeasons(state.hiddenSeasons);
+        setSetupCompleted(state.setupCompleted);
         setIsFirstTimeUser(!isMeaningfullyConfigured(state.profiles, state.setupCompleted));
       };
       const mirrorLiveState = async (_state: SQLiteLiveState) => {
@@ -462,6 +465,7 @@ export function useGameRestore({
 
       read<string | null>(STORAGE_KEYS.EDITING_GAME_ID, setEditingGameId, (value): value is string | null => value === null || typeof value === 'string');
       read<string | null>(STORAGE_KEYS.REOPENED_GAME_ID, setReopenedGameId, (value): value is string | null => value === null || typeof value === 'string');
+      read<boolean>(STORAGE_KEYS.SETUP_COMPLETED, setSetupCompleted, (value): value is boolean => typeof value === 'boolean');
 
       read<PlayerProfile[]>(STORAGE_KEYS.PROFILES, (parsed) => {
         if (parsed.length > 0) setProfiles(parsed.map(withTeams));
