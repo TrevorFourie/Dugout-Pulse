@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import type { GameContextType, OppositionTeam } from './gameContextTypes';
 export type { OppositionTeam } from './gameContextTypes';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, STORAGE_KEYS } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS } from './gameContextDefaults';
 import { useGamePersistence } from './useGamePersistence';
 import { useGameRestore } from './useGameRestore';
 import { useGamePresets } from './useGamePresets';
@@ -43,28 +43,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleStorageProtectionFailure = useCallback(() => setRestoreFailed(true), []);
 
   // First time user detection: true if setup has not been completed and no profile is filled out
-  const [isFirstTimeUser, setIsFirstTimeUser] = useState<boolean>(() => {
-    try {
-      const completed = localStorage.getItem(STORAGE_KEYS.SETUP_COMPLETED);
-      if (completed === 'true') return false;
-      const storedProfiles = localStorage.getItem(STORAGE_KEYS.PROFILES);
-      if (storedProfiles) {
-        const parsed = JSON.parse(storedProfiles);
-        if (
-          Array.isArray(parsed) &&
-          parsed.length > 0 &&
-          parsed[0]?.playerName?.trim() &&
-          (parsed[0]?.teamName?.trim() || (parsed[0]?.teams && parsed[0]?.teams.length > 0))
-        ) {
-          return false;
-        }
-      }
-      return true;
-    } catch (error) {
-      recordDiagnosticError(error instanceof SyntaxError ? 'data_corruption' : 'storage_read', error, 'Initial setup/profile state could not be read from saved storage.');
-      return false;
-    }
-  });
+  const [setupCompleted, setSetupCompleted] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
 
   // Initial restore is separate from ongoing persistence writes.
   useGameRestore({
@@ -86,6 +66,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setResumePromptPending,
     setRestoreFailed,
     setIsFirstTimeUser,
+    setSetupCompleted,
   });
 
   // Persistence writes are kept separate from the context's game and profile logic.
@@ -106,6 +87,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     reopenedGameId,
     profiles,
     settings,
+    setupCompleted,
   });
 
   // Dark mode effect
@@ -301,6 +283,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setHiddenAgeGroups,
     setHiddenSeasons,
     setIsFirstTimeUser,
+    setSetupCompleted,
     setRestoreFailed,
     setSavedOpponents,
     setSavedTournaments,
