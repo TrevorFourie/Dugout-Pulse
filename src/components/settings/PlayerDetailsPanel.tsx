@@ -1,11 +1,12 @@
 import React from 'react';
-import type { DefensivePosition, PlayerProfile } from '../../types/baseball';
+import type { PlayerFieldingPosition, PlayerProfile } from '../../types/baseball';
 import TeamIcon from '../../assets/TeamIcon.png';
 import { ImagePlus, UserPlus } from 'lucide-react';
 import { ThemedDropdown } from '../ThemedDropdown';
 
-const FIELDING_POSITION_OPTIONS: { value: DefensivePosition; label: string }[] = [
-  { value: 'P', label: 'Pitcher' },
+const FIELDING_POSITION_OPTIONS: { value: PlayerFieldingPosition; label: string }[] = [
+  { value: 'SP', label: 'Starting Pitcher' },
+  { value: 'RP', label: 'Relief Pitcher' },
   { value: 'C', label: 'Catcher' },
   { value: '1B', label: 'First Base' },
   { value: '2B', label: 'Second Base' },
@@ -76,7 +77,9 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
                       Fielding Positions (Optional)
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-xl border border-slate-200 dark:border-[#354050] bg-white dark:bg-[#252D38] p-3">
-                      {FIELDING_POSITION_OPTIONS.map((position) => {
+                      {(activeProfile.fieldingPositions?.includes('P')
+                        ? [{ value: 'P' as const, label: 'Pitcher (previous selection)' }, ...FIELDING_POSITION_OPTIONS]
+                        : FIELDING_POSITION_OPTIONS).map((position) => {
                         const selected = activeProfile.fieldingPositions || [];
                         const checked = selected.includes(position.value);
                         return (
