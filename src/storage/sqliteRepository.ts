@@ -1012,6 +1012,23 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
     upcomingGames: snapshot.upcomingGames as SQLiteLiveState['upcomingGames'],
     logoLibrary: snapshot.logoLibrary,
   }, { includeAuxiliary: true });
+  // Recovery checkpoints include the approved scoring UI state. Restore it into
+  // SQLite immediately after the core snapshot; the recovery caller removes the
+  // temporary localStorage values once the database transaction is verified.
+  for (const key of [SCORE_UI_STATE_KEY, RUNNER_WORKFLOW_STATE_KEY]) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      throw new Error(`Recovery checkpoint scoring UI state "${key}" contains invalid JSON.`);
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`Recovery checkpoint scoring UI state "${key}" failed validation.`);
+    }
+    await saveSQLiteAppStateValue(key, parsed);
+  }
 }
 
 
