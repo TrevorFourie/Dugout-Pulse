@@ -26,7 +26,7 @@ function plainReason(error: unknown): string | null {
   return null;
 }
 
-export const DIAGNOSTICS_HINT = 'If this keeps happening, open Settings, then Data & About, then Offline Diagnostics, and share the report.';
+export const DIAGNOSTICS_HINT = 'If it happens again, open Settings → Data & About → Offline Diagnostics and share the report.';
 
 /** Compose the user-facing text: what happened in plain words, a hint, and the reference to look up in the report. */
 export function explainFailure(whatHappened: string, reference?: string, error?: unknown): string {
