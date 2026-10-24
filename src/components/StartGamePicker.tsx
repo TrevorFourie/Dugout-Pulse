@@ -121,11 +121,11 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
 
   const handleLoadSelected = () => {
     if (!selectedGameId) {
-      setError('Please select a game from the list first.');
+      setError('Choose a game from the list to continue.');
       return;
     }
     if (liveGame) {
-      setError('A live game is already in progress. Save or discard it before loading another game.');
+      setError('You're already scoring a live game. Save it or discard it before opening another.');
       return;
     }
     if (selectedGameId.startsWith('scheduled:')) {
@@ -175,7 +175,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
               <PlayCircle className="h-5 w-5" />
               <span className="text-[11px] font-bold uppercase tracking-wider">Start Game</span>
             </div>
-            <h2 id="start-game-picker-title" className="text-xl font-semibold text-slate-900 dark:text-[#FAFAFA]">Choose a game</h2>
+            <h2 id="start-game-picker-title" className="text-xl font-semibold text-slate-900 dark:text-[#FAFAFA]">Which game are we playing?</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-[#9CA3AF]">Games Scheduled for {new Date(`${gameDate}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-[#D1D5DB] dark:hover:bg-[#252D38]">
@@ -199,7 +199,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
               className="w-full"
               menuClassName="max-h-64"
             />
-            <p className="mt-2 text-xs text-slate-500 dark:text-[#9CA3AF]">Saved and scheduled games for this date are listed separately. Nothing is loaded until you select a game and confirm.</p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-[#9CA3AF]">Your saved games and upcoming fixtures are listed separately. Nothing opens until you choose a game and confirm.</p>
             {error && <p role="alert" className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
             <button type="button" onClick={handleLoadSelected} disabled={!selectedGameId || Boolean(liveGame)} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00BFA5] px-4 py-3 text-sm font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#00D7BC] dark:hover:bg-[#00C4AB]">
               <PlayCircle className="h-4 w-4" /> Load Selected Game
@@ -212,7 +212,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
         ) : (
           <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-[#354050] dark:bg-[#252D38]">
             <p className="text-sm font-semibold text-slate-800 dark:text-[#FAFAFA]">No games loaded</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">You can continue with the existing manual game setup.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-[#9CA3AF]">Rather start from scratch? You can set up a game manually.</p>
             <button type="button" onClick={onLoadManually} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#00BFA5] px-4 py-3 text-sm font-semibold text-[#18212D] hover:bg-[#00A892] dark:bg-[#00D7BC] dark:hover:bg-[#00C4AB]">
               <Upload className="h-4 w-4" /> Load Game Manually
             </button>
@@ -222,7 +222,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       <ConfirmationModal
         isOpen={scheduledGamesAlertOpen}
         title="Scheduled games could not be read"
-        message="Scheduled games could not be loaded from saved data. You can close this message and continue with manual game setup."
+        message="We couldn't load your scheduled games. You can close this message and set up a game manually instead."
         confirmLabel="OK"
         showCancelButton={false}
         closeOnBackdrop={false}
