@@ -943,29 +943,7 @@ if (-not $Release) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $apkArchive = [System.IO.Compression.ZipFile]::OpenRead($whatsAppApk)
     try {
-        $nativeLibraries = @($apkArchive.Entries | Where-Object { $_.FullName -match '^lib/[^/]+/[^/]+\.so
-    # Set the actual Windows file timestamps after copying the APK to the output folder.
-    $apkFile = Get-Item -LiteralPath $whatsAppApk -ErrorAction Stop
-    $buildTime = Get-Date
-    $apkFile.LastWriteTime = $buildTime
-    $apkFile.CreationTime = $buildTime
-    $apkFile.LastAccessTime = $buildTime
-
-    # Read back the filesystem timestamp so the build log confirms the applied value.
-    $apkFile.Refresh()
-    Write-Host "APK file modified: $($apkFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Cyan
-    $apkSize = (Get-Item $whatsAppApk).Length / 1MB
-    Write-Host "ARM64-only WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
-    Write-Host "Send the *whatsapp.apk file to your phone via WhatsApp, then tap it to install." -ForegroundColor Cyan
-}
-
-if ($Install) {
-    Write-Host "AABs cannot be installed directly with adb. For debug builds, use the generated WhatsApp APK shown above." -ForegroundColor Yellow
-}
-
-Set-Location $RepoRoot
-Write-Host "Done!" -ForegroundColor Cyan
- })
+        $nativeLibraries = @($apkArchive.Entries | Where-Object { $_.FullName -match '^lib/[^/]+/[^/]+\.so$' })
         $unsupportedLibraries = @($nativeLibraries | Where-Object { $_.FullName -notmatch '^lib/arm64-v8a/' })
         if ($unsupportedLibraries.Count -gt 0) {
             throw "The testing APK contains native libraries outside ARM64: $($unsupportedLibraries.FullName -join ', '). Refusing to deliver it."
@@ -980,8 +958,7 @@ Write-Host "Done!" -ForegroundColor Cyan
         $apkArchive.Dispose()
     }
 
-    # Gradle APK output can have fixed archive timestamps; set actual filesystem timestamps.
-    # Set the actual Windows file timestamps after copying the APK to the output folder.
+    # Set actual Windows file timestamps after copying the APK to the output folder.
     $apkFile = Get-Item -LiteralPath $whatsAppApk -ErrorAction Stop
     $buildTime = Get-Date
     $apkFile.LastWriteTime = $buildTime
@@ -992,7 +969,7 @@ Write-Host "Done!" -ForegroundColor Cyan
     $apkFile.Refresh()
     Write-Host "APK file modified: $($apkFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Cyan
     $apkSize = (Get-Item $whatsAppApk).Length / 1MB
-    Write-Host "WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+    Write-Host "ARM64-only WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
     Write-Host "Send the *whatsapp.apk file to your phone via WhatsApp, then tap it to install." -ForegroundColor Cyan
 }
 
