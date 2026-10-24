@@ -693,7 +693,7 @@ export function useGameDataManagement({
     setGames, setLiveGame, setEditingGameId, setReopenedGameId, setProfiles, setSettings,
     setOppositionTeams, setHiddenTournaments, setHiddenAgeGroups, setHiddenSeasons,
     setSavedOpponents, setSavedTournaments, setSavedAgeGroups, setSavedSeasons,
-    setIsFirstTimeUser, setRestoreFailed,
+    setIsFirstTimeUser, setSetupCompleted, setRestoreFailed,
   ]);
 
   const completeFirstTimeSetup = useCallback(
