@@ -3,6 +3,7 @@ import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from '../context/recoveryJournal';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { recordDiagnosticError } from './errorDiagnostics';
+import { readSQLiteUpcomingGames } from '../storage/sqliteRepository';
 
 export interface GameReminder {
   id: string;
@@ -336,8 +337,6 @@ export const syncGameReminders = async (games: GameReminder[], enabled: boolean)
 
 /** Resync straight from device storage, even when the Upcoming Games screen is not mounted. */
 export const syncStoredGameReminders = async (enabled: boolean): Promise<void> => {
-  const raw = localStorage.getItem('dugoutPulse.upcomingGames.v1');
-  const parsed: unknown = raw ? JSON.parse(raw) : [];
-  if (!Array.isArray(parsed)) throw new SyntaxError('Saved scheduled-game reminders did not contain a list.');
-  await syncGameReminders(parsed as GameReminder[], enabled);
+  const games = await readSQLiteUpcomingGames();
+  await syncGameReminders(games as GameReminder[], enabled);
 };
