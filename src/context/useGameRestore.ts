@@ -423,6 +423,7 @@ export function useGameRestore({
       recordDiagnosticError('storage_load', error, 'SQLite migration did not complete. The original legacy data was retained and the app was stopped to prevent split-store writes.');
       console.error('SQLite migration did not complete; startup is paused to protect saved data.', error);
       return;
+    }
     })();
   }, []);
 }
