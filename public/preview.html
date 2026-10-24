@@ -104,7 +104,13 @@
     .bar-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 500; padding: 0 16px; }
     .bar-top .l, .bar-top .r { display: flex; align-items: center; gap: 7px; }
     .bar-top.tablet { font-size: 13px; }
-    .volte { font-size: 9px; border: 1px solid #fff; padding: 1px 3px; border-radius: 3px; font-weight:600; letter-spacing: .5px; }
+    .volte { font-size: 8px; background: #fff; color: #000; padding: 1px 3px; border-radius: 3px; font-weight:800; letter-spacing: 0; line-height: 11px; }
+    .bar-top.android { padding: 0 8px 0 12px; font-size: 15px; font-weight: 500; }
+    .bar-top.android .l { gap: 6px; }
+    .bar-top.android .r { gap: 4px; }
+    .bar-top.android svg { display: block; flex: none; }
+    .net4g { display: flex; align-items: flex-start; gap: 1px; }
+    .net4g span { font-size: 7px; font-weight: 800; line-height: 8px; margin-top: 0; }
     .ico { width: 14px; height: 14px; fill: #fff; }
 
     /* iOS status */
@@ -116,11 +122,26 @@
     }
 
     /* Android nav */
-    .nav-android { display: flex; align-items: center; justify-content: space-around; padding: 0 30px; }
-    .nav-android.tablet { justify-content: center; gap: 45px; }
-    .nav-btn { background: none; border: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; opacity: .85; cursor: pointer; }
-    .nav-btn:hover { opacity: 1; }
-    .nav-ico { fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-android { display: flex; align-items: center; justify-content: center; padding: 0; }
+    .nav-android.tablet { justify-content: center; gap: 0; }
+    .nav-btn {
+        background: none; border: none; outline: none;
+        width: 63px; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    /* soft round press highlight, like the real system ripple */
+    .nav-btn::before {
+        content: ""; position: absolute; width: 40px; height: 40px; border-radius: 50%;
+        background: rgba(255,255,255,0); transition: background .12s;
+    }
+    .nav-btn:active::before { background: rgba(255,255,255,.16); }
+    .nav-btn svg { display: block; position: relative; overflow: visible; }
+    .nav-ico {
+        fill: none; stroke: #ffffff; stroke-width: 1.5;
+        stroke-linecap: round; stroke-linejoin: round;
+        opacity: .95;
+    }
 
     /* iOS home indicator */
     .nav-ios { display: flex; align-items: center; justify-content: center; }
@@ -231,11 +252,22 @@ const SVG = {
     iosBattery: '<svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="19" height="9" rx="2.2" fill="#fff"/><rect x="24" y="4" width="2" height="5" rx="1" fill="#fff" opacity=".5"/></svg>'
 };
 
+// Matches the real Nova 14i 3-button bar (left to right): Recents, Home, Back, Hide.
+// Icons are drawn in dp units (1 SVG unit = 1 CSS px), 1.5dp stroke, 63dp apart.
+/* Android (EMUI) status bar icons, matched to the real Nova 14i screenshot */
+const AND = {
+    timer: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.4 1.5"/></svg>',
+    alarm: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-linecap="round"><path d="M2 5.2A3.4 3.4 0 0 1 5 1.8M14 5.2A3.4 3.4 0 0 0 11 1.8" stroke="#fff" stroke-width="1.7"/><circle cx="8" cy="9" r="5.6" fill="#fff"/><path d="M8 6v3.2l2 1.3" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    wifi: '<svg width="15" height="14" viewBox="0 0 16 14" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"><path d="M1 4.8Q8-1.4 15 4.8"/><path d="M3.6 7.9Q8 4 12.4 7.9"/><circle cx="8" cy="11.2" r="1.3" fill="#fff" stroke="none"/></svg>',
+    bars: '<svg width="13" height="13" viewBox="0 0 13 13" fill="#fff"><rect x="0" y="9" width="2.4" height="4" rx=".8"/><rect x="3.5" y="6.2" width="2.4" height="6.8" rx=".8"/><rect x="7" y="3.4" width="2.4" height="9.6" rx=".8"/><rect x="10.5" y="0" width="2.4" height="13" rx=".8" opacity=".4"/></svg>',
+    battery: (lvl) => `<svg width="25" height="13" viewBox="0 0 25 13"><rect x=".7" y=".7" width="21.6" height="11.6" rx="3.4" fill="none" stroke="#fff" stroke-width="1.4"/><rect x="23" y="4" width="1.8" height="5" rx=".9" fill="#fff"/><text x="11.5" y="9.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="Roboto, Arial, sans-serif">${lvl}</text></svg>`
+};
+
 const NAV_ICONS = `
-    <button class="nav-btn" aria-label="Recent apps"><svg width="16" height="16" viewBox="0 0 24 24"><rect class="nav-ico" x="3" y="3" width="18" height="18" rx="2"/></svg></button>
-    <button class="nav-btn" aria-label="Home"><svg width="18" height="18" viewBox="0 0 24 24"><circle class="nav-ico" cx="12" cy="12" r="9"/></svg></button>
-    <button class="nav-btn" aria-label="Back"><svg width="16" height="16" viewBox="0 0 24 24" style="transform:rotate(-90deg)"><polygon class="nav-ico" points="12,2 2,22 22,22"/></svg></button>
-    <button class="nav-btn" aria-label="Dismiss"><svg width="16" height="16" viewBox="0 0 24 24"><polyline class="nav-ico" points="6,9 12,15 18,9"/></svg></button>`;
+    <button class="nav-btn" aria-label="Recent apps"><svg width="20" height="20" viewBox="0 0 20 20"><rect class="nav-ico" x="2.5" y="2.5" width="15" height="15" rx="2.2"/></svg></button>
+    <button class="nav-btn" aria-label="Home"><svg width="20" height="20" viewBox="0 0 20 20"><circle class="nav-ico" cx="10" cy="10" r="8.2"/></svg></button>
+    <button class="nav-btn" aria-label="Back"><svg width="20" height="20" viewBox="0 0 20 20"><path class="nav-ico" d="M15.6 3.4 Q16.8 2.8 16.8 4.2 V15.8 Q16.8 17.2 15.6 16.6 L4.2 11.2 Q2.8 10 4.2 8.8 Z"/></svg></button>
+    <button class="nav-btn" aria-label="Hide navigation"><svg width="20" height="20" viewBox="0 0 20 20"><path class="nav-ico" d="M4.5 3.2 H15.5 M4.5 6.6 H15.5 M5 10.6 L10 15.6 L15 10.6"/></svg></button>`;
 
 /* ---------- Render ---------- */
 function render() {
@@ -260,9 +292,9 @@ function render() {
     let top = '';
     if (statusH > 0) {
         if (d.kind === 'android' || isAndroidTab) {
-            top = `<div class="bar-top ${isAndroidTab ? 'tablet' : ''}" style="height:${statusH}px">
+            top = `<div class="bar-top android ${isAndroidTab ? 'tablet' : ''}" style="height:${statusH}px">
                 <div class="l"><span class="volte">VoLTE</span><span class="clock"></span></div>
-                <div class="r">${SVG.circle}${SVG.signal}<span>89</span>${SVG.battery}</div>
+                <div class="r">${AND.timer}${AND.alarm}${AND.wifi}<div class="net4g"><span>4G</span>${AND.bars}</div>${AND.battery(85)}</div>
             </div>`;
         } else if (isPhoneIOS) {
             top = `<div class="bar-top ios" style="height:${statusH}px">
