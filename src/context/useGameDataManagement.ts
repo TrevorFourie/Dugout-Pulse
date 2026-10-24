@@ -688,6 +688,7 @@ export function useGameDataManagement({
     // App then closes Settings and shows the setup screen.
     setSetupCompleted(false);
     setIsFirstTimeUser(true);
+    window.dispatchEvent(new CustomEvent('dugout-pulse-scoring-ui-state-reset'));
     return true;
   }, [
     games, liveGame, editingGameId, reopenedGameId, profiles, settings, oppositionTeams,
