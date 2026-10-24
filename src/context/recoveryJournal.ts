@@ -35,6 +35,24 @@ const WEEKLY_RETENTION_WEEKS = 4;
 const PRE_RECOVERY_PROTECTION_DAYS = 7;
 const STORAGE_WARNING_BYTES = 25 * 1024 * 1024;
 const INDEX_TEMP_FILE = RECOVERY_DIR + '/index.json.tmp';
+const LEGACY_APP_DATA_KEYS = new Set<string>([
+  ...Object.values(STORAGE_KEYS),
+  'dugoutPulse.games.v1',
+  'dugoutPulse.savedGames.v1',
+  'dugoutPulse.profiles.v1',
+  'dugoutPulse.upcomingGames.v1',
+  'dugoutPulse.oppositionTeams.v1',
+  'dugoutPulse.logoLibrary.v1',
+]);
+function clearLegacyAppDataMirrors(): void {
+  for (const key of LEGACY_APP_DATA_KEYS) {
+    localStorage.removeItem(key);
+    if (localStorage.getItem(key) !== null) {
+      throw new Error('A legacy application-data copy could not be removed after SQLite recovery.');
+    }
+  }
+}
+
 const EXCLUDED_KEYS = new Set([
   'dugoutPulse.recoverySnapshot.v1',
   'dugoutPulse.recoverySnapshot.previous.v1',
@@ -673,6 +691,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         // Keep SQLite and the restored compatibility mirror in sync before claiming
         // recovery succeeded. The original legacy_values provenance is not changed.
         await saveLiveSQLiteStateFromCurrentLocalStorage();
+        clearLegacyAppDataMirrors();
       }
       return { success: true, message: 'Recovery completed and verified, including the restored custom logo files. The app will reload to apply the restored data.' };
     } catch (restoreError) {
@@ -703,6 +722,7 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         await verifyLogoFilesForValues(rolledBack, beforeLogoFiles);
         if (sqliteCutoverComplete && beforeSQLiteState) {
           await saveLiveSQLiteState(beforeSQLiteState, { includeAuxiliary: true });
+          clearLegacyAppDataMirrors();
         }
         rollbackVerified = true;
       } catch (rollbackError) {
