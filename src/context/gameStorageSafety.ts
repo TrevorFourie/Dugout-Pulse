@@ -331,6 +331,14 @@ export function getRecoverySnapshotInfo(): RecoverySnapshotInfo {
  * the current state before restoring, and retain both snapshots for verification.
  */
 export function restoreRecoverySnapshot(): boolean {
+  if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') === 'complete') {
+    recordDiagnosticError(
+      'recovery_restore',
+      new Error('A legacy localStorage recovery snapshot was requested after SQLite cutover.'),
+      'The legacy local recovery snapshot was not applied because SQLite is authoritative; use the SQLite-backed Recovery Journal instead.',
+    );
+    return false;
+  }
   try {
     if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
       recordDiagnosticError(
