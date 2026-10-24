@@ -35,15 +35,6 @@ export function useGameProfiles({
               ),
             };
           }
-          if (updates.jerseyNumber !== undefined) {
-            next = withTeams(next);
-            next = {
-              ...next,
-              teams: (next.teams || []).map((t) =>
-                t.isDefault ? { ...t, jerseyNumber: updates.jerseyNumber as string } : t
-              ),
-            };
-          }
           return next;
         })
       );
