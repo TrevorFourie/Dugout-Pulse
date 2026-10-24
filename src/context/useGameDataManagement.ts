@@ -644,7 +644,7 @@ export function useGameDataManagement({
             oppositionTeams: [],
             upcomingGames: [],
             logoLibrary: [],
-          }, { includeAuxiliary: true });
+          }, { includeAuxiliary: true, clearScoringUiState: true });
         } catch (error) {
           let rollbackError: unknown = null;
           if (beforeResetSQLiteState) {
