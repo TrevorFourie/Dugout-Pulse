@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile, PlayerTeam } from '../types/baseball';
 import { sortGames } from '../utils/stats';
 import { collectLocalLogoDataUrls, restoreLocalLogoReferences } from '../utils/logoBackup';
-import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
+import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, setTeamLogoLibraryCache, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
@@ -681,6 +681,8 @@ export function useGameDataManagement({
     setSavedTournaments?.([]);
     setSavedAgeGroups?.([]);
     setSavedSeasons?.([]);
+    setTeamLogoLibraryCache([]);
+    window.dispatchEvent(new CustomEvent(TEAM_LOGO_LIBRARY_EVENT));
     // The first-time-user flag is only read at startup, so it must be set explicitly here;
     // App then closes Settings and shows the setup screen.
     setSetupCompleted(false);
