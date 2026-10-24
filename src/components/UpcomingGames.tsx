@@ -559,7 +559,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                           className={'upcoming-match-card__reminder-action ' + (reminderEnabled ? 'upcoming-match-card__reminder-action--active' : '')}
                         >
                           <Bell className="h-4 w-4" aria-hidden="true" />
-                          <span>{!game.time ? 'Add start time' : reminderEnabled ? 'Reminder on' : 'Remind me'}</span>
                         </button>
                       </div>
                     )}
