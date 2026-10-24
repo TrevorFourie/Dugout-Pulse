@@ -101,7 +101,7 @@ export const RUNNER_OUT_REASONS: { code: RunnerOutReason; label: string; sub: st
 
 export type PitcherHand = 'R' | 'L';
 
-export type PlayerFieldingPosition = Exclude<DefensivePosition, 'P'> | 'P' | 'SP' | 'RP';
+export type PlayerFieldingPosition = DefensivePosition | 'SP' | 'RP';
 
 export type DefensivePosition =
   | 'P'
