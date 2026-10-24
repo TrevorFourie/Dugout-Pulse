@@ -71,7 +71,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const handleNextFromPlayer = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!playerName.trim()) {
-      setError('Please enter your player’s name to continue');
+      setError('Add your player’s name to keep going.');
       return;
     }
     setError(null);
@@ -80,7 +80,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const handleNextFromAge = () => {
     if (isCustomAge && !customAgeGroup.trim()) {
-      setError('Please enter a custom age group or pick one from the list');
+      setError('Add an age group or choose one from the list.');
       return;
     }
     setError(null);
@@ -89,7 +89,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const handleNextFromSeason = () => {
     if (isCustomSeason && !customSeason.trim()) {
-      setError('Please enter a custom season name or pick one from the list');
+      setError('Add a season name or choose one from the list.');
       return;
     }
     setError(null);
@@ -98,7 +98,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const handleNextFromTournament = () => {
     if (!noTournament && isCustomTournament && !customTournament.trim()) {
-      setError('Please enter a tournament name or select an option');
+      setError('Add a tournament name or choose one from the list.');
       return;
     }
     setError(null);
@@ -108,7 +108,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const handleFinishSetup = (e: React.FormEvent) => {
     e.preventDefault();
     if (!teamName.trim()) {
-      setError('Please enter a team name to link your options');
+      setError('Add your team name to finish setting things up.');
       return;
     }
 
@@ -160,7 +160,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         setImportFailureAlert(reportFailure(
           'backup_import',
           error,
-          'Dugout Pulse could not complete the backup import. Review the diagnostic report before trying again.',
+          'We couldn't finish importing this backup. Your existing data has been protected; check the diagnostic report before trying again.',
         ));
       }
     };
