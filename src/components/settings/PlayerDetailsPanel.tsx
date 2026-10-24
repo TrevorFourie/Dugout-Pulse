@@ -6,7 +6,7 @@ import { ThemedDropdown } from '../ThemedDropdown';
 
 const FIELDING_POSITION_OPTIONS: { value: PlayerFieldingPosition; label: string }[] = [
   { value: 'SP', label: 'Starting Pitcher' },
-  { value: 'RP', label: 'Relief Pitcher' },
+  { value: 'RP', label: 'Relieve Pitcher' },
   { value: 'C', label: 'Catcher' },
   { value: '1B', label: 'First Base' },
   { value: '2B', label: 'Second Base' },
