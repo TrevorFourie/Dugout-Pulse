@@ -102,7 +102,7 @@ export const SettingsNavigationDrawer: React.FC<SettingsNavigationDrawerProps> =
 
             <button type="button" onClick={() => setExpandedMenuGroup((current) => current === 'setup' ? null : 'setup')} aria-expanded={expandedMenuGroup === 'setup'} className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-[#00BFA5] dark:border-[#354050] dark:bg-[#252D38] dark:hover:bg-[#354050]">
               <Settings2 className="h-4 w-4 shrink-0 text-[#007A6A] dark:text-[#00D7BC]" />
-              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Setup &amp; Settings</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Teams, opponents, seasons and venues</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-[#18212D] dark:text-[#FAFAFA]">Setup &amp; Settings</span><span className="mt-0.5 block text-[10px] text-slate-500 dark:text-[#9CA3AF]">Teams, opponents, seasons, venues and fields</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${expandedMenuGroup === 'setup' ? 'rotate-180' : ''}`} />
             </button>
             {expandedMenuGroup === 'setup' && (
