@@ -229,15 +229,18 @@ export function useGameDataManagement({
       const restoredLogoCount = await restoreLogosFromBackup(backupRecord);
       const localLogos = new Map<string, string>();
       readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
-      for (let index = 0; index < localStorage.length; index += 1) {
-        const key = localStorage.key(index);
-        if (!key) continue;
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        try {
-          collectLocalLogoDataUrls(JSON.parse(raw), localLogos);
-        } catch {
-          // Ignore unrelated non-JSON local storage values.
+      // Only pre-cutover imports may consult legacy localStorage app-data copies.
+      if (!sqliteCutoverComplete) {
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          if (!key) continue;
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          try {
+            collectLocalLogoDataUrls(JSON.parse(raw), localLogos);
+          } catch {
+            // Ignore unrelated non-JSON local storage values.
+          }
         }
       }
       const restored = restoreLocalLogoReferences(parsedData, localLogos, { keepInlineImages: check.version >= 3 });
@@ -335,17 +338,8 @@ export function useGameDataManagement({
           logoLibrary: readTeamLogoLibraryStrict(),
         };
         await saveLiveSQLiteState(nextState, { includeAuxiliary: true });
-        if (data && Array.isArray(data.upcomingGames) &&
-            !protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
-          throw new Error('SQLite import committed, but the scheduled-game compatibility copy could not be verified.');
-        }
-        if (data && Array.isArray(data.oppositionTeams) &&
-            !protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
-          throw new Error('SQLite import committed, but the opposition-team compatibility copy could not be verified.');
-        }
-        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, String(setupCompleted))) {
-          throw new Error('SQLite import committed, but the setup-completed compatibility copy could not be verified.');
-        }
+        setSetupCompleted(setupCompleted);
+      
       }
 
       // Publish the imported state only after the direct storage writes above have succeeded.
@@ -377,9 +371,9 @@ export function useGameDataManagement({
         if (Array.isArray(extras.hiddenTournaments)) setHiddenTournaments(asStringList(extras.hiddenTournaments));
         if (Array.isArray(extras.hiddenAgeGroups)) setHiddenAgeGroups(asStringList(extras.hiddenAgeGroups));
         if (Array.isArray(extras.hiddenSeasons)) setHiddenSeasons(asStringList(extras.hiddenSeasons));
-        if (extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
-          setSetupCompleted(extras.setupCompleted === true);
-          setIsFirstTimeUser(false);
+        if (typeof extras.setupCompleted === 'boolean') {
+          setSetupCompleted(extras.setupCompleted);
+          setIsFirstTimeUser(!extras.setupCompleted);
         }
       }
 
