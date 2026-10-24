@@ -55,11 +55,27 @@ export const DEFAULT_TOURNAMENTS = [
  */
 const PRIMARY_TEAM_ID = 'primary-team';
 export const withTeams = (p: PlayerProfile): PlayerProfile => {
-  if (p.teams && p.teams.length > 0) return p;
-  if (!p.teamName) return p;
+  // Older saved profiles stored the jersey number at profile level. Move it to the
+  // primary team only when that team has no number, then remove the obsolete field.
   const legacyJerseyNumber = (p as PlayerProfile & { jerseyNumber?: string }).jerseyNumber;
+  const normalizedProfile = { ...p } as PlayerProfile & { jerseyNumber?: string };
+  delete normalizedProfile.jerseyNumber;
+
+  if (p.teams && p.teams.length > 0) {
+    return {
+      ...normalizedProfile,
+      teams: p.teams.map((team) =>
+        team.isDefault && !team.jerseyNumber && legacyJerseyNumber
+          ? { ...team, jerseyNumber: legacyJerseyNumber }
+          : team
+      ),
+    };
+  }
+
+  if (!p.teamName) return normalizedProfile;
+
   return {
-    ...p,
+    ...normalizedProfile,
     teams: [
       {
         id: PRIMARY_TEAM_ID,
