@@ -57,13 +57,14 @@ const PRIMARY_TEAM_ID = 'primary-team';
 export const withTeams = (p: PlayerProfile): PlayerProfile => {
   if (p.teams && p.teams.length > 0) return p;
   if (!p.teamName) return p;
+  const legacyJerseyNumber = (p as PlayerProfile & { jerseyNumber?: string }).jerseyNumber;
   return {
     ...p,
     teams: [
       {
         id: PRIMARY_TEAM_ID,
         name: p.teamName,
-        jerseyNumber: p.jerseyNumber || '',
+        jerseyNumber: legacyJerseyNumber || '',
         ageGroup: p.defaultAgeGroup || 'U12',
         season: p.defaultSeason || `${currentYear} / ${currentYear + 1}`,
         tournament: p.defaultTournament || '',
@@ -77,7 +78,6 @@ export const DEFAULT_PROFILE: PlayerProfile = {
   id: 'default-player',
   playerName: '',
   teamName: '',
-  jerseyNumber: '',
   isDefault: true,
   teams: [],
   defaultAgeGroup: 'U12',
