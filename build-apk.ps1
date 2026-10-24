@@ -935,12 +935,52 @@ if (-not $Release) {
     }
     Write-Host "Verified application identity matches '$ExpectedApplicationId' and the previous package's signing certificate." -ForegroundColor Green
 
-        # Remove arm64-only APKs left by the previous split-build workflow.
-    # This build now delivers one universal APK for mobile compatibility.
+    # Remove obsolete arm64-suffixed APKs left by the previous split-build workflow.
     Get-ChildItem -LiteralPath $OutDir -Filter "dugout-pulse-*-whatsapp-arm64.apk" -File -ErrorAction SilentlyContinue |
         Remove-Item -Force
 
-    # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
+    # Verify the APK contains no native libraries for unsupported architectures.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $apkArchive = [System.IO.Compression.ZipFile]::OpenRead($whatsAppApk)
+    try {
+        $nativeLibraries = @($apkArchive.Entries | Where-Object { $_.FullName -match '^lib/[^/]+/[^/]+\.so
+    # Set the actual Windows file timestamps after copying the APK to the output folder.
+    $apkFile = Get-Item -LiteralPath $whatsAppApk -ErrorAction Stop
+    $buildTime = Get-Date
+    $apkFile.LastWriteTime = $buildTime
+    $apkFile.CreationTime = $buildTime
+    $apkFile.LastAccessTime = $buildTime
+
+    # Read back the filesystem timestamp so the build log confirms the applied value.
+    $apkFile.Refresh()
+    Write-Host "APK file modified: $($apkFile.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Cyan
+    $apkSize = (Get-Item $whatsAppApk).Length / 1MB
+    Write-Host "ARM64-only WhatsApp install APK: $whatsAppApk ($([math]::Round($apkSize, 2)) MB)" -ForegroundColor Green
+    Write-Host "Send the *whatsapp.apk file to your phone via WhatsApp, then tap it to install." -ForegroundColor Cyan
+}
+
+if ($Install) {
+    Write-Host "AABs cannot be installed directly with adb. For debug builds, use the generated WhatsApp APK shown above." -ForegroundColor Yellow
+}
+
+Set-Location $RepoRoot
+Write-Host "Done!" -ForegroundColor Cyan
+ })
+        $unsupportedLibraries = @($nativeLibraries | Where-Object { $_.FullName -notmatch '^lib/arm64-v8a/' })
+        if ($unsupportedLibraries.Count -gt 0) {
+            throw "The testing APK contains native libraries outside ARM64: $($unsupportedLibraries.FullName -join ', '). Refusing to deliver it."
+        }
+        $arm64LibraryCount = @($nativeLibraries | Where-Object { $_.FullName -match '^lib/arm64-v8a/' }).Count
+        if ($arm64LibraryCount -gt 0) {
+            Write-Host "Verified native libraries are ARM64-only ($arm64LibraryCount libraries)." -ForegroundColor Green
+        } else {
+            Write-Host "No packaged native .so libraries found; ARM64 restriction is source-configured but no native ABI payload was available to verify." -ForegroundColor Yellow
+        }
+    } finally {
+        $apkArchive.Dispose()
+    }
+
+    # Gradle APK output can have fixed archive timestamps; set actual filesystem timestamps.
     # Set the actual Windows file timestamps after copying the APK to the output folder.
     $apkFile = Get-Item -LiteralPath $whatsAppApk -ErrorAction Stop
     $buildTime = Get-Date
