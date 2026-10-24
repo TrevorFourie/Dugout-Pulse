@@ -254,7 +254,7 @@ export const GamesTab: React.FC<GamesTabProps> = ({ onNavigateToScore, view = 'p
   const handleStartEdit = (gameId: string) => {
     if (liveGame && editingGameId !== gameId) {
       setEditBlockedMessage(
-        'You're in the middle of a live game. Save it or discard it before editing an older game.'
+        "You're in the middle of a live game. Save it or discard it before editing an older game."
       );
       return;
     }
