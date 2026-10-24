@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
-import { CalendarDays, MapPin, Plus, Pencil, Trash2, X, Check, Bell, Trophy } from 'lucide-react';
+import { CalendarDays, MapPin, Plus, Pencil, Trash2, X, Check, Bell, BellOff, Trophy } from 'lucide-react';
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 import { DatePicker } from './DatePicker';
@@ -558,7 +558,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                           title={!game.time ? 'Add a start time to enable a reminder' : reminderEnabled ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
                           className={'upcoming-match-card__reminder-action ' + (reminderEnabled ? 'upcoming-match-card__reminder-action--active' : '')}
                         >
-                          <Bell className="h-4 w-4" aria-hidden="true" />
+                          {reminderEnabled ? <Bell className="h-4 w-4" aria-hidden="true" /> : <BellOff className="h-4 w-4" aria-hidden="true" />}
                         </button>
                       </div>
                     )}
