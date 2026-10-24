@@ -338,7 +338,7 @@ export function useGameDataManagement({
           logoLibrary: readTeamLogoLibraryStrict(),
         };
         await saveLiveSQLiteState(nextState, { includeAuxiliary: true });
-      
+        window.dispatchEvent(new CustomEvent('dugout-pulse-upcoming-games-changed'));
       }
 
       // Publish the imported state only after the direct storage writes above have succeeded.
@@ -666,6 +666,7 @@ export function useGameDataManagement({
           return false;
         }
       }
+      if (sqliteCutoverComplete) window.dispatchEvent(new CustomEvent('dugout-pulse-upcoming-games-changed'));
     setGames([]);
     setLiveGame(null);
     setEditingGameId(null);
