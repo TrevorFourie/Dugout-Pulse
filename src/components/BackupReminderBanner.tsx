@@ -21,7 +21,7 @@ export const BackupReminderBanner: React.FC<BackupReminderBannerProps> = ({ hasD
       className="shrink-0 flex items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
     >
       <span className="min-w-0 leading-snug">
-        {describeBackupAge(status)} Your data lives only on this phone - save a backup file outside the app.
+        {describeBackupAge(status)} Your games and stats are stored on this phone. Export a backup if you'd like a separate copy.
       </span>
       <span className="flex shrink-0 items-center gap-2">
         <button type="button" onClick={onBackUp} className="rounded-md bg-amber-600 px-2.5 py-1 font-semibold text-white hover:bg-amber-700">
