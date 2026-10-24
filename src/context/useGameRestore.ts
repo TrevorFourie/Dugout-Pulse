@@ -310,7 +310,8 @@ export function useGameRestore({
       }
 
     // Merge legacy records by ID instead of letting one legacy key overwrite another.
-    // Current-schema records win on ID conflicts; legacy keys are never deleted.
+    // Current-schema records win on ID conflicts; source keys remain intact until the
+    // verified SQLite cutover has preserved them in the database legacy snapshot.
     const migrateLegacyArrays = async (
       currentKey: string,
       legacyKeys: string[],
@@ -374,9 +375,9 @@ export function useGameRestore({
       return;
     }
 
-    // Scheduled games and opposition teams still use these established keys in the
-    // current UI. Validate them in place; do not rename/move their storage keys.
-    // This protects the saved records from being treated as an empty list if malformed.
+    // Validate the remaining legacy scheduled-game and opposition-team source values
+    // before importing them into SQLite. Malformed values stop migration rather than
+    // being silently replaced with empty lists.
     for (const [key, validator] of [
       ['dugoutPulse.upcomingGames.v1', isLegacyScheduledGame],
       ['dugoutPulse.oppositionTeams.v1', isLegacyOppositionTeam],
