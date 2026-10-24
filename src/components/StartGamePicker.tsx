@@ -43,28 +43,35 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   useEffect(() => {
     if (isLoading) return;
     let cancelled = false;
-    void readSQLiteUpcomingGames().then((saved) => {
-      if (cancelled) return;
-      const valid = saved.every((item) =>
-        !!item && typeof item === 'object' &&
-        typeof (item as ScheduledGame).id === 'string' &&
-        typeof (item as ScheduledGame).opponent === 'string' &&
-        typeof (item as ScheduledGame).date === 'string' &&
-        ((item as ScheduledGame).isHome === undefined || typeof (item as ScheduledGame).isHome === 'boolean')
-      );
-      if (!valid) throw new Error('The SQLite scheduled-game list contains an invalid record.');
-      setScheduledGames(saved as ScheduledGame[]);
-    }).catch((loadError: unknown) => {
-      if (cancelled) return;
-      recordDiagnosticError(
-        loadError instanceof SyntaxError ? 'data_corruption' : 'storage_read',
-        loadError,
-        'The saved scheduled-game list could not be read from SQLite. No saved values were changed.',
-      );
-      setScheduledGames([]);
-      setScheduledGamesAlertOpen(true);
-    });
-    return () => { cancelled = true; };
+    const loadGames = () => {
+      void readSQLiteUpcomingGames().then((saved) => {
+        if (cancelled) return;
+        const valid = saved.every((item) =>
+          !!item && typeof item === 'object' &&
+          typeof (item as ScheduledGame).id === 'string' &&
+          typeof (item as ScheduledGame).opponent === 'string' &&
+          typeof (item as ScheduledGame).date === 'string' &&
+          ((item as ScheduledGame).isHome === undefined || typeof (item as ScheduledGame).isHome === 'boolean')
+        );
+        if (!valid) throw new Error('The SQLite scheduled-game list contains an invalid record.');
+        setScheduledGames(saved as ScheduledGame[]);
+      }).catch((loadError: unknown) => {
+        if (cancelled) return;
+        recordDiagnosticError(
+          loadError instanceof SyntaxError ? 'data_corruption' : 'storage_read',
+          loadError,
+          'The saved scheduled-game list could not be read from SQLite. No saved values were changed.',
+        );
+        setScheduledGames([]);
+        setScheduledGamesAlertOpen(true);
+      });
+    };
+    loadGames();
+    window.addEventListener('dugout-pulse-upcoming-games-changed', loadGames);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('dugout-pulse-upcoming-games-changed', loadGames);
+    };
   }, [isLoading]);
 
   const matchingGames = useMemo(
