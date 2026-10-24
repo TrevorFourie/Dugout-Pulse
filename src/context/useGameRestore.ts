@@ -70,6 +70,26 @@ export function useGameRestore({
       }
 
       const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
+      const LEGACY_APP_DATA_KEYS = new Set<string>([
+        ...Object.values(STORAGE_KEYS),
+        'dugoutPulse.games.v1',
+        'dugoutPulse.savedGames.v1',
+        'dugoutPulse.profiles.v1',
+        'dugoutPulse.upcomingGames.v1',
+        'dugoutPulse.oppositionTeams.v1',
+        'dugoutPulse.logoLibrary.v1',
+      ]);
+      const clearLegacyAppDataMirrors = () => {
+        // The validated source snapshot remains preserved in SQLite's legacy_values
+        // table. Remove only known application-data copies; keep journals,
+        // diagnostics, recovery points, cutover metadata and reminder metadata.
+        for (const key of LEGACY_APP_DATA_KEYS) {
+          localStorage.removeItem(key);
+          if (localStorage.getItem(key) !== null) {
+            throw new Error('A legacy application-data copy could not be removed after SQLite cutover.');
+          }
+        }
+      };
       const clearPendingLiveGame = () => {
         localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
         if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
@@ -174,6 +194,7 @@ export function useGameRestore({
         if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
           throw new Error('The local SQLite cutover marker could not be reconciled.');
         }
+        clearLegacyAppDataMirrors();
       };
       const makeInitialLiveState = (snapshot: Awaited<ReturnType<typeof readVerifiedSQLiteSnapshot>>): SQLiteLiveState => {
         const appState = snapshot.appState;
