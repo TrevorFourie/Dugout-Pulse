@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
+import { readSQLiteAppStateValue, saveSQLiteAppStateValue } from '../storage/sqliteRepository';
 import { ScoreWorkflowModals } from './score/ScoreWorkflowModals';
 import { NewGameForm } from './score/NewGameForm';
 import { PlayHistoryCard } from './score/PlayHistoryCard';
@@ -13,7 +13,7 @@ import { ScoreModeTabs } from './score/ScoreModeTabs';
 import { BattingModePanel } from './score/BattingModePanel';
 import { PitchingModePanel } from './score/PitchingModePanel';
 import { FieldingModePanel } from './score/FieldingModePanel';
-import { PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, readLocalJson, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
+import { PITCHING_TERMINAL_CODES, RESUME_UI_STORAGE_KEY, RUNNER_WORKFLOW_STORAGE_KEY, CATCHER_FIELDING_CODES, RUNNER_ON_CODES, NON_PRIMARY_BATTING } from './score/scoreTabConstants';
 import type { PersistedScoreUi, PersistedRunnerWorkflow, MultiOutPlayAction } from './score/scoreTabConstants';
 import backgroundImage from '../assets/ResumePlay.png';
 import {
@@ -148,9 +148,9 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   } = useGame();
 
   // Active scoring mode
+  const scoreUiStorageRef = useRef<PersistedScoreUi>({});
+  const [scoreUiLoadedForGame, setScoreUiLoadedForGame] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<PlayMode>(() => {
-    const savedMode = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.activeMode : undefined;
-    if (savedMode) return savedMode;
     if (!liveGame) return 'batting';
     const isHome = liveGame.isHome !== false;
     const curInn = liveGame.innings || 1;
@@ -171,10 +171,7 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // The inning being viewed is separate from the authoritative live inning.
-  const [viewedInning, setViewedInning] = useState(() => {
-    const savedInning = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.viewedInning : undefined;
-    return savedInning && savedInning > 0 ? savedInning : liveGame?.innings ?? 1;
-  });
+  const [viewedInning, setViewedInning] = useState(() => liveGame?.innings ?? 1);
   const previousLiveInningRef = useRef(liveGame?.innings);
   useEffect(() => {
     if (liveGame && previousLiveInningRef.current !== liveGame.innings) {
@@ -192,25 +189,40 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [storageFailureAlert, setStorageFailureAlert] = useState<string | null>(null);
 
   // Pitcher Handedness Split toggle ('R' or 'L')
-  const [pitcherHand, setPitcherHand] = useState<PitcherHand>(() => {
-    const savedHand = liveGame ? readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {})[liveGame.id]?.pitcherHand : undefined;
-    return savedHand === 'L' || savedHand === 'R' ? savedHand : 'R';
-  });
+  const [pitcherHand, setPitcherHand] = useState<PitcherHand>('R');
+
   useEffect(() => {
-    if (!liveGame || restoreFailed) return;
-    try {
-      const stored = readLocalJson<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {});
-      if (!protectedStorageSetItem(RESUME_UI_STORAGE_KEY, JSON.stringify({
-        ...stored,
-        [liveGame.id]: { ...stored[liveGame.id], viewedInning, activeMode, pitcherHand },
-      }))) {
-        setStorageFailureAlert('Dugout Pulse could not safely save the scoring screen state. The game record is separate, but the selected inning or scoring view may not resume as expected. Review diagnostics before restarting.');
-      }
-    } catch (error) {
-      recordDiagnosticError('storage_write', error, 'The scoring screen state could not be persisted.');
-      setStorageFailureAlert('Dugout Pulse could not save the scoring screen state. The game record is separate, but the selected inning or scoring view may not resume as expected. Review diagnostics before restarting.');
-    }
-  }, [liveGame?.id, viewedInning, activeMode, pitcherHand, restoreFailed]);
+    if (restoreFailed) return;
+    let cancelled = false;
+    setScoreUiLoadedForGame(null);
+    void readSQLiteAppStateValue<PersistedScoreUi>(RESUME_UI_STORAGE_KEY, {}).then((stored) => {
+      if (cancelled) return;
+      scoreUiStorageRef.current = stored;
+      const preferences = liveGame ? stored[liveGame.id] : undefined;
+      if (preferences?.activeMode) setActiveMode(preferences.activeMode);
+      if (preferences?.viewedInning && preferences.viewedInning > 0) setViewedInning(preferences.viewedInning);
+      if (preferences?.pitcherHand === 'L' || preferences?.pitcherHand === 'R') setPitcherHand(preferences.pitcherHand);
+      setScoreUiLoadedForGame(liveGame?.id ?? null);
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      recordDiagnosticError('storage_read', error, 'Scoring screen preferences could not be loaded from SQLite.');
+      setStorageFailureAlert('Dugout Pulse could not load the saved scoring screen preferences. They were not overwritten; review diagnostics before restarting.');
+    });
+    return () => { cancelled = true; };
+  }, [liveGame?.id, restoreFailed]);
+
+  useEffect(() => {
+    if (!liveGame || restoreFailed || scoreUiLoadedForGame !== liveGame.id) return;
+    const next: PersistedScoreUi = {
+      ...scoreUiStorageRef.current,
+      [liveGame.id]: { ...scoreUiStorageRef.current[liveGame.id], viewedInning, activeMode, pitcherHand },
+    };
+    scoreUiStorageRef.current = next;
+    void saveSQLiteAppStateValue(RESUME_UI_STORAGE_KEY, next).catch((error: unknown) => {
+      recordDiagnosticError('storage_write', error, 'The scoring screen preferences could not be saved to SQLite.');
+      setStorageFailureAlert('Dugout Pulse could not save the scoring screen preferences to SQLite. The game record is separate; review diagnostics before restarting.');
+    });
+  }, [liveGame?.id, viewedInning, activeMode, pitcherHand, restoreFailed, scoreUiLoadedForGame]);
 
   // Modal states
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -257,20 +269,47 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
   const [pendingPositionChange, setPendingPositionChange] = useState<{ inning: number; from: DefensivePosition; to: DefensivePosition } | null>(null);
   type RunnerHistoryEntry = { state: RunnerLifecycleState; playIds: string[] };
   type ActiveRunnerChip = { inning: number; base: 1 | 2 | 3; sb: number; cause: RunnerAdvanceCause; subNumber?: string };
-  const [runnerSessions, setRunnerSessions] = useState<Record<string, RunnerLifecycleState | null>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).runnerSessions);
-  const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).runnerHistories);
-  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>(() => readLocalJson<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, { runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} }).activeRunnerChips);
+  const [runnerSessions, setRunnerSessions] = useState<Record<string, RunnerLifecycleState | null>>({});
+  const [runnerHistories, setRunnerHistories] = useState<Record<string, RunnerHistoryEntry[]>>({});
+  const [activeRunnerChips, setActiveRunnerChips] = useState<Record<string, ActiveRunnerChip>>({});
+  const [runnerWorkflowLoaded, setRunnerWorkflowLoaded] = useState(false);
+  const runnerWorkflowRef = useRef<PersistedRunnerWorkflow>({ runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {} });
+
   useEffect(() => {
     if (restoreFailed) return;
-    try {
-      if (!protectedStorageSetItem(RUNNER_WORKFLOW_STORAGE_KEY, JSON.stringify({ runnerSessions, runnerHistories, activeRunnerChips }))) {
-        setStorageFailureAlert('Dugout Pulse could not safely save the runner workflow state. Recorded plays are stored separately, but runner tracking may not resume as expected. Review diagnostics before restarting.');
+    let cancelled = false;
+    setRunnerWorkflowLoaded(false);
+    void readSQLiteAppStateValue<PersistedRunnerWorkflow>(RUNNER_WORKFLOW_STORAGE_KEY, {
+      runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {},
+    }).then((stored) => {
+      if (cancelled) return;
+      if (!stored.runnerSessions || typeof stored.runnerSessions !== 'object' || Array.isArray(stored.runnerSessions) ||
+          !stored.runnerHistories || typeof stored.runnerHistories !== 'object' || Array.isArray(stored.runnerHistories) ||
+          !stored.activeRunnerChips || typeof stored.activeRunnerChips !== 'object' || Array.isArray(stored.activeRunnerChips)) {
+        throw new Error('SQLite runner workflow state has an invalid structure.');
       }
-    } catch (error) {
-      recordDiagnosticError('storage_write', error, 'The runner workflow state could not be persisted.');
-      setStorageFailureAlert('Dugout Pulse could not save the runner workflow state. Recorded plays are stored separately, but runner tracking may not resume as expected. Review diagnostics before restarting.');
-    }
-  }, [runnerSessions, runnerHistories, activeRunnerChips, restoreFailed]);
+      runnerWorkflowRef.current = stored;
+      setRunnerSessions(stored.runnerSessions);
+      setRunnerHistories(stored.runnerHistories);
+      setActiveRunnerChips(stored.activeRunnerChips);
+      setRunnerWorkflowLoaded(true);
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      recordDiagnosticError('storage_read', error, 'Runner workflow state could not be loaded from SQLite.');
+      setStorageFailureAlert('Dugout Pulse could not load runner workflow state from SQLite. The saved value was not overwritten; review diagnostics before restarting.');
+    });
+    return () => { cancelled = true; };
+  }, [restoreFailed]);
+
+  useEffect(() => {
+    if (restoreFailed || !runnerWorkflowLoaded) return;
+    const next: PersistedRunnerWorkflow = { runnerSessions, runnerHistories, activeRunnerChips };
+    runnerWorkflowRef.current = next;
+    void saveSQLiteAppStateValue(RUNNER_WORKFLOW_STORAGE_KEY, next).catch((error: unknown) => {
+      recordDiagnosticError('storage_write', error, 'Runner workflow state could not be saved to SQLite.');
+      setStorageFailureAlert('Dugout Pulse could not save runner workflow state to SQLite. Recorded plays remain separate; review diagnostics before restarting.');
+    });
+  }, [runnerSessions, runnerHistories, activeRunnerChips, restoreFailed, runnerWorkflowLoaded]);
 
   // All transient runner workflow state is scoped to the inning being viewed. Ending or
   // correcting one inning must not clear the runner workflow for another inning.
