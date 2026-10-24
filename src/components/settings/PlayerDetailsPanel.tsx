@@ -100,7 +100,7 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
                       })}
                     </div>
                     <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                      Select any positions that apply. Uncheck all to remove them.
+                      Choose every position you play. Clear the selection if you don't want a position listed.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
