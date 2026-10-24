@@ -398,6 +398,7 @@ export function useGameDataManagement({
       if (sqliteStateMayHaveChanged && originalSQLiteState) {
         try {
           await saveLiveSQLiteState(originalSQLiteState, { includeAuxiliary: true });
+          setTeamLogoLibraryCache(originalSQLiteState.logoLibrary);
         } catch (rollbackError) {
           rollbackFailure = rollbackError;
         }
