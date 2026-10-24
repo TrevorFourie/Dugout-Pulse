@@ -24,7 +24,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                     Venues
                   </h3>
                   <p className="mb-4 text-xs text-slate-500 dark:text-[#9CA3AF]">
-                    Save the ballparks and fields where your team plays. You can manage this list here for use in game scheduling.
+                    Save the ballparks where your team plays. You can manage this list here for use in game scheduling.
                   </p>
                   <form
                     onSubmit={(e) => {
@@ -46,8 +46,8 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                       type="text"
                       value={newVenueInput}
                       onChange={(e) => setNewVenueInput(e.target.value)}
-                      placeholder="Venue or field name"
-                      aria-label="Venue or field name"
+                      placeholder="Venue name"
+                      aria-label="Venue name"
                       className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-900 placeholder:text-slate-400 dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA]"
                     />
                     <button
