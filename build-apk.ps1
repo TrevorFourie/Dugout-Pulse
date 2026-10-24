@@ -740,62 +740,48 @@ if (Test-Path $src) {
     exit 1
 }
 
-# For debug builds, create a WhatsApp-installable APK FROM the AAB.
-# Gradle still builds the AAB; this APK is only a delivery/install artifact.
+# For debug builds, create one ARM64-only WhatsApp-installable APK.
+# The AAB was built and copied above BEFORE this temporary ABI restriction, so
+# Google Play receives the unfiltered bundle and can generate device-specific APKs.
 if (-not $Release) {
-    Write-Host "`nPreparing WhatsApp install package from the debug AAB..." -ForegroundColor Cyan
+    Write-Host "`nPreparing ARM64-only WhatsApp install package..." -ForegroundColor Cyan
 
-    if (-not $env:JAVA_HOME -or -not (Test-Path (Join-Path $env:JAVA_HOME "bin\java.exe"))) {
-        throw "JDK 21 was not found. Install/configure Java 21 before running bundletool."
+    $appGradlePath = Join-Path $WorkDir "android\app\build.gradle"
+    if (-not (Test-Path -LiteralPath $appGradlePath)) {
+        throw "Generated android/app/build.gradle was not found; refusing to create an unfiltered APK."
     }
 
-    $toolsDir = Join-Path $PublishBase "tools"
-    if (-not (Test-Path $toolsDir)) {
-        New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+    $apkGradle = Get-Content -LiteralPath $appGradlePath -Raw
+    if ($apkGradle -match "(?s)defaultConfig\s*\{.*?abiFilters") {
+        throw "Generated defaultConfig already defines ABI filters; refusing to overwrite existing architecture settings."
+    }
+    $defaultConfigPattern = "(?m)(^\s*defaultConfig\s*\{)"
+    if (-not [regex]::IsMatch($apkGradle, $defaultConfigPattern)) {
+        throw "Could not safely locate defaultConfig in generated build.gradle; refusing to create an unfiltered APK."
+    }
+    $apkGradle = [regex]::Replace(
+        $apkGradle,
+        $defaultConfigPattern,
+        '$1' + "`r`n        ndk { abiFilters 'arm64-v8a' }",
+        1
+    )
+    [System.IO.File]::WriteAllText($appGradlePath, $apkGradle, (New-Object System.Text.UTF8Encoding($false)))
+
+    Push-Location (Join-Path $WorkDir "android")
+    try {
+        .\gradlew.bat assembleDebug
+        if ($LASTEXITCODE -ne 0) { throw "Gradle ARM64-only debug APK build failed with exit code $LASTEXITCODE." }
+    } finally {
+        Pop-Location
     }
 
-    $bundletoolJar = Join-Path $toolsDir "bundletool-all.jar"
-    if (-not (Test-Path $bundletoolJar)) {
-        Write-Host "Downloading Google's bundletool..." -ForegroundColor Yellow
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/google/bundletool/releases/latest" -Headers @{ "User-Agent" = "Dugout-Pulse-Build-Script" }
-            $asset = $releaseInfo.assets | Where-Object { $_.name -like 'bundletool-all-*.jar' } | Select-Object -First 1
-            if (-not $asset) { throw "Could not find bundletool-all JAR in the latest GitHub release." }
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $bundletoolJar -UseBasicParsing
-        } catch {
-            throw "Could not download bundletool. Check your internet connection and rerun. Details: $($_.Exception.Message)"
-        }
+    $arm64Apk = Join-Path $WorkDir "android\app\build\outputs\apk\debug\app-debug.apk"
+    if (-not (Test-Path -LiteralPath $arm64Apk)) {
+        throw "Gradle completed without producing the expected ARM64-only APK at $arm64Apk."
     }
-
-    $debugKeystore = Join-Path $env:USERPROFILE ".android\debug.keystore"
-    if (-not (Test-Path $debugKeystore)) {
-        $androidUserDir = Split-Path $debugKeystore -Parent
-        New-Item -ItemType Directory -Path $androidUserDir -Force | Out-Null
-        $keytool = Join-Path $env:JAVA_HOME "bin\keytool.exe"
-        & $keytool -genkeypair -v -keystore $debugKeystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-        if ($LASTEXITCODE -ne 0) { throw "Could not create the Android debug signing key." }
-    }
-
-    $apksArchive = Join-Path $WorkDir "debug-install.apks"
-    $extractDir = Join-Path $WorkDir "debug-install-apks"
-    if (Test-Path $apksArchive) { Remove-Item $apksArchive -Force }
-    if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
-
-    $java = Join-Path $env:JAVA_HOME "bin\java.exe"
-    & $java -jar $bundletoolJar build-apks "--bundle=$dest" "--output=$apksArchive" "--mode=universal" "--ks=$debugKeystore" "--ks-pass=pass:android" "--ks-key-alias=androiddebugkey" "--key-pass=pass:android"
-    if ($LASTEXITCODE -ne 0) { throw "bundletool failed to convert the debug AAB into an installable APK." }
-
-    # Windows PowerShell 5.1 Expand-Archive only accepts a .zip extension.
-    # A bundletool .apks file is ZIP-formatted, so copy it to a .zip name first.
-    $apksZip = Join-Path $WorkDir "debug-install.zip"
-    Copy-Item -LiteralPath $apksArchive -Destination $apksZip -Force
-    Expand-Archive -LiteralPath $apksZip -DestinationPath $extractDir -Force
-    $universalApk = Join-Path $extractDir "universal.apk"
-    if (-not (Test-Path $universalApk)) { throw "bundletool completed, but universal.apk was not found in the output archive." }
 
     $whatsAppApk = Join-Path $OutDir "dugout-pulse-debug-$timestamp-whatsapp.apk"
-    Copy-Item $universalApk $whatsAppApk -Force
+    Copy-Item -LiteralPath $arm64Apk -Destination $whatsAppApk -Force
 
     # Verify the actual installable APK using Android SDK build-tools.
     # Do not deliver an APK if the packaged manifest/icon entry is not as expected.
