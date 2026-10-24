@@ -1206,14 +1206,11 @@ export async function saveSQLiteLogoLibrary(library: TeamLogoItem[]): Promise<vo
 }
 
 /**
- * Persist a scoring action's live-game snapshot immediately after its verified
- * write-ahead mirror. The shared SQLite transaction queue preserves action order
- * relative to complete GameContext snapshots. Returns false before cutover, when
- * localStorage is still the authoritative store.
+ * Persist a scoring action's live-game snapshot to the verified SQLite store.
+ * The shared transaction queue preserves action order relative to full context snapshots.
  */
 /**
  * Commit a completed game and clear its live/editing references in one transaction.
- * Returns false while localStorage is still the pre-cutover authoritative store.
  */
 export async function saveCompletedSQLiteGame(game: Game): Promise<boolean> {
   if (!isGame(game)) {
@@ -1221,7 +1218,9 @@ export async function saveCompletedSQLiteGame(game: Game): Promise<boolean> {
   }
 
   const localCutover = localStorage.getItem(LOCAL_CUTOVER_MARKER);
-  if (localCutover !== 'complete' && localCutover !== 'pending') return false;
+  if (localCutover !== 'complete') {
+    throw new Error('SQLite is not authoritative; the completed game was not cleared from the live state.');
+  }
 
   const serializedGame = serializeJson(game);
   const pendingSave = serializeJson({ version: 1, game });
@@ -1299,12 +1298,12 @@ export async function saveCompletedSQLiteGame(game: Game): Promise<boolean> {
 }
 
 export async function saveSQLiteLiveGame(game: Game | null): Promise<boolean> {
-  // Do not initialize/open SQLite for ordinary scoring before cutover. Until the
-  // local authority marker is present, the legacy store remains the intended writer.
-  // "pending" is not accepted as authority; it is inspected below and fails closed
-  // if the database does not independently confirm a completed cutover.
+  // Scoring is only enabled after startup has verified the SQLite cutover.
+  // Never report a legacy/localStorage fallback as a successful scoring write.
   const localCutover = localStorage.getItem(LOCAL_CUTOVER_MARKER);
-  if (localCutover !== 'complete' && localCutover !== 'pending') return false;
+  if (localCutover !== 'complete') {
+    throw new Error('SQLite is not the verified active store; the scoring write was stopped.');
+  }
 
   if (game !== null && !isGame(game)) {
     throw new Error('SQLite live-game write was blocked because the game failed validation.');
