@@ -23,6 +23,8 @@ interface ScheduledGame {
   time?: string;
   isHome: boolean;
   venue?: string;
+  fieldId?: string;
+  field?: string;
   notes?: string;
   reminderMinutes?: number;
   reminderOptOut?: boolean;
@@ -31,7 +33,7 @@ interface ScheduledGame {
 const isScheduledGame = (value: unknown): value is ScheduledGame => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const game = value as Record<string, unknown>;
-  const optionalStrings = ['playerTeamId', 'playerTeamName', 'gameType', 'ageGroup', 'time', 'venue', 'notes'];
+  const optionalStrings = ['playerTeamId', 'playerTeamName', 'gameType', 'ageGroup', 'time', 'venue', 'fieldId', 'field', 'notes'];
   return typeof game.id === 'string' && game.id.length > 0 &&
     typeof game.opponent === 'string' && typeof game.date === 'string' && game.date.length > 0 &&
     (game.isHome === undefined || typeof game.isHome === 'boolean') &&
@@ -92,6 +94,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [time, setTime] = useState('');
   const [isHome, setIsHome] = useState(true);
   const [venue, setVenue] = useState('');
+  const [fieldId, setFieldId] = useState('');
   const [notes, setNotes] = useState('');
   const [reminderMinutes, setReminderMinutes] = useState(0);
   const [message, setMessage] = useState('');
@@ -223,6 +226,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setTime('');
     setIsHome(true);
     setVenue('');
+    setFieldId('');
     setNotes('');
     setReminderMinutes(0);
     setShowForm(false);
@@ -239,6 +243,10 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     setTime(game.time || '');
     setIsHome(game.isHome);
     setVenue(game.venue || '');
+    const venueFields = (settings.fields || []).filter((field) => field.venue.trim().toLocaleLowerCase() === (game.venue || '').trim().toLocaleLowerCase());
+    setFieldId(game.fieldId && venueFields.some((field) => field.id === game.fieldId)
+      ? game.fieldId
+      : venueFields.find((field) => field.name === game.field)?.id || '');
     setNotes(game.notes || '');
     setReminderMinutes(game.reminderMinutes || 0);
     setShowForm(true);
@@ -258,6 +266,9 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       ...(time ? { time } : {}),
       isHome,
       ...(venue.trim() ? { venue: venue.trim() } : {}),
+      ...((settings.fields || []).some((item) => item.id === fieldId && item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase())
+        ? { fieldId, field: (settings.fields || []).find((item) => item.id === fieldId)!.name }
+        : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
       ...(reminderMinutes ? { reminderMinutes } : {}),
       ...(editingId && games.find((game) => game.id === editingId)?.reminderOptOut ? { reminderOptOut: true } : {}),
@@ -339,7 +350,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">{nextOnly ? (upcoming.length ? 'Next scheduled game' : 'No games scheduled') : `${upcoming.length} scheduled ${upcoming.length === 1 ? 'game' : 'games'}`}</p>
           </div>
         </div>
-        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setNotes(''); setReminderMinutes(0); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
+        <button type="button" onClick={() => { if (showForm) resetForm(); else { setEditingId(null); setOpponent(''); setGameType(defaultPlayerTeam?.tournament || allTournaments[0] || 'League'); setPlayerTeamId(playerTeams.find((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === (defaultPlayerTeam?.tournament || allTournaments[0] || 'League').trim().toLocaleLowerCase())?.id || ''); setDate(''); setTime(''); setIsHome(true); setVenue(''); setFieldId(''); setNotes(''); setReminderMinutes(0); setShowForm(true); } }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#00BFA5] px-3 py-2 text-xs font-semibold text-[#18212D] transition-colors hover:bg-[#00A892] dark:bg-[#00D7BC] dark:text-[#101419] dark:hover:bg-[#00C4AB]">
           {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{showForm ? 'Cancel' : 'Add Game'}
         </button>
       </div>
@@ -365,8 +376,12 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             </label>
             <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Venue
               <ThemedDropdown<string>
-                value={venue && (settings.venues || []).includes(venue) ? venue : undefined}
-                onChange={(next) => setVenue(next || '')}
+                value={venue && (settings.venues || []).some((savedVenue) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) ? (settings.venues || []).find((savedVenue) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) : undefined}
+                onChange={(next) => {
+                  const nextVenue = next || '';
+                  setVenue(nextVenue);
+                  if (nextVenue.trim().toLocaleLowerCase() !== venue.trim().toLocaleLowerCase()) setFieldId('');
+                }}
                 options={(settings.venues || []).map((savedVenue) => ({ value: savedVenue, label: savedVenue }))}
                 placeholder={(settings.venues || []).length ? 'Select saved venue' : 'No saved venues yet'}
                 allowClear={true}
@@ -376,12 +391,33 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
               />
               <input
                 value={venue}
-                onChange={(e) => setVenue(e.target.value)}
+                onChange={(e) => {
+                  const nextVenue = e.target.value;
+                  setVenue(nextVenue);
+                  if (nextVenue.trim().toLocaleLowerCase() !== venue.trim().toLocaleLowerCase()) setFieldId('');
+                }}
                 placeholder="Or type a venue / field"
                 aria-label="Or type a venue / field"
                 className={`${inputClass} mt-1`}
               />
               {!(settings.venues || []).length && <span className="mt-1 block text-[10px] font-normal text-slate-500 dark:text-[#9CA3AF]">Add saved venues in Settings → Venues to select them here.</span>}
+            </label>
+            <label className="block min-w-0 text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Field (optional)
+              <ThemedDropdown<string>
+                value={fieldId && (settings.fields || []).some((item) => item.id === fieldId && item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) ? fieldId : undefined}
+                onChange={(next) => setFieldId(next || '')}
+                options={(settings.fields || [])
+                  .filter((item) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase() && (settings.venues || []).some((savedVenue) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()))
+                  .map((item) => ({ value: item.id, label: item.name }))}
+                placeholder={venue.trim() && (settings.venues || []).some((savedVenue) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase())
+                  ? ((settings.fields || []).some((item) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) ? 'Select field (optional)' : 'No fields linked to this venue')
+                  : 'Select a saved venue first'}
+                allowClear={true}
+                ariaLabel="Field (optional)"
+                disabled={!venue.trim() || !(settings.venues || []).some((savedVenue) => savedVenue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()) || !(settings.fields || []).some((item) => item.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase())}
+                className="mt-1 w-full"
+                buttonClassName="!rounded-lg !py-2 !text-xs !font-normal"
+              />
             </label>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-[#D1D5DB]">Game Reminder (optional)
               <ThemedDropdown<number>
@@ -451,6 +487,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
                         <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} @ {game.time}</span>
                         {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.venue}</span>}
+                        {((game.fieldId ? (settings.fields || []).find((item) => item.id === game.fieldId)?.name : undefined) || game.field) && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />Field: {(game.fieldId ? (settings.fields || []).find((item) => item.id === game.fieldId)?.name : undefined) || game.field}</span>}
                         {game.gameType && <span className="inline-flex items-center gap-1"><Shield className="h-3 w-3" />{game.gameType}</span>}
                       </div>
                     </div>
