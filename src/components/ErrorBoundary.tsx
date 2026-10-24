@@ -29,6 +29,8 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren, Erro
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    // Do not let the web startup overlay obscure a diagnostic screen after a render failure.
+    document.getElementById('dp-web-startup-splash')?.remove();
     // Never let a secondary diagnostic failure replace the original render error
     // or leave the user with a blank screen if the document-level UI is unavailable.
     let reference = 'unavailable';
