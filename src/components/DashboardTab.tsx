@@ -231,7 +231,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       />
 
       {/* Player performance detail tabs */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs sm:p-4 dark:border-[#354050] dark:bg-[#252D38]">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2 shadow-xs sm:p-3 dark:border-[#354050] dark:bg-[#252D38]">
         <div role="tablist" aria-label="Player performance details" className="grid grid-cols-3 border-b border-slate-200 dark:border-[#354050]">
           {performanceTabs.map((tab) => {
             const selected = performanceTab === tab.id;
@@ -247,7 +247,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setPerformanceTab(tab.id)}
                 onKeyDown={handlePerformanceTabKeyDown}
-                className={`relative flex min-w-0 items-center justify-center gap-1.5 px-1 py-3 text-[11px] font-semibold transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00BFA5] sm:gap-2 sm:px-3 sm:text-sm ${
+                className={`relative flex min-w-0 items-center justify-center gap-1.5 px-1 py-2 text-[11px] font-semibold transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00BFA5] sm:gap-2 sm:px-3 sm:text-sm ${
                   selected
                     ? 'text-[#007A6A] dark:text-[#00D7BC]'
                     : 'text-slate-500 hover:text-slate-800 dark:text-[#9CA3AF] dark:hover:text-[#FAFAFA]'
@@ -261,7 +261,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           })}
         </div>
 
-        <div id="dashboard-performance-panel" role="tabpanel" aria-labelledby={`dashboard-performance-tab-${performanceTab}`} className="p-4 sm:p-5">
+        <div id="dashboard-performance-panel" role="tabpanel" aria-labelledby={`dashboard-performance-tab-${performanceTab}`} className="p-2 sm:p-3">
           {performanceTab === 'snapshot' && (
             <div>
               <div className="flex items-center justify-between mb-2.5 px-1">
