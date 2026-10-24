@@ -46,7 +46,6 @@ export function usePlayerTeams({
           return {
             ...p,
             teamName: newTeam.isDefault || !p.teamName ? newTeam.name : p.teamName,
-            jerseyNumber: newTeam.isDefault && newTeam.jerseyNumber ? newTeam.jerseyNumber : p.jerseyNumber,
             teams: updatedTeams,
             defaultAgeGroup: newTeam.ageGroup || p.defaultAgeGroup,
             defaultSeason: newTeam.season || p.defaultSeason,
@@ -78,7 +77,6 @@ export function usePlayerTeams({
             teams: updated,
             // Keep the profile-level primary team fields in step with the primary team
             teamName: isPrimary && edited ? edited.name : p.teamName,
-            jerseyNumber: isPrimary && edited && edited.jerseyNumber !== undefined ? edited.jerseyNumber : p.jerseyNumber,
             defaultAgeGroup: isPrimary && edited ? edited.ageGroup || undefined : p.defaultAgeGroup,
             defaultSeason: isPrimary && edited ? edited.season || undefined : p.defaultSeason,
             defaultTournament: isPrimary && edited ? edited.tournament || undefined : p.defaultTournament,
@@ -118,7 +116,6 @@ export function usePlayerTeams({
         return {
           ...p,
           teamName: targetTeam ? targetTeam.name : p.teamName,
-          jerseyNumber: targetTeam?.jerseyNumber !== undefined ? targetTeam.jerseyNumber : p.jerseyNumber,
           teams: updated,
           defaultAgeGroup: targetTeam?.ageGroup || p.defaultAgeGroup,
           defaultSeason: targetTeam?.season || p.defaultSeason,
