@@ -143,6 +143,18 @@ export function useGameRestore({
             recordDiagnosticError('data_corruption', new Error('Legacy scoring UI state had an invalid structure.'), `Legacy scoring UI state "${key}" was not imported into SQLite.`);
             continue;
           }
+          if (key === RUNNER_WORKFLOW_STATE_KEY) {
+            const candidate = parsed as Record<string, unknown>;
+            const asRecord = (value: unknown): Record<string, unknown> =>
+              value && typeof value === 'object' && !Array.isArray(value)
+                ? value as Record<string, unknown>
+                : {};
+            parsed = {
+              runnerSessions: asRecord(candidate.runnerSessions),
+              runnerHistories: asRecord(candidate.runnerHistories),
+              activeRunnerChips: asRecord(candidate.activeRunnerChips),
+            };
+          }
           await migrateLegacySQLiteAppStateValueIfMissing(key, parsed);
         }
       };
