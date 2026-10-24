@@ -1003,6 +1003,57 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
 }
 
 
+const SQLITE_UI_STATE_KEYS = new Set([
+  'dugout_pulse_resume_ui_v1',
+  'dugout_pulse_runner_workflow_v1',
+]);
+
+/** Read durable scoring-screen preferences from SQLite app_state. */
+export async function readSQLiteAppStateValue<T>(key: string, fallback: T): Promise<T> {
+  if (!SQLITE_UI_STATE_KEYS.has(key)) throw new Error('The requested SQLite app-state key is not an approved UI-state key.');
+  if (!(await isLegacyStorageImportComplete())) throw new Error('SQLite is not yet authoritative for scoring UI state.');
+  return withSQLiteRead(async (database) => {
+    const result = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+    const raw = result.values?.[0]?.value_json;
+    if (typeof raw !== 'string') return fallback;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      throw new Error(`SQLite scoring UI state for "${key}" contains invalid JSON.`);
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`SQLite scoring UI state for "${key}" failed validation.`);
+    }
+    return parsed as T;
+  });
+}
+
+/** Persist durable scoring-screen preferences in SQLite, never in localStorage. */
+export async function saveSQLiteAppStateValue(key: string, value: unknown): Promise<void> {
+  if (!SQLITE_UI_STATE_KEYS.has(key)) throw new Error('The requested SQLite app-state key is not an approved UI-state key.');
+  if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
+    throw new Error('SQLite is not authoritative yet; scoring UI state was not saved.');
+  }
+  const serialized = serializeJson(value);
+  await withSQLiteTransaction(async (database) => {
+    const cutover = await database.query('SELECT value FROM app_meta WHERE key = ?', [CUTOVER_MARKER]);
+    const liveState = await database.query('SELECT value FROM app_meta WHERE key = ?', [LIVE_STATE_MARKER]);
+    if (cutover.values?.[0]?.value !== 'complete' || liveState.values?.[0]?.value !== '1') {
+      throw new Error('Scoring UI state was not saved because SQLite cutover/live-state verification failed.');
+    }
+    await database.run(
+      'INSERT INTO app_state (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
+      [key, serialized],
+      false,
+    );
+    const verified = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+    if (verified.values?.[0]?.value_json !== serialized) {
+      throw new Error('SQLite scoring UI state failed read-back verification.');
+    }
+  });
+}
+
 /** Read independently managed auxiliary tables without reloading the entire app state. */
 export async function readSQLiteAuxiliaryState(): Promise<Pick<SQLiteLiveState, 'upcomingGames' | 'logoLibrary'>> {
   if (!(await isLegacyStorageImportComplete())) {
