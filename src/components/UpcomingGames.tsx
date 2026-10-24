@@ -539,7 +539,7 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
                       </div>
                       {(game.venue || fieldName) && <div className="upcoming-match-card__detail">
                         <MapPin className="upcoming-match-card__detail-icon" aria-hidden="true" />
-                        <span className="upcoming-match-card__detail-text">{game.venue || ''}{game.venue && fieldName ? ' · Field: ' + fieldName : fieldName ? 'Field: ' + fieldName : ''}</span>
+                        <span className="upcoming-match-card__detail-text">{game.venue || ''}{game.venue && fieldName ? ' · ' + fieldName : fieldName ? fieldName : ''}</span>
                       </div>}
                       {game.gameType && <div className="upcoming-match-card__detail">
                         <Trophy className="upcoming-match-card__detail-icon" aria-hidden="true" />
