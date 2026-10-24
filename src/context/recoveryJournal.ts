@@ -1,7 +1,7 @@
-import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, RUNNER_WORKFLOW_STATE_KEY, SCORE_UI_STATE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
-import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, readSQLiteAppStateValue, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
 function isMissingRecoveryFile(error: unknown): boolean {
   const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
   const message = error instanceof Error ? error.message : String(error ?? '');
@@ -43,6 +43,8 @@ const LEGACY_APP_DATA_KEYS = new Set<string>([
   'dugoutPulse.upcomingGames.v1',
   'dugoutPulse.oppositionTeams.v1',
   'dugoutPulse.logoLibrary.v1',
+  SCORE_UI_STATE_KEY,
+  RUNNER_WORKFLOW_STATE_KEY,
 ]);
 function clearLegacyAppDataMirrors(): void {
   for (const key of LEGACY_APP_DATA_KEYS) {
@@ -313,7 +315,13 @@ async function createCheckpointSerially(reason: string): Promise<boolean> {
     // never the intentionally stale legacy localStorage copies.
     if (await isLegacyStorageImportComplete()) {
       const state = await readLiveSQLiteState();
+      const scoreUiState = await readSQLiteAppStateValue<Record<string, unknown>>(SCORE_UI_STATE_KEY, {});
+      const runnerWorkflowState = await readSQLiteAppStateValue<Record<string, unknown>>(RUNNER_WORKFLOW_STATE_KEY, {
+        runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {},
+      });
       Object.assign(values, {
+        [SCORE_UI_STATE_KEY]: JSON.stringify(scoreUiState),
+        [RUNNER_WORKFLOW_STATE_KEY]: JSON.stringify(runnerWorkflowState),
         [STORAGE_KEYS.GAMES]: JSON.stringify(state.games),
         [STORAGE_KEYS.PROFILES]: JSON.stringify(state.profiles),
         [STORAGE_KEYS.SETTINGS]: JSON.stringify(state.settings),
