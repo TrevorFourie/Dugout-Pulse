@@ -222,7 +222,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       <ConfirmationModal
         isOpen={scheduledGamesAlertOpen}
         title="Scheduled games could not be read"
-        message={scheduledGamesLoad.error}
+        message="Scheduled games could not be loaded from saved data. You can close this message and continue with manual game setup."
         confirmLabel="OK"
         showCancelButton={false}
         closeOnBackdrop={false}
