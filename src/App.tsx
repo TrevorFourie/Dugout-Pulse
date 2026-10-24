@@ -89,7 +89,12 @@ const MainApp: React.FC = () => {
   // Make the page opaque again (index.html) in the same frame as the app's first
   // paint, so the app directly replaces the native splash artwork.
   useLayoutEffect(() => {
-    if (!showSplash) document.documentElement.classList.remove('native-launch');
+    if (!showSplash) {
+      document.documentElement.classList.remove('native-launch');
+      // The initial Chrome splash lives outside #root so React mounting cannot
+      // flash the page background. Remove it only when the app is ready to paint.
+      document.getElementById('dp-web-startup-splash')?.remove();
+    }
   }, [showSplash]);
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   // A recovered in-progress game must be shown immediately on app startup.
