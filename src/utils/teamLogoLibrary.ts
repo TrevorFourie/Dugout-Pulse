@@ -4,7 +4,7 @@ import { processLogoImage } from './logoImage';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64 } from '../context/recoveryJournal';
 import { UserFacingError, explainFailure } from './userMessages';
 import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagnostics';
-import { isLegacyStorageImportComplete, saveSQLiteLogoLibrary } from '../storage/sqliteRepository';
+import { saveSQLiteLogoLibrary } from '../storage/sqliteRepository';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
 const KEY = 'dugoutPulse.logoLibrary.v1';
