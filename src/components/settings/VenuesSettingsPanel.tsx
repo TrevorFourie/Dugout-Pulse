@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, Edit2, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { recordDiagnosticError } from '../../utils/errorDiagnostics';
-import { protectedStorageSetItem } from '../../context/gameStorageSafety';
+import { readSQLiteUpcomingGames, saveSQLiteUpcomingGames } from '../../storage/sqliteRepository';
 
 interface VenuesSettingsPanelProps {
   isActive: boolean;
@@ -84,32 +84,17 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                           }
                           if (renamedVenue !== venue) {
                             const updatedVenues = (settings.venues || []).map((item) => item === venue ? renamedVenue : item);
-                            // Validate and safely write the scheduled-game list before changing the
-                            // venue master list. Never treat an empty string or malformed list as absent.
+                            // Commit all affected scheduled games to SQLite before updating
+                            // the venue list, so a failed database write cannot split the records.
                             try {
-                              const upcomingGamesKey = 'dugoutPulse.upcomingGames.v1';
-                              const storedGames = localStorage.getItem(upcomingGamesKey);
-                              if (storedGames !== null) {
-                                const parsedGames: unknown = JSON.parse(storedGames);
-                                if (!Array.isArray(parsedGames) || !parsedGames.every((game) =>
-                                  Boolean(game && typeof game === 'object' && !Array.isArray(game) &&
-                                    typeof (game as Record<string, unknown>).id === 'string' &&
-                                    typeof (game as Record<string, unknown>).opponent === 'string' &&
-                                    typeof (game as Record<string, unknown>).date === 'string' &&
-                                    typeof (game as Record<string, unknown>).isHome === 'boolean')
-                                )) {
-                                  throw new SyntaxError('Saved scheduled games contain invalid entries.');
-                                }
-                                const updatedGames = parsedGames.map((game) =>
-                                  typeof (game as Record<string, unknown>).venue === 'string' &&
-                                  ((game as Record<string, unknown>).venue as string).trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
-                                    ? { ...(game as Record<string, unknown>), venue: renamedVenue }
-                                    : game
-                                );
-                                if (!protectedStorageSetItem(upcomingGamesKey, JSON.stringify(updatedGames))) {
-                                  throw new Error('Scheduled games could not be safely saved after the venue rename.');
-                                }
-                              }
+                              const storedGames = await readSQLiteUpcomingGames();
+                              const updatedGames = storedGames.map((game) =>
+                                typeof game.venue === 'string' &&
+                                game.venue.trim().toLocaleLowerCase() === venue.trim().toLocaleLowerCase()
+                                  ? { ...game, venue: renamedVenue }
+                                  : game
+                              );
+                              await saveSQLiteUpcomingGames(updatedGames);
                               updateSettings({ venues: updatedVenues });
                               window.dispatchEvent(new CustomEvent('dugout-pulse-venue-renamed', {
                                 detail: { oldName: venue, newName: renamedVenue },
@@ -120,7 +105,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                                 recordDiagnosticError(
                                   error instanceof SyntaxError ? 'data_corruption' : 'storage_write',
                                   error,
-                                  'A venue rename could not safely synchronize the saved scheduled-game list. The venue master list was not updated; inspect recovery points before retrying.',
+                                  'A venue rename could not safely synchronize the saved scheduled-game list in SQLite. The venue master list was not updated; inspect recovery points before retrying.',
                                 );
                               } catch {
                                 // Preserve the visible warning even if diagnostic recording is unavailable.
