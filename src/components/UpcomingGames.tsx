@@ -28,12 +28,6 @@ interface ScheduledGame {
   reminderOptOut?: boolean;
 }
 
-interface OppositionTeam {
-  id: string;
-  name: string;
-  logo?: string;
-}
-
 const isScheduledGame = (value: unknown): value is ScheduledGame => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const game = value as Record<string, unknown>;
