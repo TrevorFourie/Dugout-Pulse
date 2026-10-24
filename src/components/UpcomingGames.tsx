@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
-import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin, Plus, Pencil, Trash2, X, Check, Shield, Bell, Trophy } from 'lucide-react';
 import { checkGameNotificationPermission, requestGameNotificationPermission, syncGameReminders } from '../utils/gameNotifications';
 import { ConfirmationModal } from './ConfirmationModal';
 import { DatePicker } from './DatePicker';
@@ -466,51 +466,87 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
             {displayedGames.map((game) => {
               const logo = logos.get(game.opponent.trim().toLocaleLowerCase());
               const playerTeam = playerTeams.find((team) => team.id === game.playerTeamId) || playerTeams.find((team) => team.name === game.playerTeamName) || (!game.playerTeamName ? defaultPlayerTeam : undefined);
-              const playerTeamName = game.playerTeamName || playerTeam?.name;
+              const playerTeamName = game.playerTeamName || playerTeam?.name || 'Player team';
               const fieldName = game.fieldId
                 ? (settings.fields || []).find((item) => item.id === game.fieldId && item.venue.trim().toLocaleLowerCase() === (game.venue || '').trim().toLocaleLowerCase())?.name
                 : game.field;
               const gameDate = new Date(`${game.date}T00:00:00`);
+              const dateLabel = gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+              const dateTimeLabel = `${dateLabel}${game.time ? ` @ ${game.time}` : ''}`;
+              const playerSide = game.isHome
+                ? { name: playerTeamName, logo: playerTeam?.logo }
+                : { name: game.opponent, logo };
+              const opponentSide = game.isHome
+                ? { name: game.opponent, logo }
+                : { name: playerTeamName, logo: playerTeam?.logo };
+              const reminderEnabled = settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes);
               return (
-                <article key={game.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#354050] dark:bg-[#1A2028]/60">
-                  <div className="flex min-w-0 items-center gap-2">
-                    {playerTeam?.logo && <TeamLogoImage value={playerTeam.logo} alt="" className="h-5 w-5 shrink-0 rounded-sm bg-white object-contain" />}
-                    <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                      {playerTeamName || 'Player team'} : {playerTeam?.ageGroup || game.ageGroup}
+                <article key={game.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-[#354050] dark:bg-[#252D38]">
+                  <header className="flex min-w-0 items-center justify-between gap-2 bg-[#18212D] px-3 py-3 text-white dark:bg-[#101419] sm:px-4">
+                    <p className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug text-white sm:text-sm" title={`${game.venue ? `${game.venue} - ` : ''}${playerTeamName} : ${playerTeam?.ageGroup || game.ageGroup || ''}`}>
+                      {game.venue ? `${game.venue} - ` : ''}{playerTeamName}{(playerTeam?.ageGroup || game.ageGroup) ? ` : ${playerTeam?.ageGroup || game.ageGroup}` : ''}
                     </p>
-                  </div>
-                  
-                  <div className="mt-2 flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-[#354050] dark:bg-[#252D38]">
-                      {logo ? <TeamLogoImage value={logo} alt={`${game.opponent} logo`} className="h-full w-full object-contain p-1" /> : <img src={teamIcon} alt={`${game.opponent} default icon`} className="h-full w-full object-contain p-1" />}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleGameReminder(game)}
+                        disabled={!game.time}
+                        aria-label={reminderEnabled ? `Disable reminder for ${game.opponent}` : `Enable reminder for ${game.opponent}`}
+                        title={!game.time ? 'Add a start time to enable a reminder' : reminderEnabled ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
+                        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D7BC] disabled:cursor-not-allowed disabled:opacity-40 ${reminderEnabled ? 'bg-[#00BFA5]/20 text-[#00D7BC]' : 'text-slate-200'}`}
+                      ><Bell className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => startEdit(game)} aria-label={`Edit game against ${game.opponent}`} title="Edit upcoming game" className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D7BC]"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => persist(games.filter((item) => item.id !== game.id))} aria-label={`Delete game against ${game.opponent}`} title="Delete upcoming game" className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-200 transition-colors hover:bg-red-500/20 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00D7BC]"><Trash2 className="h-4 w-4" /></button>
                     </div>
+                  </header>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-sm font-semibold text-[#18212D] dark:text-[#FAFAFA]">{game.isHome ? 'vs' : '@'} {game.opponent}</p>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                        <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{gameDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} @ {game.time}</span>
-                        {game.venue && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{game.venue}</span>}
-                        {fieldName && <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />Field: {fieldName}</span>}
-                        {game.gameType && <span className="inline-flex items-center gap-1"><Shield className="h-3 w-3" />{game.gameType}</span>}
+                  <div className="px-3 pb-4 pt-5 sm:px-5">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
+                      <div className="flex min-w-0 flex-col items-center text-center">
+                        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-[#354050] dark:bg-[#1A2028] sm:h-[4.5rem] sm:w-[4.5rem]">
+                          <TeamLogoImage value={playerSide.logo} alt={`${playerSide.name} logo`} className="h-full w-full rounded-full object-contain" />
+                        </div>
+                        <p className="mt-2 w-full break-words text-sm font-bold leading-tight text-[#18212D] dark:text-[#FAFAFA]">{playerSide.name}</p>
+                        {game.isHome && <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">Home</span>}
+                        {!game.isHome && <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">Away</span>}
+                      </div>
+
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#00BFA5] bg-[#E6FBF8] text-xs font-extrabold tracking-wide text-[#006B5D] dark:border-[#00D7BC] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC] sm:h-12 sm:w-12">
+                        VS
+                      </div>
+
+                      <div className="flex min-w-0 flex-col items-center text-center">
+                        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white p-1 shadow-sm dark:border-[#354050] dark:bg-[#1A2028] sm:h-[4.5rem] sm:w-[4.5rem]">
+                          <TeamLogoImage value={opponentSide.logo} alt={`${opponentSide.name} logo`} className="h-full w-full rounded-full object-contain" />
+                        </div>
+                        <p className="mt-2 w-full break-words text-sm font-bold leading-tight text-[#18212D] dark:text-[#FAFAFA]">{opponentSide.name}</p>
+                        <span className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-[#9CA3AF]">{game.isHome ? 'Away' : 'Home'}</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="mt-1 flex justify-end gap-1">
-                    {nextOnly && <p className="py-1 pt-1 mt-1 rounded-xl text-[13px] border border-[#00BFA5] font-semibold bg-[#00BFA5]/20 flex-1 items-center justify-self-center text-center tabular-nums text-[#007A6A] dark:text-[#00D7BC]" aria-live="off">{formatCountdown(game)}</p>}
-                    <button
-                      type="button"
-                      onClick={() => toggleGameReminder(game)}
-                      disabled={!game.time}
-                      aria-label={(settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? `Disable reminder for ${game.opponent}` : `Enable reminder for ${game.opponent}`}
-                      title={!game.time ? 'Add a start time to enable a reminder' : (settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? 'Reminder on — click to turn off' : 'Remind me 1 hour before'}
-                      className={`rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${(settings.gameRemindersEnabled === true ? !game.reminderOptOut : Boolean(game.reminderMinutes)) ? 'bg-[#E6FBF8] text-[#007A6A] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]' : 'text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]'}`}
-                    ><Bell className="h-3.5 w-3.5" /></button>
-                    <button type="button" onClick={() => startEdit(game)} aria-label={`Edit game against ${game.opponent}`} title="Edit upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:text-[#D1D5DB] dark:hover:bg-[#354050]"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button type="button" onClick={() => persist(games.filter((item) => item.id !== game.id))} aria-label={`Delete game against ${game.opponent}`} title="Delete upcoming game" className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-[#D1D5DB] dark:hover:bg-[#FF5252]/15"><Trash2 className="h-3.5 w-3.5" /></button>
+
+                    <div className="mt-5 space-y-3 border-t border-slate-200 pt-4 text-xs text-slate-600 dark:border-[#354050] dark:text-[#D1D5DB]">
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#00806E] dark:text-[#00D7BC]" />
+                        <span className="min-w-0 break-words font-medium">{dateTimeLabel}</span>
+                      </div>
+                      {game.venue && <div className="flex min-w-0 items-start gap-2.5">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00806E] dark:text-[#00D7BC]" />
+                        <span className="min-w-0 break-words">{game.venue}{fieldName ? ` · Field: ${fieldName}` : ''}</span>
+                      </div>}
+                      {!game.venue && fieldName && <div className="flex min-w-0 items-start gap-2.5">
+                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#00806E] dark:text-[#00D7BC]" />
+                        <span className="min-w-0 break-words">Field: {fieldName}</span>
+                      </div>}
+                      {game.gameType && <div className="flex min-w-0 items-start gap-2.5">
+                        <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-[#00806E] dark:text-[#00D7BC]" />
+                        <span className="min-w-0 break-words">{game.gameType}</span>
+                      </div>}
+                    </div>
+
+                    {nextOnly && <p className="mt-4 flex min-h-12 w-full items-center justify-center rounded-full bg-[#00BFA5] px-4 py-3 text-center text-sm font-bold tabular-nums text-white shadow-sm dark:bg-[#00D7BC] dark:text-[#101419]" aria-live="off">{formatCountdown(game)}</p>}
                   </div>
                 </article>
-              );
-            })}
+              );            })}
           </div>
         )}
         {message && <p role="alert" className="mt-2 text-[11px] text-red-600 dark:text-[#D4626D]">{message}</p>}
