@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { processLogoImage } from './logoImage';
-import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64 } from '../context/recoveryJournal';
 import { UserFacingError, explainFailure } from './userMessages';
 import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagnostics';
@@ -19,6 +18,15 @@ export function isMissingTeamLogoFileError(error: unknown): boolean {
   return name === 'NotFoundError' || /file (?:does not exist|not found)|no such file|not found/i.test(message);
 }
 let logoLibraryReadFailureReported = false;
+let cachedLibrary: TeamLogoItem[] | null = null;
+
+/** Hydrate the synchronous UI cache from the authoritative SQLite startup snapshot. */
+export function setTeamLogoLibraryCache(items: TeamLogoItem[]): void {
+  if (!Array.isArray(items) || !items.every(isTeamLogoItem)) {
+    throw new Error('SQLite logo library failed validation while hydrating the UI cache.');
+  }
+  cachedLibrary = items.map((item) => ({ ...item }));
+}
 
 function isTeamLogoItem(value: unknown): value is TeamLogoItem {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -31,6 +39,10 @@ function isTeamLogoItem(value: unknown): value is TeamLogoItem {
 }
 
 function readStoredTeamLogoLibrary(): TeamLogoItem[] {
+  if (cachedLibrary !== null) return cachedLibrary.map((item) => ({ ...item }));
+  if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') === 'complete') {
+    throw new Error('The SQLite logo library has not yet been loaded; legacy localStorage was not used.');
+  }
   const raw = localStorage.getItem(KEY);
   if (raw === null) return [];
   const parsed: unknown = JSON.parse(raw);
@@ -73,21 +85,7 @@ export const readTeamLogoLibrary = (): TeamLogoItem[] => {
 };
 const writeTeamLogoLibrary = async (items: TeamLogoItem[]): Promise<void> => {
   await saveSQLiteLogoLibrary(items);
-  if (!protectedStorageSetItem(KEY, JSON.stringify(items))) {
-    let sqliteIsAuthoritative = false;
-    try {
-      sqliteIsAuthoritative = await isLegacyStorageImportComplete();
-    } catch {
-      // Do not claim SQLite success if its authority cannot be confirmed.
-    }
-    if (sqliteIsAuthoritative) {
-      // The primary write has committed. Keep mounted logo pickers aligned with it,
-      // while still surfacing the failed compatibility mirror to the caller.
-      changed();
-      throw new Error('The logo library was saved to SQLite, but its compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
-    }
-    throw new Error('Could not safely update the saved team logo library. The change was not confirmed.');
-  }
+  cachedLibrary = items.map((item) => ({ ...item }));
   changed();
 };
 
