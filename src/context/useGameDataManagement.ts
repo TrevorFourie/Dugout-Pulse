@@ -6,7 +6,7 @@ import { sortGames } from '../utils/stats';
 import { restoreLocalLogoReferences } from '../utils/logoBackup';
 import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStrict, setTeamLogoLibraryCache, TEAM_LOGO_LIBRARY_EVENT } from '../utils/teamLogoLibrary';
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
@@ -128,6 +128,12 @@ export function useGameDataManagement({
         return {
           success: false,
           message: 'A game save is still awaiting recovery. Reload the app to recover that game before importing a backup.',
+        };
+      }
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+        return {
+          success: false,
+          message: 'A scoring write is still awaiting recovery. Reload the app to recover that scoring action before importing a backup.',
         };
       }
       if (!(await createVerifiedRecoveryCheckpoint('Before importing a JSON backup'))) {
@@ -460,6 +466,15 @@ export function useGameDataManagement({
           'storage_write_games',
           new Error('A completed-game save is awaiting recovery.'),
           'Reset was stopped so an interrupted completed-game save can be recovered before any saved data is removed.',
+        );
+        return false;
+      }
+      if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
+        setRestoreFailed(true);
+        recordDiagnosticError(
+          'storage_write_games',
+          new Error('A scoring write-ahead journal is awaiting recovery.'),
+          'Reset was stopped so an interrupted scoring write can be recovered before any saved data is removed.',
         );
         return false;
       }
