@@ -17,7 +17,7 @@ interface ScheduledGame {
   ageGroup?: string;
   date: string;
   time?: string;
-  isHome: boolean;
+  isHome?: boolean;
 }
 
 interface StartGamePickerProps {
@@ -50,7 +50,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
         typeof (item as ScheduledGame).id === 'string' &&
         typeof (item as ScheduledGame).opponent === 'string' &&
         typeof (item as ScheduledGame).date === 'string' &&
-        typeof (item as ScheduledGame).isHome === 'boolean'
+        ((item as ScheduledGame).isHome === undefined || typeof (item as ScheduledGame).isHome === 'boolean')
       );
       if (!valid) throw new Error('The SQLite scheduled-game list contains an invalid record.');
       setScheduledGames(saved as ScheduledGame[]);
