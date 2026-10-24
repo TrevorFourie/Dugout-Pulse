@@ -338,7 +338,6 @@ export function useGameDataManagement({
           logoLibrary: readTeamLogoLibraryStrict(),
         };
         await saveLiveSQLiteState(nextState, { includeAuxiliary: true });
-        setSetupCompleted(setupCompleted);
       
       }
 
