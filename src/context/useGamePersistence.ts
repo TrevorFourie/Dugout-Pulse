@@ -31,8 +31,12 @@ const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
 
 /** A newer scoring action owns the live-game write-ahead journal while it is pending. */
 function hasNewerPendingLiveGameWrite(expectedLiveGame: string | null): boolean {
-  if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) === null) return false;
-  return localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== expectedLiveGame;
+  const pending = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY);
+  if (pending === null) return false;
+  // Older builds used a sentinel plus a duplicate live-game value. Continue to
+  // recognize that journal shape during upgrades, but new writes carry the game.
+  if (pending === 'pending') return localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== expectedLiveGame;
+  return pending !== expectedLiveGame;
 }
 
 /** Persist context state to SQLite after cutover; localStorage remains only for migration/recovery metadata. */
