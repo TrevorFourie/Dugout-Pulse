@@ -1015,10 +1015,7 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
 }
 
 
-const SQLITE_UI_STATE_KEYS = new Set([
-  'dugout_pulse_resume_ui_v1',
-  'dugout_pulse_runner_workflow_v1',
-]);
+const SQLITE_UI_STATE_KEYS = new Set([SCORE_UI_STATE_KEY, RUNNER_WORKFLOW_STATE_KEY]);
 
 /** Read durable scoring-screen preferences from SQLite app_state. */
 export async function readSQLiteAppStateValue<T>(key: string, fallback: T): Promise<T> {
