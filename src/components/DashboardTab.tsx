@@ -12,6 +12,7 @@ import {
   Award,
   Activity,
   ChevronRight,
+  ArrowUpRight,
   Sparkles,
   TrendingUp,
   BarChart3,
@@ -84,7 +85,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             type="button"
             onClick={onOpenPlayerProfile}
             aria-label="Open Player Details settings"
-            className="group flex w-full min-w-0 items-center gap-3 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5]"
+            className="group relative flex w-full min-w-0 items-center gap-3 rounded-xl pr-7 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5]"
           >
             {/* Player profile image; TeamLogoImage falls back to TeamIcon when no image is selected. */}
             <div className="relative w-[4.5rem] h-[4.5rem] sm:w-20 sm:h-20 shrink-0">
@@ -125,7 +126,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 </p>
               )}
             </div>
-            <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-[#007A6A] transition-transform group-hover:translate-x-0.5 dark:text-[#00D7BC]" aria-hidden="true" />
+            <ArrowUpRight className="absolute right-0.5 top-0.5 h-5 w-5 shrink-0 text-[#007A6A] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 dark:text-[#00D7BC]" aria-hidden="true" />
           </button>
         </div>
       </div>
