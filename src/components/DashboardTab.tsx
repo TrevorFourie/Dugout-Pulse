@@ -231,10 +231,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       />
 
       {/* Player performance detail tabs */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-[#354050] dark:bg-[#252D38]">
-        <div role="tablist" aria-label="Player performance details" className="grid grid-cols-3 border-b border-slate-200/80 dark:border-[#354050]">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs sm:p-4 dark:border-[#354050] dark:bg-[#252D38]">
+        <div role="tablist" aria-label="Player performance details" className="grid grid-cols-3 gap-2 rounded-xl border border-slate-200/80 bg-slate-100 p-1.5 dark:border-[#354050] dark:bg-[#1A2028]">
           {performanceTabs.map((tab) => {
             const selected = performanceTab === tab.id;
+            const TabIcon = tab.id === 'snapshot' ? Activity : tab.id === 'personalBest' ? Award : Sparkles;
             return (
               <button
                 key={tab.id}
@@ -246,13 +247,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setPerformanceTab(tab.id)}
                 onKeyDown={handlePerformanceTabKeyDown}
-                className={`min-w-0 border-b-2 px-2 py-3 text-xs sm:text-sm font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00BFA5] ${
+                className={`relative flex min-h-[3.25rem] min-w-0 items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 text-[11px] font-semibold transition-all duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5] sm:gap-2 sm:px-3 sm:text-sm ${
                   selected
-                    ? 'border-[#00BFA5] bg-[#00BFA5]/5 text-[#007A6A] dark:border-[#00D7BC] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]'
-                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-[#9CA3AF] dark:hover:bg-[#1A2028] dark:hover:text-[#FAFAFA]'
+                    ? 'border-[#00BFA5] bg-[#00BFA5] text-[#18212D] shadow-md shadow-teal-900/15 dark:border-[#00D7BC] dark:bg-[#00D7BC] dark:text-[#101419] dark:shadow-black/20'
+                    : 'border-transparent bg-white text-slate-600 shadow-xs hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:bg-[#252D38] dark:text-[#B8C2CF] dark:hover:border-[#465160] dark:hover:bg-[#2D3643] dark:hover:text-[#FAFAFA]'
                 }`}
               >
-                {tab.label}
+                <TabIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{tab.label}</span>
+                {selected && <span className="ml-0.5 hidden h-1.5 w-1.5 shrink-0 rounded-full bg-[#18212D] sm:block" aria-hidden="true" />}
               </button>
             );
           })}
