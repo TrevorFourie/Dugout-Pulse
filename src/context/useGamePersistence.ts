@@ -3,8 +3,7 @@ import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage } from './gameStorageSafety';
-import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
+import { readPendingCompletedGameSaveFromStorage } from './gameStorageSafety';
 import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState } from '../storage/sqliteRepository';
 
 interface GamePersistenceOptions {
@@ -115,43 +114,7 @@ export function useGamePersistence({
           return;
         }
 
-        // One-time legacy mode only: preserve the old storage behavior until the
-        // validated SQLite import transaction completes. This is not the post-cutover path.
-        const checkpointed = await createVerifiedRecoveryCheckpoint('Before saved application state changed during legacy migration');
-        if (!checkpointed) {
-          onStorageProtectionFailure();
-          recordDiagnosticError('storage_write', new Error('Private recovery checkpoint failed; the requested legacy storage write was blocked.'));
-          return;
-        }
-        if (shouldAbortForNewerWrite()) return;
-        const results = [
-          protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify(games)),
-          protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(oppositionTeams)),
-          protectedStorageSetItem(STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(savedOpponents)),
-          protectedStorageSetItem(STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(savedTournaments)),
-          protectedStorageSetItem(STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(savedAgeGroups)),
-          protectedStorageSetItem(STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(savedSeasons)),
-          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(hiddenTournaments)),
-          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(hiddenAgeGroups)),
-          protectedStorageSetItem(STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(hiddenSeasons)),
-          liveGame ? protectedStorageSetItem(STORAGE_KEYS.LIVE_GAME, JSON.stringify(liveGame)) : protectedStorageRemoveItem(STORAGE_KEYS.LIVE_GAME),
-          editingGameId ? protectedStorageSetItem(STORAGE_KEYS.EDITING_GAME_ID, JSON.stringify(editingGameId)) : protectedStorageRemoveItem(STORAGE_KEYS.EDITING_GAME_ID),
-          reopenedGameId ? protectedStorageSetItem(STORAGE_KEYS.REOPENED_GAME_ID, JSON.stringify(reopenedGameId)) : protectedStorageRemoveItem(STORAGE_KEYS.REOPENED_GAME_ID),
-          protectedStorageSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(profiles)),
-          protectedStorageSetItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)),
-        ];
-        if (results.some((success) => !success)) {
-          onStorageProtectionFailure();
-          recordDiagnosticError('storage_write', new Error('One or more legacy storage writes failed verification.'));
-          return;
-        }
-        if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-          localStorage.removeItem(PENDING_LIVE_GAME_WRITE_KEY);
-          if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) {
-            onStorageProtectionFailure();
-            recordDiagnosticError('storage_write_games', new Error('The pending live-game journal could not be cleared after legacy storage persistence.'));
-          }
-        }
+        throw new Error('SQLite is not the active storage store; application-state persistence was stopped rather than writing to localStorage.');
       } catch (error) {
         onStorageProtectionFailure();
         try {
