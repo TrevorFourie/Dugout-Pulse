@@ -77,8 +77,11 @@ function renderLocalStartupFallback(reference: string): void {
 // artwork there before loading the application module.
 if (!Capacitor.isNativePlatform()) {
   const splash = document.createElement('div');
+  splash.id = 'dp-web-startup-splash';
   splash.setAttribute('aria-label', 'Loading Dugout Pulse');
-  splash.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;overflow:hidden;background:#121923;';
+  // Keep the first painted splash outside React's root so mounting the app cannot
+  // replace it with a second image and briefly expose the page background.
+  splash.style.cssText = 'position:fixed;inset:0;z-index:2147483646;width:100%;height:100%;overflow:hidden;background:#121923;';
   const picture = document.createElement('picture');
   picture.style.cssText = 'display:block;width:100%;height:100%;';
   const largeSource = document.createElement('source');
@@ -96,7 +99,7 @@ if (!Capacitor.isNativePlatform()) {
   image.style.cssText = 'display:block;width:100%;height:100%;object-fit:cover;';
   picture.append(largeSource, tabletSource, image);
   splash.append(picture);
-  root.replaceChildren(splash);
+  document.body.append(splash);
 }
 
 // Capture runtime failures before the React app is imported. If Vite fails before
@@ -159,6 +162,7 @@ void import('/src/App.tsx').then(({ default: App }) => {
   } catch {
     // Keep the original startup failure visible even if recording diagnostics fails.
   }
+  document.getElementById('dp-web-startup-splash')?.remove();
   root.replaceChildren();
   if (!showDiagnosticScreen(reference)) {
     renderLocalStartupFallback(reference);
