@@ -8,6 +8,7 @@ import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { hasOrphanedGameReferences, protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage, readPendingLiveGameFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
 import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { setTeamLogoLibraryCache } from '../utils/teamLogoLibrary';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
 
@@ -145,6 +146,7 @@ export function useGameRestore({
         );
       };
       const applyLiveState = (state: SQLiteLiveState) => {
+        setTeamLogoLibraryCache(state.logoLibrary);
         setGames(sortGames(state.games, 'oldestFirst'));
         setProfiles(state.profiles.length > 0 ? state.profiles.map(withTeams) : [DEFAULT_PROFILE]);
         setSettings((previous) => ({ ...DEFAULT_SETTINGS, ...previous, ...state.settings }));
