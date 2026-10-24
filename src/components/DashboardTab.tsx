@@ -26,14 +26,14 @@ interface DashboardTabProps {
   onNavigateToScore: () => void;
   onNavigateToStats: () => void;
   onOpenHelp: () => void;
-  onOpenSettings: () => void;
+  onOpenPlayerProfile: () => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
   onNavigateToScore,
   onNavigateToStats,
   onOpenHelp,
-  onOpenSettings,
+  onOpenPlayerProfile,
 }) => {
   const {
     games,
@@ -82,13 +82,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         <div className="flex items-start justify-between gap-2">
           <button
             type="button"
-            onClick={onOpenSettings}
+            onClick={onOpenPlayerProfile}
             aria-label="Open Player Details settings"
-            className="group flex min-w-0 items-center gap-3.5 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5] sm:gap-2"
+            className="group flex w-full min-w-0 items-center gap-3 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5]"
           >
             {/* Player profile image; TeamLogoImage falls back to TeamIcon when no image is selected. */}
-            <div className="relative w-14 h-14 sm:w-16 sm:h-16 shrink-0">
-              <div className="w-full h-full rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
+            <div className="relative w-[4.5rem] h-[4.5rem] sm:w-20 sm:h-20 shrink-0">
+              <div className="w-full h-full rounded-lg overflow-hidden bg-[#18212D] dark:bg-[#1A2028] border border-slate-300 dark:border-[#354050] flex items-center justify-center shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
                 <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
               </div>
               {activeJerseyNumber && (
@@ -101,29 +101,31 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               )}
             </div>
 
-            <div className="py-0">
-              <span className="py-0 text-[11px] font-semibold uppercase tracking-widest text-[#007A6A] dark:text-[#00D7BC]">GAME DAY SCORING</span>
-              <h1 className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
+            <div className="min-w-0 flex-1 py-0 leading-tight">
+              <span className="block text-[11px] sm:text-xs font-semibold text-[#007A6A] dark:text-[#00D7BC]">One more game.</span>
+              <span className="block text-sm sm:text-base font-semibold text-[#18212D] dark:text-[#FAFAFA]">One more opportunity.</span>
+              <h1 className="mt-0.5 text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA] tracking-tight">
                 {playerNameDisplay}
               </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-[#9CA3AF] flex items-center flex-wrap">
+              <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-[#9CA3AF] flex items-center flex-wrap leading-tight">
                 <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB]">
                   {teamNameDisplay}
                 </span>
                 {activeProfile.defaultAgeGroup && (
-                  <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB] px-0.5"> · {activeProfile.defaultAgeGroup}</span>
+                  <span className="text-slate-700 dark:text-[#D1D5DB] px-0.5"> · {activeProfile.defaultAgeGroup}</span>
                 )}
               </p>
               {(activeProfile.fieldingPositions?.length || activeProfile.battingSide || activeProfile.throwingArm) && (
-                <p className="mt-1 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-[#B8C2CF] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="mt-0.5 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-[#B8C2CF] flex flex-wrap items-center gap-x-2 gap-y-0 leading-tight">
                   {activeProfile.fieldingPositions?.length ? (
-                    <span>Fielding: {activeProfile.fieldingPositions.join(', ')}</span>
+                    <span>{activeProfile.fieldingPositions.map((position) => position === 'P' ? 'P' : position).join(', ')}</span>
                   ) : null}
-                  {activeProfile.battingSide ? <span>Batting: {activeProfile.battingSide}</span> : null}
-                  {activeProfile.throwingArm ? <span>Throws: {activeProfile.throwingArm}</span> : null}
+                  {activeProfile.battingSide ? <span>Bats {activeProfile.battingSide === 'Right' ? 'R' : activeProfile.battingSide === 'Left' ? 'L' : 'R/L'}</span> : null}
+                  {activeProfile.throwingArm ? <span>Throws {activeProfile.throwingArm === 'Right' ? 'R' : activeProfile.throwingArm === 'Left' ? 'L' : 'R/L'}</span> : null}
                 </p>
               )}
             </div>
+            <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-[#007A6A] transition-transform group-hover:translate-x-0.5 dark:text-[#00D7BC]" aria-hidden="true" />
           </button>
         </div>
       </div>
