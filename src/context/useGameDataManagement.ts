@@ -374,7 +374,7 @@ export function useGameDataManagement({
           const importedSetupCompleted = extras.setupCompleted === true &&
             Array.isArray(data.profiles) && data.profiles.length > 0;
           setSetupCompleted(importedSetupCompleted);
-          setIsFirstTimeUser(!importedSetupCompleted);
+          if (importedSetupCompleted) setIsFirstTimeUser(false);
         }
       }
 
