@@ -13,7 +13,6 @@ import { useInningManagement } from './useInningManagement';
 import { useGamePlayActions } from './useGamePlayActions';
 import { useGameLifecycle } from './useGameLifecycle';
 import { useGameDataManagement } from './useGameDataManagement';
-import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -42,7 +41,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const dismissResumePrompt = useCallback(() => setResumePromptPending(false), []);
   const handleStorageProtectionFailure = useCallback(() => setRestoreFailed(true), []);
 
-  // First time user detection: true if setup has not been completed and no profile is filled out
+  // Setup completion is hydrated from SQLite during the initial restore.
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
 
