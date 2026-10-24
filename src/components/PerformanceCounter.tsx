@@ -266,7 +266,7 @@ export const PerformanceCounter: React.FC<PerformanceCounterProps> = ({
 
       {filteredGames.length === 0 && (
         <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-center text-xs text-slate-500 dark:bg-[#1A2028] dark:text-[#9CA3AF]">
-          No games found for {periodLabel.toLowerCase()}. Record or select another period to see performance.
+          No games for {periodLabel.toLowerCase()} yet. Try another period, or check back after your next game.
         </div>
       )}
       {filteredGames.length > 0 && !hasMetricData && (
