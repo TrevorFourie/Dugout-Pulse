@@ -15,6 +15,9 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
   const { settings, updateSettings } = useGame();
   const venues = settings.venues || [];
   const fields = settings.fields || [];
+  const visibleFields = newFieldVenue
+    ? fields.filter((field) => field.venue.trim().toLocaleLowerCase() === newFieldVenue.trim().toLocaleLowerCase())
+    : fields;
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldVenue, setNewFieldVenue] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -108,14 +111,14 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
       </div>
 
       <div className="space-y-2">
-        <div className="text-[11px] font-semibold text-slate-500 dark:text-[#9CA3AF]">Saved Fields ({fields.length})</div>
-        {fields.length === 0 ? (
+        <div className="text-[11px] font-semibold text-slate-500 dark:text-[#9CA3AF]">Saved Fields ({visibleFields.length}{newFieldVenue ? ` of ${fields.length}` : ''}{newFieldVenue ? ` · ${newFieldVenue}` : ''})</div>
+        {visibleFields.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-[#354050] dark:text-[#9CA3AF]">
-            No fields saved yet. Add a field and link it to a venue above.
+            {newFieldVenue ? `No fields saved for ${newFieldVenue} yet. Add a field for this venue above.` : 'No fields saved yet. Add a field and link it to a venue above.'}
           </div>
         ) : (
           <div className="space-y-2">
-            {fields.map((field) => {
+            {visibleFields.map((field) => {
               const isEditing = editingId === field.id;
               return (
                 <div key={field.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-[#354050] dark:bg-[#252D38]/40">
