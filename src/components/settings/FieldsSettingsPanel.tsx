@@ -35,11 +35,11 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
     event.preventDefault();
     const name = newFieldName.trim();
     if (!name || !newFieldVenue || !venues.includes(newFieldVenue)) {
-      onStatusMessage({ text: 'Enter a field name and select a saved venue.', isError: true });
+      onStatusMessage({ text: 'Add a field name and choose a saved venue.', isError: true });
       return;
     }
     if (duplicateExists(name, newFieldVenue)) {
-      onStatusMessage({ text: 'That field already exists for this venue.', isError: true });
+      onStatusMessage({ text: 'This venue already has a field with that name.', isError: true });
       return;
     }
     const field: VenueField = { id: createFieldId(), name, venue: newFieldVenue };
@@ -73,11 +73,11 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
           Fields
         </h3>
         <p className="mb-4 text-xs text-slate-500 dark:text-[#9CA3AF]">
-          Add the individual playing fields at each saved venue. Only fields linked to the selected venue are offered when scheduling a game.
+          Add the fields at each ballpark. When you schedule a game, you'll only see fields for the venue you choose.
         </p>
         {venues.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 p-4 text-xs text-slate-600 dark:border-[#354050] dark:text-[#D1D5DB]">
-            Add a venue in Setup &amp; Settings → Venues before adding fields.
+            Add a venue in Setup &amp; Settings → Venues first, then you can add its fields.
           </div>
         ) : (
           <form onSubmit={addField} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-[#354050] dark:bg-[#1A2028]/70">
@@ -114,7 +114,7 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
         <div className="text-[11px] font-semibold text-slate-500 dark:text-[#9CA3AF]">Saved Fields ({visibleFields.length}{newFieldVenue ? ` of ${fields.length}` : ''}{newFieldVenue ? ` · ${newFieldVenue}` : ''})</div>
         {visibleFields.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-[#354050] dark:text-[#9CA3AF]">
-            {newFieldVenue ? `No fields saved for ${newFieldVenue} yet. Add a field for this venue above.` : 'No fields saved yet. Add a field and link it to a venue above.'}
+            {newFieldVenue ? `No fields for ${newFieldVenue} yet. Add the first one above.` : 'No fields yet. Add one above and link it to a venue.'}
           </div>
         ) : (
           <div className="space-y-2">
