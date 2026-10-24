@@ -37,19 +37,19 @@ export async function buildFullBackup(_data: {
     oppositionTeams: unknown[];
     extras: BackupExtras;
   } = {
-    games: state.games,
-    profiles: state.profiles,
-    settings: state.settings,
+    games: _data.games,
+    profiles: _data.profiles,
+    settings: _data.settings,
     upcomingGames: state.upcomingGames,
-    oppositionTeams: state.oppositionTeams,
+    oppositionTeams: _data.liveState?.oppositionTeams ?? state.oppositionTeams,
     extras: {
-      savedTournaments: state.savedTournaments,
-      savedAgeGroups: state.savedAgeGroups,
-      savedSeasons: state.savedSeasons,
-      savedOpponents: state.savedOpponents,
-      hiddenTournaments: state.hiddenTournaments,
-      hiddenAgeGroups: state.hiddenAgeGroups,
-      hiddenSeasons: state.hiddenSeasons,
+      savedTournaments: _data.liveState?.savedTournaments ?? state.savedTournaments,
+      savedAgeGroups: _data.liveState?.savedAgeGroups ?? state.savedAgeGroups,
+      savedSeasons: _data.liveState?.savedSeasons ?? state.savedSeasons,
+      savedOpponents: _data.liveState?.savedOpponents ?? state.savedOpponents,
+      hiddenTournaments: _data.liveState?.hiddenTournaments ?? state.hiddenTournaments,
+      hiddenAgeGroups: _data.liveState?.hiddenAgeGroups ?? state.hiddenAgeGroups,
+      hiddenSeasons: _data.liveState?.hiddenSeasons ?? state.hiddenSeasons,
       setupCompleted: state.setupCompleted,
     },
   };
