@@ -320,6 +320,13 @@ const MainApp: React.FC = () => {
     setIsSettingsMenuOpen(true);
   };
 
+  const handleOpenPlayerProfile = () => {
+    setSettingsInitialSection('playerDetails');
+    setIsSettingsMenuOpen(false);
+    setIsSettingsOpen(true);
+    setActiveTab('settings');
+  };
+
   // After a successful restore, leave Settings, land on the dashboard and confirm with a modal.
   const handleRestoreComplete = (message: string, partial: boolean) => {
     setIsSettingsOpen(false);
@@ -514,7 +521,7 @@ const MainApp: React.FC = () => {
             onNavigateToScore={handleStartGame}
             onNavigateToStats={() => setActiveTab('stats')}
             onOpenHelp={() => handleOpenHelp('batting')}
-            onOpenSettings={() => handleOpenSettings()}
+            onOpenPlayerProfile={handleOpenPlayerProfile}
           />
         )}
         {activeTab === 'stats' && (
