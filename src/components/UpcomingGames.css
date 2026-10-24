@@ -1,91 +1,116 @@
-/* Upcoming match card geometry. Colors follow the existing Dugout Pulse theme. */
+/* Upcoming match card container geometry */
 .upcoming-match-card {
+  position: relative;
   overflow: hidden;
   border: 1px solid #DCE2E8;
-  border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(24 33 45 / 8%);
+  border-radius: 1.5rem;
+  background: #F4F7F6;
+  box-shadow: 0 4px 12px rgb(24 33 45 / 5%);
 }
 .dark .upcoming-match-card {
   border-color: #354050;
   background: #252D38;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 16%);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
 }
 
+/* Card Header Container Layout */
 .upcoming-match-card__header {
   display: flex;
+  position: relative;
   width: 100%;
-  min-width: 0;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #18212D;
-  color: #fff;
+  padding: 0 16px 0 0; 
+  background: transparent;
+  height: 38px;
 }
-.dark .upcoming-match-card__header {
-  background: #101419;
-}
+
+/* Custom Curved Left Teal Banner Shape */
 .upcoming-match-card__context {
-  flex: 1 1 auto;
-  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-grow: 1; /* FORCE: Tell the banner to grow aggressively and occupy all available space */
+  flex-shrink: 1;
+  flex-basis: 0%; /* Reset baseline width to 0 so flex-grow distributes the entire row space */
+  min-width: 0; 
   overflow: hidden;
-  color: #fff;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.25rem;
+  background: #648B8E; 
+  color: #FFF;
+  height: 38px;
+  padding: 0 32px 0 16px; 
+  
+  /* Continuous smooth S-curve wave geometry hooks */
+  border-bottom-right-radius: 2.25rem;
+  border-top-left-radius: 1.4rem; 
+  border-bottom-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-left: -1px; 
+  margin-top: -1px;
+}
+
+/* Explicit rule on the inner span layout engine to render the true text ellipsis */
+.upcoming-match-card__context span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25rem;
 }
+
+/* Header Management Utility Buttons Wrapper */
 .upcoming-match-card__actions {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
+  height: 38px;
+  flex-grow: 0; /* Keep icons strictly compressed to their minimum size */
+  flex-shrink: 0;
+  margin-left: 16px; /* Clean, fixed visual gap right before the notification bell */
 }
+
+
+/* Management Action Icons Layout Styling */
 .upcoming-match-card__action {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: 28px;
+  height: 28px;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 0.5rem;
   background: transparent;
-  color: #E2E8F0;
+  color: #64748B;
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: transform 120ms ease, color 120ms ease;
+}
+.dark .upcoming-match-card__action {
+  color: #9CA3AF;
 }
 .upcoming-match-card__action:hover {
-  background: rgb(255 255 255 / 10%);
-}
-.upcoming-match-card__action:focus-visible {
-  outline: 2px solid #00D7BC;
-  outline-offset: 2px;
-}
-.upcoming-match-card__action:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
+  transform: scale(1.08);
 }
 .upcoming-match-card__action--active {
-  background: rgb(0 191 165 / 20%);
-  color: #00D7BC;
+  color: #00BFA5;
 }
 .upcoming-match-card__action--delete:hover {
-  background: rgb(239 68 68 / 20%);
-  color: #FECACA;
+  color: #EF4444;
 }
 
+/* Central Card Content Box layout */
 .upcoming-match-card__body {
-  padding: 0 12px 16px;
+  padding: 0 16px 16px;
 }
+
+/* Matchup Versus Horizontal section structure */
 .upcoming-match-card__versus {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  gap: 8px;
-  margin: 24px 0;
+  gap: 12px;
+  margin: 16px 0;
 }
 .upcoming-match-card__team {
   display: flex;
@@ -97,21 +122,16 @@
 }
 .upcoming-match-card__logo {
   display: flex;
-  width: 68px;
-  height: 68px;
-  flex: 0 0 68px;
+  width: 72px;
+  height: 72px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid #DCE2E8;
+  border: 1px solid #E2E8F0;
   border-radius: 50%;
-  background: #fff;
+  background: #FFF;
   padding: 4px;
-  box-shadow: 0 1px 2px rgb(24 33 45 / 8%);
-}
-.dark .upcoming-match-card__logo {
-  border-color: #354050;
-  background: #1A2028;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 4%);
 }
 .upcoming-match-card__logo img {
   display: block;
@@ -122,58 +142,52 @@
 }
 .upcoming-match-card__team-name {
   width: 100%;
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   overflow-wrap: anywhere;
-  color: #18212D;
+  color: #1E293B;
   font-size: 0.875rem;
   font-weight: 700;
-  line-height: 1.25rem;
+  line-height: 1.2rem;
 }
 .dark .upcoming-match-card__team-name {
   color: #FAFAFA;
 }
 .upcoming-match-card__side-label {
-  margin-top: 4px;
-  color: #6B7787;
+  margin-top: 2px;
+  color: #94A3B8;
   font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.dark .upcoming-match-card__side-label {
-  color: #9CA3AF;
-}
+
+/* Central Versus Slanted Typography Layout */
 .upcoming-match-card__vs-badge {
   display: flex;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #C5CDD6;
-  border-radius: 50%;
-  background: #F4F6F8;
-  color: #18212D;
-  font-size: 0.8125rem;
-  font-weight: 800;
-  line-height: 1;
+  font-size: 1.5rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #94A3B8;
+  text-transform: uppercase;
+  transform: rotate(-5deg);
+  user-select: none;
 }
 .dark .upcoming-match-card__vs-badge {
-  border-color: #465160;
-  background: #2D3643;
-  color: #FAFAFA;
+  color: #4A5568;
 }
 
+/* Game Info Metadata Details Column Wrapper */
 .upcoming-match-card__details {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-top: 1px solid #DCE2E8;
-  padding-top: 16px;
-  color: #4B5663;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
+  gap: 10px;
+  border-top: 1px solid #E2E8F0;
+  padding-top: 14px;
+  margin: 0 4px;
+  color: #475569;
+  font-size: 0.8125rem;
 }
 .dark .upcoming-match-card__details {
   border-top-color: #354050;
@@ -182,97 +196,36 @@
 .upcoming-match-card__detail {
   display: flex;
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 .upcoming-match-card__detail-icon {
-  position: relative;
-  top: 2px;
   width: 16px;
   height: 16px;
   flex: 0 0 16px;
-  color: #00806E;
+  color: #64748B;
 }
-.dark .upcoming-match-card__detail-icon {
-  color: #00D7BC;
-}
-.upcoming-match-card__detail-text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
+
+/* High Contrast Bottom Count Down Pill */
 .upcoming-match-card__countdown {
   display: flex;
   width: 100%;
-  min-height: 48px;
+  min-height: 46px;
   align-items: center;
   justify-content: center;
-  margin-top: 16px;
+  margin-top: 20px;
   border: 0;
   border-radius: 9999px;
   background: #00BFA5;
-  padding: 12px 16px;
-  color: #fff;
-  font-size: 0.875rem;
+  padding: 10px 16px;
+  color: #FFF;
+  font-size: 1rem;
   font-weight: 700;
-  line-height: 1.25rem;
-  text-align: center;
   font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 6px rgb(0 191 165 / 20%);
 }
 .dark .upcoming-match-card__countdown {
   background: #00D7BC;
   color: #101419;
-}
-
-@media (min-width: 640px) {
-  .upcoming-match-card__header {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-  .upcoming-match-card__context {
-    font-size: 0.875rem;
-  }
-  .upcoming-match-card__body {
-    padding-right: 20px;
-    padding-left: 20px;
-  }
-  .upcoming-match-card__logo {
-    width: 76px;
-    height: 76px;
-    flex-basis: 76px;
-  }
-  .upcoming-match-card__vs-badge {
-    width: 48px;
-    height: 48px;
-    flex-basis: 48px;
-  }
-}
-
-@media (max-width: 360px) {
-  .upcoming-match-card__header {
-    gap: 4px;
-    padding-right: 8px;
-    padding-left: 8px;
-  }
-  .upcoming-match-card__actions {
-    gap: 2px;
-  }
-  .upcoming-match-card__action {
-    width: 32px;
-    height: 36px;
-    flex-basis: 32px;
-  }
-  .upcoming-match-card__body {
-    padding-right: 8px;
-    padding-left: 8px;
-  }
-  .upcoming-match-card__logo {
-    width: 58px;
-    height: 58px;
-    flex-basis: 58px;
-  }
-  .upcoming-match-card__vs-badge {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
-  }
+  box-shadow: 0 2px 6px rgb(0 215 188 / 20%);
 }
