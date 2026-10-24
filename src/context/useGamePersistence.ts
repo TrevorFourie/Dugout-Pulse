@@ -5,7 +5,7 @@ import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { protectedStorageRemoveItem, protectedStorageSetItem, readPendingCompletedGameSaveFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint } from './recoveryJournal';
-import { isLegacyStorageImportComplete, readLiveSQLiteState, saveLiveSQLiteState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, saveLiveSQLiteState } from '../storage/sqliteRepository';
 
 interface GamePersistenceOptions {
   isLoading: boolean;
@@ -24,6 +24,7 @@ interface GamePersistenceOptions {
   reopenedGameId: string | null;
   profiles: PlayerProfile[];
   settings: AppSettings;
+  setupCompleted: boolean;
 }
 
 const LOCAL_CUTOVER_MARKER = 'dugoutPulse.sqliteCutover.v1';
@@ -72,7 +73,6 @@ export function useGamePersistence({
           // A committed SQLite snapshot is the source of truth. Do not checkpoint or
           // rewrite application data into localStorage after cutover.
           if (shouldAbortForNewerWrite()) return;
-          const persistedState = await readLiveSQLiteState();
           await saveLiveSQLiteState({
             games,
             profiles,
@@ -80,7 +80,7 @@ export function useGamePersistence({
             liveGame,
             editingGameId,
             reopenedGameId,
-            setupCompleted: persistedState.setupCompleted,
+            setupCompleted,
             savedOpponents,
             savedTournaments,
             savedAgeGroups,
@@ -163,6 +163,6 @@ export function useGamePersistence({
     isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
     savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments,
     hiddenAgeGroups, hiddenSeasons, liveGame, editingGameId, reopenedGameId,
-    profiles, settings,
+    profiles, settings, setupCompleted,
   ]);
 }
