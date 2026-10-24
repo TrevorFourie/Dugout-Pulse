@@ -49,6 +49,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     return games.filter((g) => !g.playerId || g.playerId === activeProfile.id);
   }, [games, activeProfile.id]);
 
+  const [performanceTab, setPerformanceTab] = useState<'snapshot' | 'personalBest' | 'milestones'>('snapshot');
+
   if (isLoading) {
     // Keep the first React frame visually aligned with the native splash while
     // SQLite is restored before the dashboard is rendered.
@@ -65,7 +67,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   const seasonStats = calculateSeasonStats(playerGames, settings.inningsPerGame, activeProfile.id);
   const { gameCount, batting, lastGameHits } = seasonStats;
-  const [performanceTab, setPerformanceTab] = useState<'snapshot' | 'personalBest' | 'milestones'>('snapshot');
   const performanceTabs = [
     { id: 'snapshot', label: 'Snapshot' },
     { id: 'personalBest', label: 'Personal Best' },
