@@ -25,7 +25,7 @@ export const ScoringSettingsPanel: React.FC<ScoringSettingsPanelProps> = ({ sett
                         Home run also records Run & RBI
                       </label>
                       <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">
-                        When enabled, tapping HR automatically records +1 Run and +1 RBI.
+                        With this on, a home run adds a run and an RBI automatically.
                       </p>
                     </div>
                     <button
@@ -140,7 +140,7 @@ export const ScoringSettingsPanel: React.FC<ScoringSettingsPanelProps> = ({ sett
                         Spray Chart & Hit Direction Tapper
                       </label>
                       <p className="text-xs text-slate-500 dark:text-[#9CA3AF]">
-                        Prompt the interactive field tapper on batted balls to map hit zone (LF, CF, RF, infield) and trajectory.
+                        Show the field after a ball is hit so you can mark where it landed and its trajectory.
                       </p>
                     </div>
                     <button
