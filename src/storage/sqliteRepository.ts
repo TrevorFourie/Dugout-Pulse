@@ -1003,6 +1003,23 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
 }
 
 
+/** Read independently managed auxiliary tables without reloading the entire app state. */
+export async function readSQLiteAuxiliaryState(): Promise<Pick<SQLiteLiveState, 'upcomingGames' | 'logoLibrary'>> {
+  if (!(await isLegacyStorageImportComplete())) {
+    throw new Error('SQLite is not yet authoritative for auxiliary application data.');
+  }
+  return withSQLiteRead(async (database) => {
+    const [upcomingRows, logoRows] = await Promise.all([
+      readRows(database, 'SELECT id, value_json FROM upcoming_games'),
+      readRows(database, 'SELECT id, value_json FROM logo_library'),
+    ]);
+    return {
+      upcomingGames: parseLiveRows(upcomingRows, 'upcoming_games', isUpcomingGame, 'id'),
+      logoLibrary: parseLiveRows(logoRows, 'logo_library', isLogoItem, 'id'),
+    };
+  });
+}
+
 /** Read scheduled games from the authoritative SQLite table after cutover. */
 export async function readSQLiteUpcomingGames(): Promise<(Record<string, unknown> & { id: string })[]> {
   if (!(await isLegacyStorageImportComplete())) {
