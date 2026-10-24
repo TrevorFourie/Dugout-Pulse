@@ -732,12 +732,14 @@ export async function saveLiveSQLiteState(
       }
 
       const tables = [
-      'games', 'profiles', 'named_lists', 'opposition_teams', 'app_state',
+      'games', 'profiles', 'named_lists', 'opposition_teams',
       ...(includeAuxiliary ? ['upcoming_games', 'logo_library'] : []),
     ];
     for (const table of tables) {
       await database.run(`DELETE FROM ${table}`, [], false);
     }
+    // Replace only core app-state keys. SQLite-owned score UI preferences and
+    // other approved app_state values must survive ordinary context snapshots.
 
     const expectedGames = new Map<string, string>();
     for (const game of state.games) {
@@ -791,8 +793,13 @@ export async function saveLiveSQLiteState(
 
     const expectedAppState = new Map<string, string>();
     for (const [key, value] of appState) {
+      await database.run('DELETE FROM app_state WHERE key = ?', [key], false);
       const serialized = serializeJson(value);
-      await database.run('INSERT INTO app_state (key, value_json) VALUES (?, ?)', [key, serialized], false);
+      await database.run(
+        'INSERT INTO app_state (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
+        [key, serialized],
+        false,
+      );
       expectedAppState.set(key, serialized);
     }
 
@@ -800,7 +807,12 @@ export async function saveLiveSQLiteState(
     await verifyRows(database, 'profiles', 'id', 'value_json', expectedProfiles);
     await verifyRows(database, 'named_lists', 'key', 'value_json', expectedLists);
     await verifyRows(database, 'opposition_teams', 'id', 'value_json', expectedOpposition);
-    await verifyRows(database, 'app_state', 'key', 'value_json', expectedAppState);
+    for (const [key, expected] of expectedAppState) {
+      const result = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+      if (result.values?.[0]?.value_json !== expected) {
+        throw new Error(`SQLite app state failed read-back verification for "${key}".`);
+      }
+    }
 
     await database.run(
       'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
