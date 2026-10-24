@@ -70,21 +70,6 @@ export const PlayerDetailsPanel: React.FC<PlayerDetailsPanelProps> = ({
                     Set or change the primary team in the Teams section.
                   </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
-                    Jersey Number (Primary Team)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 24"
-                    value={activeProfile.jerseyNumber || ''}
-                    onChange={(e) => updateActiveProfile({ jerseyNumber: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] text-sm font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#18212D] dark:focus:ring-[#00D7BC]"
-                  />
-                  <p className="mt-1 text-[10px] text-slate-500 dark:text-[#9CA3AF]">
-                    Saved with primary team. You can set a different jersey number for each team in the Teams section.
-                  </p>
-                </div>
                 <div className="sm:col-span-2">
                   <div className="mb-2">
                     <label className="block text-xs font-semibold text-slate-600 dark:text-[#9CA3AF] mb-1">
