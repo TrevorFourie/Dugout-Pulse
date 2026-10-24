@@ -415,105 +415,14 @@ export function useGameRestore({
         console.error('SQLite cutover requires recovery; automatic saving is paused.', error);
         return;
       }
-      // Cutover did not commit and the pending marker was cleared. Continue the
-      // existing localStorage restore path rather than blocking the app unnecessarily.
-      recordDiagnosticError('storage_load', error, 'SQLite cutover did not complete; the app is continuing with its original localStorage state.');
-    }
-
-    // If SQLite is unavailable or cutover did not commit, localStorage remains
-    // authoritative. Replay a pending scoring journal into that store before hydration.
-    try {
-      const hasPendingLiveGameMarker = localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null;
-      const pendingGame = readPendingLiveGameFromStorage();
-      if (pendingGame) {
-        if (!(await createVerifiedRecoveryCheckpoint('Before restoring a pending live-game write to local storage'))) {
-          throw new Error('A recovery checkpoint could not be verified before restoring the pending live-game write.');
-        }
-        const serialized = JSON.stringify(pendingGame);
-        localStorage.setItem(STORAGE_KEYS.LIVE_GAME, serialized);
-        if (localStorage.getItem(STORAGE_KEYS.LIVE_GAME) !== serialized) {
-          throw new Error('The pending live-game write could not be restored to local storage.');
-        }
-        clearPendingLiveGame();
-      } else if (hasPendingLiveGameMarker) {
-        clearPendingLiveGame();
-      }
-    } catch (error) {
+      // SQLite is the required authoritative store. If first-time migration cannot
+      // be verified, keep the original localStorage data untouched and stop startup
+      // rather than silently running the app against a second storage engine.
       setRestoreFailed(true);
       setIsLoading(false);
-      recordDiagnosticError('storage_load', error, 'A pending live-game write could not be reconciled safely. Automatic saving is paused to protect scoring data.');
-      console.error('Pending live-game recovery failed; saved scoring data was not overwritten.', error);
+      recordDiagnosticError('storage_load', error, 'SQLite migration did not complete. The original legacy data was retained and the app was stopped to prevent split-store writes.');
+      console.error('SQLite migration did not complete; startup is paused to protect saved data.', error);
       return;
-    }
-
-    // Restore each key independently. A malformed game record must not abort
-    // profile/settings restoration simply because it appears earlier in storage.
-    const read = <T,>(key: string, apply: (parsed: T) => void, validate: (value: unknown) => value is T) => {
-      const raw = localStorage.getItem(key);
-      if (raw === null) return;
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        if (!validate(parsed)) {
-          throw new Error(`Stored value has an unexpected format: ${key}`);
-        }
-        apply(parsed);
-      } catch (error) {
-        setRestoreFailed(true);
-        recordDiagnosticError('storage_load', error);
-        console.error(`Failed to restore ${key}; automatic saving is paused to protect stored data.`, error);
-      }
-    };
-
-    try {
-      read<unknown[]>(STORAGE_KEYS.GAMES, (parsed) => {
-        if (parsed.length === 0 && hasOrphanedGameReferences()) {
-          setRestoreFailed(true);
-          recordDiagnosticError(
-            'storage_load',
-            new Error('Saved games are empty but persisted game references remain; writes paused for recovery'),
-          );
-          return;
-        }
-        setGames(sortGames(parsed as Game[], 'oldestFirst'));
-      }, Array.isArray);
-
-      read<Game>(STORAGE_KEYS.LIVE_GAME, (game) => {
-        if (game && typeof game.id === 'string') {
-          setLiveGame(game);
-          setResumePromptPending(true);
-        } else {
-          throw new Error('Stored live game has no valid ID');
-        }
-      }, (value): value is Game => !!value && typeof value === 'object');
-
-      read<string | null>(STORAGE_KEYS.EDITING_GAME_ID, setEditingGameId, (value): value is string | null => value === null || typeof value === 'string');
-      read<string | null>(STORAGE_KEYS.REOPENED_GAME_ID, setReopenedGameId, (value): value is string | null => value === null || typeof value === 'string');
-      read<boolean>(STORAGE_KEYS.SETUP_COMPLETED, setSetupCompleted, (value): value is boolean => typeof value === 'boolean');
-
-      read<PlayerProfile[]>(STORAGE_KEYS.PROFILES, (parsed) => {
-        if (parsed.length > 0) setProfiles(parsed.map(withTeams));
-      }, (value): value is PlayerProfile[] => Array.isArray(value) && value.every((item) => !!item && typeof item === 'object' && typeof item.id === 'string'));
-
-      read<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS, (parsed) => {
-        setSettings((prev) => ({ ...prev, ...parsed }));
-      }, (value): value is Partial<AppSettings> => !!value && typeof value === 'object' && !Array.isArray(value));
-
-      read<OppositionTeam[]>('dugoutPulse.oppositionTeams.v1', setOppositionTeams, Array.isArray);
-      read<string[]>(STORAGE_KEYS.SAVED_OPPONENTS, setSavedOpponents, Array.isArray);
-      read<string[]>(STORAGE_KEYS.SAVED_TOURNAMENTS, setSavedTournaments, Array.isArray);
-      read<string[]>(STORAGE_KEYS.SAVED_AGE_GROUPS, setSavedAgeGroups, Array.isArray);
-      read<string[]>(STORAGE_KEYS.SAVED_SEASONS, setSavedSeasons, Array.isArray);
-      read<string[]>(STORAGE_KEYS.HIDDEN_TOURNAMENTS, setHiddenTournaments, Array.isArray);
-      read<string[]>(STORAGE_KEYS.HIDDEN_AGE_GROUPS, setHiddenAgeGroups, Array.isArray);
-      read<string[]>(STORAGE_KEYS.HIDDEN_SEASONS, setHiddenSeasons, Array.isArray);
-    } catch (error) {
-      // Storage itself can fail (for example, browser quota/security errors).
-      setRestoreFailed(true);
-      recordDiagnosticError('storage_load', error);
-      console.error('Storage could not be inspected safely; automatic saving is paused.', error);
-    } finally {
-      setIsLoading(false);
-    }
     })();
   }, []);
 }
