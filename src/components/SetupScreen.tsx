@@ -160,7 +160,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         setImportFailureAlert(reportFailure(
           'backup_import',
           error,
-          'We couldn't finish importing this backup. Your existing data has been protected; check the diagnostic report before trying again.',
+          'We couldn't finish importing this backup. Check the diagnostic report before trying again.',
         ));
       }
     };
