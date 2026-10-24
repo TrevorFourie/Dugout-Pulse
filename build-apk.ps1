@@ -759,9 +759,9 @@ if (-not $Release) {
     if (-not [regex]::IsMatch($apkGradle, $defaultConfigPattern)) {
         throw "Could not safely locate defaultConfig in generated build.gradle; refusing to create an unfiltered APK."
     }
-    $apkGradle = [regex]::Replace(
+    $defaultConfigRegex = [regex]::new($defaultConfigPattern)
+    $apkGradle = $defaultConfigRegex.Replace(
         $apkGradle,
-        $defaultConfigPattern,
         '$1' + "`r`n        ndk { abiFilters 'arm64-v8a' }",
         1
     )
