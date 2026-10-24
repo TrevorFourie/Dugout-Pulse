@@ -181,20 +181,20 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   Inning {liveGame.innings} · vs {liveGame.opponent || 'Opponent'}
                 </h2>
                 <p className="text-xs text-slate-300">
-                  {liveGame.plays.length} plays recorded so far. Continue live scoring right from the stands.
+                  {liveGame.plays.length} plays in the book. Pick up right where you left off.
                 </p>
               </>
             ) : (
               <>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 text-xs font-semibold">
                   <Sparkles className="w-3.5 h-3.5" />
-                  READY FOR NEXT GAME
+                  THE FIELD IS YOURS
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold text-white">
-                  Start Game Scoring
+                  Ready to score?
                 </h2>
                 <p className="text-xs text-slate-300">
-                  Tap big buttons one-handed as plays happen. All stats calculate automatically.
+                  The diamond is ready. Let’s capture every play!
                 </p>
               </>
             )}
@@ -266,10 +266,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2.5 px-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
-                  Season Snapshot Overview
+                  Your Season So Far
                 </span>
                 <span className="text-xs font-semibold text-slate-600 dark:text-[#D1D5DB]">
-                  {gameCount} {gameCount === 1 ? 'Game' : 'Games'} Logged
+                  {gameCount} {gameCount === 1 ? 'Game' : 'Games'} Played
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -332,10 +332,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
           <div>
             <div className="font-medium text-sm text-slate-900 dark:text-[#FAFAFA]">
-              View Full Player Statistics & Deep Dive Breakdowns
+              Take a Closer Look
             </div>
             <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-              Explore complete batting slash lines, pitching splits, fielding positions, and tournament breakdowns.
+              Your batting, pitching, fielding and tournament stats—all in one place.
             </div>
           </div>
         </div>
@@ -353,10 +353,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           </div>
           <div>
             <div className="font-medium text-sm text-slate-900 dark:text-[#FAFAFA]">
-              New to scorekeeping?
+              Need a hand keeping score?
             </div>
             <div className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-0.5">
-                            Open the quick guide to see what every scoring button means with real examples.
+                            Take a quick look at the scoring board and see how each play is recorded.
 
             </div>
           </div>
