@@ -8,7 +8,7 @@ import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStr
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
-import { protectedStorageSetItem, snapshotBeforeGameWrite } from './gameStorageSafety';
+import { protectedStorageSetItem } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
@@ -504,11 +504,6 @@ export function useGameDataManagement({
         setRestoreFailed(true);
         return false;
       }
-      if (!snapshotBeforeGameWrite()) {
-        setRestoreFailed(true);
-        return false;
-      }
-
       let sqliteCutoverComplete = false;
       try {
         sqliteCutoverComplete = await isLegacyStorageImportComplete();
