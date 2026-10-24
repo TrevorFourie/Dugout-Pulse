@@ -8,7 +8,6 @@ import { isMissingTeamLogoFileError, readTeamLogoLibrary, readTeamLogoLibraryStr
 import { clearAppDataPreservingDiagnostics, getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
-import { protectedStorageSetItem } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, readLogoFileAsBase64, writeLogoFiles } from './recoveryJournal';
 import { asStringList, verifyBackup } from '../utils/backupFormat';
 import { restoreLogosFromBackup } from '../utils/fullBackup';
@@ -152,12 +151,9 @@ export function useGameDataManagement({
           // An already-missing logo file has no previous bytes to restore.
         }
       }
-      try {
-        sqliteCutoverComplete = await isLegacyStorageImportComplete();
-      } catch (error) {
-        const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
-        if (marker === 'complete' || marker === 'pending') throw error;
-        // Before cutover, localStorage remains authoritative.
+      sqliteCutoverComplete = await isLegacyStorageImportComplete();
+      if (!sqliteCutoverComplete) {
+        throw new Error('SQLite is not the verified active store; backup import was stopped without writing application data to localStorage.');
       }
       if (sqliteCutoverComplete) {
         const persistedState = await readLiveSQLiteState();
@@ -229,47 +225,13 @@ export function useGameDataManagement({
       const restoredLogoCount = await restoreLogosFromBackup(backupRecord);
       const localLogos = new Map<string, string>();
       readTeamLogoLibrary().forEach((item) => localLogos.set('logo-ref-v1:' + item.id, 'logo-ref-v1:' + item.id));
-      // Only pre-cutover imports may consult legacy localStorage app-data copies.
-      if (!sqliteCutoverComplete) {
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index);
-          if (!key) continue;
-          const raw = localStorage.getItem(key);
-          if (!raw) continue;
-          try {
-            collectLocalLogoDataUrls(JSON.parse(raw), localLogos);
-          } catch {
-            // Ignore unrelated non-JSON local storage values.
-          }
-        }
-      }
+      // Logo references are resolved from the SQLite-backed logo cache.
       const restored = restoreLocalLogoReferences(parsedData, localLogos, { keepInlineImages: check.version >= 3 });
       const data = restored.data as typeof parsedData;
 
-      // Complete all direct local-storage writes before publishing imported state to React.
-      // If a write fails, the current in-memory game/profile state remains intact.
-      if (!sqliteCutoverComplete && data && Array.isArray(data.upcomingGames)) {
-        if (!protectedStorageSetItem('dugoutPulse.upcomingGames.v1', JSON.stringify(data.upcomingGames))) {
-          throw new Error('Could not protect storage before importing upcoming games');
-        }
-      }
-      if (!sqliteCutoverComplete && data && Array.isArray(data.oppositionTeams)) {
-        if (!protectedStorageSetItem('dugoutPulse.oppositionTeams.v1', JSON.stringify(data.oppositionTeams))) {
-          throw new Error('Could not protect storage before importing opposition teams');
-        }
-      }
-
       const extras = (data && typeof data === 'object' ? (data as { extras?: Record<string, unknown> }).extras : undefined);
-      if (!sqliteCutoverComplete && extras && typeof extras === 'object' &&
-          typeof extras.setupCompleted === 'boolean' &&
-          (extras.setupCompleted === false || (Array.isArray(data.profiles) && data.profiles.length > 0))) {
-        // A failed setup-flag write must stop the import before the restored state is published.
-        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, String(extras.setupCompleted))) {
-          throw new Error('Could not protect storage before saving setup completion');
-        }
-      }
 
-      // When SQLite is authoritative, commit the complete imported state before
+      // Commit the complete imported state to SQLite before
       // publishing success. Any earlier logo metadata writes are reconciled back to
       // the previous live snapshot if this operation fails.
       if (sqliteCutoverComplete) {
