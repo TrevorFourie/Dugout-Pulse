@@ -22,9 +22,10 @@ import { PlayerProfilesPanel } from './settings/PlayerProfilesPanel';
 import { TeamsSettingsPanel } from './settings/TeamsSettingsPanel';
 import { PresetSettingsPanel } from './settings/PresetSettingsPanel';
 import { VenuesSettingsPanel } from './settings/VenuesSettingsPanel';
+import { FieldsSettingsPanel } from './settings/FieldsSettingsPanel';
 import { LogoLibraryPanel } from './settings/LogoLibraryPanel';
 
-export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data' | 'logoLibrary';
+export type SettingsSectionId = 'playerDetails' | 'teams' | 'oppositionTeams' | 'teamLists' | 'seasons' | 'tournaments' | 'ageGroups' | 'venue' | 'fields' | 'scoring' | 'displayTheme' | 'notifications' | 'players' | 'data' | 'logoLibrary';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -296,6 +297,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onStatusMessage={handleSettingsStatusMessage}
             />
             <VenuesSettingsPanel isActive={settingsSection === 'venue'} onStatusMessage={handleSettingsStatusMessage} />
+            <FieldsSettingsPanel isActive={settingsSection === 'fields'} onStatusMessage={handleSettingsStatusMessage} />
             {settingsSection === 'scoring' && <ScoringSettingsPanel settings={settings} updateSettings={updateSettings} />}
 
             {settingsSection === 'displayTheme' && <ThemeSettingsPanel settings={settings} updateSettings={updateSettings} />}
