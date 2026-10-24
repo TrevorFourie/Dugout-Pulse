@@ -2,12 +2,12 @@ import { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Game, PlayerProfile } from '../types/baseball';
 import { sortGames } from '../utils/stats';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, RUNNER_WORKFLOW_STATE_KEY, SCORE_UI_STATE_KEY, STORAGE_KEYS, withTeams } from './gameContextDefaults';
 import type { OppositionTeam } from './gameContextTypes';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { readPendingCompletedGameSaveFromStorage, readPendingLiveGameFromStorage } from './gameStorageSafety';
 import { createVerifiedRecoveryCheckpoint, ensureRecoveryBaseline } from './recoveryJournal';
-import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { importLegacyStorageSnapshot, isLegacyStorageImportComplete, migrateLegacySQLiteAppStateValueIfMissing, readLiveSQLiteState, readVerifiedSQLiteSnapshot, saveLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
 import { setTeamLogoLibraryCache } from '../utils/teamLogoLibrary';
 
 type StateSetter<T> = Dispatch<SetStateAction<T>>;
@@ -78,6 +78,8 @@ export function useGameRestore({
         'dugoutPulse.upcomingGames.v1',
         'dugoutPulse.oppositionTeams.v1',
         'dugoutPulse.logoLibrary.v1',
+        SCORE_UI_STATE_KEY,
+        RUNNER_WORKFLOW_STATE_KEY,
       ]);
       const clearLegacyAppDataMirrors = () => {
         // The validated source snapshot remains preserved in SQLite's legacy_values
@@ -121,6 +123,27 @@ export function useGameRestore({
         localStorage.removeItem(PENDING_COMPLETED_GAME_SAVE_KEY);
         if (localStorage.getItem(PENDING_COMPLETED_GAME_SAVE_KEY) !== null) {
           throw new Error('The pending completed-game save could not be cleared after SQLite persistence.');
+        }
+      };
+      const migrateLegacyScoringUiState = async () => {
+        // These two durable UI preferences existed in localStorage in older builds.
+        // Import them only if SQLite has no newer value, then the normal cutover
+        // cleanup removes their legacy copies along with the rest of app data.
+        for (const key of [SCORE_UI_STATE_KEY, RUNNER_WORKFLOW_STATE_KEY]) {
+          const raw = localStorage.getItem(key);
+          if (raw === null) continue;
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(raw) as unknown;
+          } catch (error) {
+            recordDiagnosticError('data_corruption', error, `Legacy scoring UI state "${key}" was malformed and was not imported into SQLite.`);
+            continue;
+          }
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            recordDiagnosticError('data_corruption', new Error('Legacy scoring UI state had an invalid structure.'), `Legacy scoring UI state "${key}" was not imported into SQLite.`);
+            continue;
+          }
+          await migrateLegacySQLiteAppStateValueIfMissing(key, parsed);
         }
       };
       const reconcilePendingCompletedGameSave = async (state: SQLiteLiveState): Promise<SQLiteLiveState> => {
@@ -230,8 +253,7 @@ export function useGameRestore({
           recordDiagnosticError('storage_load', error, 'SQLite cutover state could not be inspected; saved-data restoration was stopped to protect the newer store.');
           return;
         }
-        // Before cutover, a SQLite initialisation failure must not prevent the existing
-        // localStorage-based app from starting.
+        // The one-time migration below will fail closed if SQLite cannot be initialized.
       }
 
       let localCutoverMarker = localStorage.getItem(LOCAL_CUTOVER_MARKER);
@@ -258,6 +280,7 @@ export function useGameRestore({
           if (!cutoverComplete) {
             throw new Error('The local cutover marker exists, but SQLite does not confirm a completed cutover.');
           }
+          await migrateLegacyScoringUiState();
           const savedState = await readLiveSQLiteState();
           const completedSaveReconciled = await reconcilePendingCompletedGameSave(savedState);
           const state = await reconcilePendingLiveGame(completedSaveReconciled);
@@ -375,6 +398,7 @@ export function useGameRestore({
         throw new Error('A verified recovery checkpoint could not be created before switching storage.');
       }
       await saveLiveSQLiteState(initialState, { completeCutover: true });
+      await migrateLegacyScoringUiState();
       if (localStorage.getItem(PENDING_LIVE_GAME_WRITE_KEY) !== null) clearPendingLiveGame();
       await mirrorLiveState(initialState);
       applyLiveState(initialState);
@@ -393,6 +417,7 @@ export function useGameRestore({
         // the database transaction. Read that authoritative snapshot and reconcile
         // it instead of leaving the app blocked unnecessarily.
         try {
+          await migrateLegacyScoringUiState();
           const committedSnapshot = await readLiveSQLiteState();
           const completedReconciled = await reconcilePendingCompletedGameSave(committedSnapshot);
           const committedState = await reconcilePendingLiveGame(completedReconciled);
