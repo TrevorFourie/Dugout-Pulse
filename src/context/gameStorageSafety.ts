@@ -7,6 +7,24 @@ const PREVIOUS_RECOVERY_KEY = 'dugoutPulse.recoverySnapshot.previous.v1';
 const BEFORE_RECOVERY_KEY = 'dugoutPulse.beforeRecovery.v1';
 const DIAGNOSTICS_KEY = 'dugoutPulse.diagnostics.v1';
 const RECOVERY_VERSION = 1;
+const SQLITE_OWNED_KEYS = new Set<string>([
+  ...Object.values(STORAGE_KEYS),
+  'dugoutPulse.games.v1',
+  'dugoutPulse.savedGames.v1',
+  'dugoutPulse.profiles.v1',
+  'dugoutPulse.upcomingGames.v1',
+  'dugoutPulse.oppositionTeams.v1',
+  'dugoutPulse.logoLibrary.v1',
+]);
+function rejectLegacyAppDataWriteAfterCutover(key: string): boolean {
+  if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') !== 'complete' || !SQLITE_OWNED_KEYS.has(key)) return false;
+  recordDiagnosticError(
+    'storage_write',
+    new Error('A legacy application-data write was attempted after SQLite cutover.'),
+    'A legacy application-data write was blocked because SQLite is authoritative.',
+  );
+  return true;
+}
 
 /**
  * Read and validate the write-ahead marker for a completed-game save. It remains
@@ -229,6 +247,7 @@ export function snapshotBeforeGameWrite(): boolean {
 
 /** Snapshot before a write; verify the write and roll back the key if it fails. */
 export function protectedStorageSetItem(key: string, value: string): boolean {
+  if (rejectLegacyAppDataWriteAfterCutover(key)) return false;
   if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
   let previousValue: string | null | undefined;
   try {
@@ -262,6 +281,7 @@ export function protectedStorageSetItem(key: string, value: string): boolean {
 
 /** Snapshot before a removal; verify removal and restore the key if it fails. */
 export function protectedStorageRemoveItem(key: string): boolean {
+  if (rejectLegacyAppDataWriteAfterCutover(key)) return false;
   if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
   let previousValue: string | null | undefined;
   try {
