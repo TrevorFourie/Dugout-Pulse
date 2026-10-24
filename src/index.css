@@ -5,6 +5,11 @@
 
 /* Scoring-screen type: Barlow for text, Barlow Condensed for scoreboard numerals and play codes. */
 @theme {
+  /* Keep every Tailwind font-weight utility at semibold or lighter. */
+  --font-weight-bold: 600;
+  --font-weight-extrabold: 600;
+  --font-weight-black: 600;
+
   --font-score: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
 
@@ -79,6 +84,11 @@
 }
 
 @layer base {
+  strong,
+  b {
+    font-weight: 600;
+  }
+
   input::placeholder,
   textarea::placeholder {
     color: #94A0AE;   /* slate-400 */
