@@ -197,7 +197,7 @@ export const TeamsSettingsPanel: React.FC<TeamsSettingsPanelProps> = ({ isActive
                   if (teams.length === 0) {
                     return (
                       <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#252D38]/40 border border-dashed border-slate-300 dark:border-[#354050] text-center text-xs text-slate-500 dark:text-[#9CA3AF]">
-                        No teams added yet. Click &quot;Add Another Team&quot; above to add his first team!
+                        No teams yet. Add a team above to get started.
                       </div>
                     );
                   }
