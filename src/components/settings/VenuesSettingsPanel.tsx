@@ -33,7 +33,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                       if (!venue) return;
                       const currentVenues = settings.venues || [];
                       if (currentVenues.some((item) => item.toLowerCase() === venue.toLowerCase())) {
-                        onStatusMessage({ text: 'You've already added that venue.', isError: true });
+                        onStatusMessage({ text: "You've already added that venue.", isError: true });
                         return;
                       }
                       updateSettings({ venues: [...currentVenues, venue] });
@@ -79,7 +79,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                             return;
                           }
                           if ((settings.venues || []).some((item) => item !== venue && item.toLowerCase() === renamedVenue.toLowerCase())) {
-                            onStatusMessage({ text: 'You've already got a venue with that name.', isError: true });
+                            onStatusMessage({ text: "You've already got a venue with that name.", isError: true });
                             return;
                           }
                           if (renamedVenue !== venue) {
