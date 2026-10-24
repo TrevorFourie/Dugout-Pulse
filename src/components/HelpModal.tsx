@@ -99,10 +99,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </div>
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#007A6A] dark:text-[#00D7BC] block">
-                {guideSection === 'scoring' ? 'Scoring Guide' : 'Stats Guide'}
+                {guideSection === 'scoring' ? 'Scoring Basics' : 'Stats, Explained'}
               </span>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-[#FAFAFA] leading-tight">
-                {guideSection === 'scoring' ? 'What does each button mean?' : 'What does each stat mean?'}
+                {guideSection === 'scoring' ? 'Need a quick rundown of the buttons?' : 'What do these stats tell you?'}
               </h2>
             </div>
           </div>
@@ -118,8 +118,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         <div className="px-5 pt-3 pb-2 bg-slate-100/70 dark:bg-[#252D38]/50 border-b border-slate-200 dark:border-[#354050]">
           <div className="flex rounded-xl bg-slate-200/80 dark:bg-[#1A2028] p-1 mb-2">
             {([
-              { id: 'scoring', label: 'Scoring Guide' },
-              { id: 'stats', label: 'Stats Guide' },
+              { id: 'scoring', label: 'Scoring Basics' },
+              { id: 'stats', label: 'Stats, Explained' },
             ] as const).map((section) => (
               <button
                 key={section.id}
