@@ -240,7 +240,6 @@
 }
 .upcoming-match-card__reminder-action {
   display: inline-flex;
-  min-width: 0;
   width: 32px;
   min-width: 32px;
   min-height: 32px;
@@ -274,12 +273,13 @@
   opacity: 0.72;
 }
 .dark .upcoming-match-card__reminder-action {
-  border-color: rgb(16 20 25 / 28%);
-  background: rgb(255 255 255 / 76%);
+  border-color: transparent;
+  background: transparent;
   color: #101419;
 }
-.dark .upcoming-match-card__reminder-action:hover:not(:disabled) {
-  background: #FFF;
+.dark .upcoming-match-card__reminder-action:hover:not(:disabled),
+.dark .upcoming-match-card__reminder-action--active {
+  background: rgb(16 20 25 / 12%);
 }
 .dark .upcoming-match-card__reminder-action:focus-visible {
   outline-color: #101419;
