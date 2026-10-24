@@ -7,7 +7,6 @@ import { getLastDiagnosticReference, recordDiagnosticError } from './errorDiagno
 import { saveSQLiteLogoLibrary } from '../storage/sqliteRepository';
 
 export type TeamLogoItem = { id: string; name: string; fileName: string; uri: string; sizeBytes: number; mimeType?: string };
-const KEY = 'dugoutPulse.logoLibrary.v1';
 const DIR = 'team-logos';
 const changed = () => window.dispatchEvent(new CustomEvent('dugout-pulse-logo-library-changed'));
 
@@ -40,16 +39,7 @@ function isTeamLogoItem(value: unknown): value is TeamLogoItem {
 
 function readStoredTeamLogoLibrary(): TeamLogoItem[] {
   if (cachedLibrary !== null) return cachedLibrary.map((item) => ({ ...item }));
-  if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') === 'complete') {
-    throw new Error('The SQLite logo library has not yet been loaded; legacy localStorage was not used.');
-  }
-  const raw = localStorage.getItem(KEY);
-  if (raw === null) return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed) || !parsed.every(isTeamLogoItem)) {
-    throw new SyntaxError('Saved team logo library contains invalid entries.');
-  }
-  return parsed;
+  throw new Error('The SQLite logo library has not been loaded yet; no localStorage fallback is permitted.');
 }
 
 /** Strict read for operations that must not replace or export an unreadable logo library. */
