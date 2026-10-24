@@ -42,7 +42,7 @@ export const SetupSeasonStep: React.FC<SetupSeasonStepProps> = ({
                   Which season is this for?
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-[#9CA3AF] mt-1">
-                  Seasons keep games organized so you can view your player’s progress across spring, summer, or fall campaigns.
+                  Keep each season's games together and follow your player's progress through the year.
                 </p>
               </div>
 
@@ -120,7 +120,7 @@ export const SetupSeasonStep: React.FC<SetupSeasonStepProps> = ({
                   onClick={handleNextFromSeason}
                   className="px-5 py-2.5 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] text-[#18212D] dark:text-[#101419] font-semibold text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer"
                 >
-                  <span>Continue to Tournament</span>
+                  <span>Next: Tournament</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
