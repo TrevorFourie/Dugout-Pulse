@@ -91,7 +91,7 @@ export function useGamePersistence({
             oppositionTeams,
             upcomingGames: persistedState.upcomingGames,
             logoLibrary: persistedState.logoLibrary,
-          }, { includeAuxiliary: true });
+          });
 
           const pendingCompletedGame = readPendingCompletedGameSaveFromStorage();
           if (pendingCompletedGame && matchesPendingCompletedSave(pendingCompletedGame)) {
