@@ -1,7 +1,7 @@
 import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, RUNNER_WORKFLOW_STATE_KEY, SCORE_UI_STATE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { getLastDiagnosticReference, recordDiagnosticError } from '../utils/errorDiagnostics';
-import { isLegacyStorageImportComplete, readLiveSQLiteState, readSQLiteAppStateValue, saveLiveSQLiteState, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, readSQLiteAppStateValue, saveLiveSQLiteState, saveLiveSQLiteAppStateValue, saveLiveSQLiteStateFromCurrentLocalStorage, type SQLiteLiveState } from '../storage/sqliteRepository';
 function isMissingRecoveryFile(error: unknown): boolean {
   const name = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
   const message = error instanceof Error ? error.message : String(error ?? '');
@@ -638,9 +638,19 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
 
     let sqliteCutoverComplete = false;
     let beforeSQLiteState: SQLiteLiveState | null = null;
+    let beforeScoreUiState: Record<string, unknown> = {};
+    let beforeRunnerWorkflowState: Record<string, unknown> = {
+      runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {},
+    };
     try {
       sqliteCutoverComplete = await isLegacyStorageImportComplete();
-      if (sqliteCutoverComplete) beforeSQLiteState = await readLiveSQLiteState();
+      if (sqliteCutoverComplete) {
+        beforeSQLiteState = await readLiveSQLiteState();
+        beforeScoreUiState = await readSQLiteAppStateValue<Record<string, unknown>>(SCORE_UI_STATE_KEY, {});
+        beforeRunnerWorkflowState = await readSQLiteAppStateValue<Record<string, unknown>>(RUNNER_WORKFLOW_STATE_KEY, {
+          runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {},
+        });
+      }
       const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
       if ((marker === 'complete' || marker === 'pending') && !sqliteCutoverComplete) {
         throw new Error('The local cutover marker and SQLite database disagree.');
@@ -730,6 +740,8 @@ export async function restoreVerifiedRecoveryCheckpoint(id: string): Promise<{ s
         await verifyLogoFilesForValues(rolledBack, beforeLogoFiles);
         if (sqliteCutoverComplete && beforeSQLiteState) {
           await saveLiveSQLiteState(beforeSQLiteState, { includeAuxiliary: true });
+          await saveSQLiteAppStateValue(SCORE_UI_STATE_KEY, beforeScoreUiState);
+          await saveSQLiteAppStateValue(RUNNER_WORKFLOW_STATE_KEY, beforeRunnerWorkflowState);
           clearLegacyAppDataMirrors();
         }
         rollbackVerified = true;
