@@ -311,6 +311,23 @@ const ScoreTabInner: React.FC<ScoreTabProps> = ({ onOpenHelp, onOpenSettings, on
     });
   }, [runnerSessions, runnerHistories, activeRunnerChips, restoreFailed, runnerWorkflowLoaded]);
 
+  useEffect(() => {
+    const resetScoringUiState = () => {
+      scoreUiStorageRef.current = {};
+      setScoreUiLoadedForGame(null);
+      const emptyWorkflow: PersistedRunnerWorkflow = {
+        runnerSessions: {}, runnerHistories: {}, activeRunnerChips: {},
+      };
+      runnerWorkflowRef.current = emptyWorkflow;
+      setRunnerSessions({});
+      setRunnerHistories({});
+      setActiveRunnerChips({});
+      setRunnerWorkflowLoaded(true);
+    };
+    window.addEventListener('dugout-pulse-scoring-ui-state-reset', resetScoringUiState);
+    return () => window.removeEventListener('dugout-pulse-scoring-ui-state-reset', resetScoringUiState);
+  }, []);
+
   // All transient runner workflow state is scoped to the inning being viewed. Ending or
   // correcting one inning must not clear the runner workflow for another inning.
   const setRunnerSession = (next: RunnerLifecycleState | null | ((current: RunnerLifecycleState | null) => RunnerLifecycleState | null)) => {
