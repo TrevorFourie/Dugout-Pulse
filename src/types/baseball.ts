@@ -249,6 +249,9 @@ export interface PlayerProfile {
   defaultSeason?: string;
   defaultTournament?: string;
   defaultLineupSpot?: number; // Default batting position / lineup spot (1-12)
+  fieldingPositions?: DefensivePosition[]; // Optional player fielding positions
+  battingSide?: 'Right' | 'Left' | 'Both'; // Optional batting hand preference
+  throwingArm?: 'Right' | 'Left' | 'Both'; // Optional throwing arm preference
   logo?: string; // Custom team logo (small PNG data URL). Falls back to the default logo when empty
 }
 
