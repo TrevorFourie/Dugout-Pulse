@@ -62,7 +62,7 @@ export const SetupPlayerStep: React.FC<SetupPlayerStepProps> = ({
             className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-[#252D38] border border-slate-300 dark:border-[#354050] text-base font-semibold text-slate-900 dark:text-[#FAFAFA] focus:outline-hidden focus:ring-2 focus:ring-[#00BFA5]"
           />
           <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] mt-1.5">
-            Jersey numbers are linked to each team in Step 5, since players often wear different numbers on different teams.
+            Jersey numbers are saved per team, since a player may wear a different number for each one.
           </p>
         </div>
       </div>
@@ -118,7 +118,7 @@ export const SetupPlayerStep: React.FC<SetupPlayerStepProps> = ({
           disabled={!playerName.trim()}
           className="px-5 py-2.5 rounded-xl bg-[#00BFA5] dark:bg-[#00D7BC] hover:bg-[#00A892] dark:hover:bg-[#00C4AB] disabled:opacity-50 text-[#18212D] dark:text-[#101419] font-semibold text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer"
         >
-          <span>Continue to Age Group</span>
+          <span>Next: Age Group</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
