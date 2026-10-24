@@ -39,7 +39,7 @@ function hasNewerPendingLiveGameWrite(expectedLiveGame: string | null): boolean 
 export function useGamePersistence({
   isLoading, onStorageProtectionFailure, games, oppositionTeams, savedOpponents,
   savedTournaments, savedAgeGroups, savedSeasons, hiddenTournaments, hiddenAgeGroups,
-  hiddenSeasons, liveGame, editingGameId, reopenedGameId, profiles, settings,
+  hiddenSeasons, liveGame, editingGameId, reopenedGameId, profiles, settings, setupCompleted,
 }: GamePersistenceOptions): void {
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
 
