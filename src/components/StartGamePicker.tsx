@@ -33,7 +33,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   onLoadManually,
   onGameSelected,
 }) => {
-  const { games, activeProfile, liveGame, reopenSavedGame, startLiveGame } = useGame();
+  const { games, activeProfile, liveGame, reopenSavedGame, startLiveGame, isLoading } = useGame();
   const [selectedGameId, setSelectedGameId] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
   const [loadFailureAlert, setLoadFailureAlert] = useState<string | null>(null);
@@ -41,6 +41,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   const [scheduledGamesAlertOpen, setScheduledGamesAlertOpen] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
     let cancelled = false;
     void readSQLiteUpcomingGames().then((saved) => {
       if (cancelled) return;
@@ -64,7 +65,7 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
       setScheduledGamesAlertOpen(true);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [isLoading]);
 
   const matchingGames = useMemo(
     () => games
