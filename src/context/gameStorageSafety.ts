@@ -1,4 +1,4 @@
-import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, RUNNER_WORKFLOW_STATE_KEY, SCORE_UI_STATE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import type { Game } from '../types/baseball';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 
@@ -15,6 +15,8 @@ const SQLITE_OWNED_KEYS = new Set<string>([
   'dugoutPulse.upcomingGames.v1',
   'dugoutPulse.oppositionTeams.v1',
   'dugoutPulse.logoLibrary.v1',
+  SCORE_UI_STATE_KEY,
+  RUNNER_WORKFLOW_STATE_KEY,
 ]);
 function rejectLegacyAppDataWriteAfterCutover(key: string): boolean {
   if (localStorage.getItem('dugoutPulse.sqliteCutover.v1') !== 'complete' || !SQLITE_OWNED_KEYS.has(key)) return false;
