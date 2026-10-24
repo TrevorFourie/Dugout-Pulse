@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import backgroundImage from '../assets/Pitcher.png';
 import {
@@ -65,6 +65,25 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   const seasonStats = calculateSeasonStats(playerGames, settings.inningsPerGame, activeProfile.id);
   const { gameCount, batting, lastGameHits } = seasonStats;
+  const [performanceTab, setPerformanceTab] = useState<'snapshot' | 'personalBest' | 'milestones'>('snapshot');
+  const performanceTabs = [
+    { id: 'snapshot', label: 'Snapshot' },
+    { id: 'personalBest', label: 'Personal Best' },
+    { id: 'milestones', label: 'Milestones' },
+  ] as const;
+  const handlePerformanceTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    const currentIndex = performanceTabs.findIndex((tab) => tab.id === performanceTab);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? performanceTabs.length - 1
+        : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + performanceTabs.length) % performanceTabs.length;
+    const nextTab = performanceTabs[nextIndex];
+    setPerformanceTab(nextTab.id);
+    document.getElementById(`dashboard-performance-tab-${nextTab.id}`)?.focus();
+  };
 
   const playerNameDisplay = activeProfile.playerName
     ? `${activeProfile.playerName}`
@@ -210,59 +229,93 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
         defaultSeason={activeProfile.defaultSeason}
       />
 
-      {/* Batting, pitching and fielding milestones */}
-      <MilestoneTracker
-        games={playerGames.filter((game) => !liveGame || game.id !== liveGame.id)}
-        onViewStats={onNavigateToStats}
-      />
-
-      {/* Season Snapshot (4 Tiles) */}
-      <div>
-        <div className="flex items-center justify-between mb-2.5 px-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
-            Season Snapshot Overview
-          </span>
-          <span className="text-xs font-semibold text-slate-600 dark:text-[#D1D5DB]">
-            {gameCount} {gameCount === 1 ? 'Game' : 'Games'} Logged
-          </span>
+      {/* Player performance detail tabs */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs dark:border-[#354050] dark:bg-[#252D38]">
+        <div role="tablist" aria-label="Player performance details" className="grid grid-cols-3 border-b border-slate-200/80 dark:border-[#354050]">
+          {performanceTabs.map((tab) => {
+            const selected = performanceTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`dashboard-performance-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls="dashboard-performance-panel"
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setPerformanceTab(tab.id)}
+                onKeyDown={handlePerformanceTabKeyDown}
+                className={`min-w-0 border-b-2 px-2 py-3 text-xs sm:text-sm font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00BFA5] ${
+                  selected
+                    ? 'border-[#00BFA5] bg-[#00BFA5]/5 text-[#007A6A] dark:border-[#00D7BC] dark:bg-[#00D7BC]/10 dark:text-[#00D7BC]'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-[#9CA3AF] dark:hover:bg-[#1A2028] dark:hover:text-[#FAFAFA]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Games</span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{gameCount}</span>
-              <Activity className="w-4 h-4 text-slate-300 dark:text-[#6B7280]" />
+        <div id="dashboard-performance-panel" role="tabpanel" aria-labelledby={`dashboard-performance-tab-${performanceTab}`} className="p-4 sm:p-5">
+          {performanceTab === 'snapshot' && (
+            <div>
+              <div className="flex items-center justify-between mb-2.5 px-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#9CA3AF]">
+                  Season Snapshot Overview
+                </span>
+                <span className="text-xs font-semibold text-slate-600 dark:text-[#D1D5DB]">
+                  {gameCount} {gameCount === 1 ? 'Game' : 'Games'} Logged
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-slate-50 dark:bg-[#1A2028] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold uppercase text-slate-500 dark:text-[#9CA3AF] tracking-wider">Games</span>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{gameCount}</span>
+                    <Activity className="w-4 h-4 text-slate-400 dark:text-[#6B7280]" />
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-[#1A2028] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold uppercase text-slate-500 dark:text-[#9CA3AF] tracking-wider">Batting Avg</span>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl sm:text-2xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</span>
+                    <Award className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]/60" />
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-[#1A2028] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold uppercase text-slate-500 dark:text-[#9CA3AF] tracking-wider">Hits</span>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{batting.h}</span>
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-[#9CA3AF]">{batting.ab} AB</span>
+                  </div>
+                </div>
+                <div className="bg-slate-50 dark:bg-[#1A2028] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] flex flex-col justify-between">
+                  <span className="text-[11px] font-semibold uppercase text-slate-500 dark:text-[#9CA3AF] tracking-wider">Last Game Hits</span>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{lastGameHits !== null ? lastGameHits : '—'}</span>
+                    <TrendingUp className="w-4 h-4 text-teal-500/60" />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Batting Avg</span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-semibold text-[#007A6A] dark:text-[#00D7BC]">{formatRate(batting.avg)}</span>
-              <Award className="w-4 h-4 text-[#007A6A] dark:text-[#00D7BC]/40" />
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Hits</span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">{batting.h}</span>
-              <span className="text-[11px] font-semibold text-slate-400">{batting.ab} AB</span>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-[#252D38] rounded-xl p-4 border border-slate-200/80 dark:border-[#354050] shadow-2xs flex flex-col justify-between">
-            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">Last Game Hits</span>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl sm:text-2xl font-semibold text-[#18212D] dark:text-[#FAFAFA]">
-                {lastGameHits !== null ? lastGameHits : '—'}
-              </span>
-              <TrendingUp className="w-4 h-4 text-teal-500/60" />
-            </div>
-          </div>
+          )}
+          {performanceTab === 'personalBest' && (
+            <MilestoneTracker
+              games={playerGames.filter((game) => !liveGame || game.id !== liveGame.id)}
+              view="personalBest"
+              onViewStats={onNavigateToStats}
+            />
+          )}
+          {performanceTab === 'milestones' && (
+            <MilestoneTracker
+              games={playerGames.filter((game) => !liveGame || game.id !== liveGame.id)}
+              view="milestones"
+              onViewStats={onNavigateToStats}
+            />
+          )}
         </div>
-      </div>
+      </section>
 
       {/* Navigation Card to Full Stats Tab */}
       <button
