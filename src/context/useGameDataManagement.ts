@@ -43,6 +43,7 @@ interface GameDataManagementOptions {
   setHiddenAgeGroups: StateSetter<string[]>;
   setHiddenSeasons: StateSetter<string[]>;
   setIsFirstTimeUser: StateSetter<boolean>;
+  setSetupCompleted: StateSetter<boolean>;
   setRestoreFailed: StateSetter<boolean>;
   /** Optional: lets a backup restore the saved-opponent name list. */
   setSavedOpponents?: StateSetter<string[]>;
@@ -83,6 +84,7 @@ export function useGameDataManagement({
   setHiddenAgeGroups,
   setHiddenSeasons,
   setIsFirstTimeUser,
+  setSetupCompleted,
   setRestoreFailed,
   setSavedOpponents,
   setSavedTournaments,
@@ -376,6 +378,7 @@ export function useGameDataManagement({
         if (Array.isArray(extras.hiddenAgeGroups)) setHiddenAgeGroups(asStringList(extras.hiddenAgeGroups));
         if (Array.isArray(extras.hiddenSeasons)) setHiddenSeasons(asStringList(extras.hiddenSeasons));
         if (extras.setupCompleted === true && Array.isArray(data.profiles) && data.profiles.length > 0) {
+          setSetupCompleted(extras.setupCompleted === true);
           setIsFirstTimeUser(false);
         }
       }
@@ -487,7 +490,7 @@ export function useGameDataManagement({
     hiddenTournaments, hiddenAgeGroups, hiddenSeasons,
     setGames, setLiveGame, setEditingGameId, setReopenedGameId, setProfiles, setSettings,
     setOppositionTeams, setHiddenTournaments, setHiddenAgeGroups, setHiddenSeasons,
-    setIsFirstTimeUser, setRestoreFailed, setSavedOpponents, setSavedTournaments,
+    setIsFirstTimeUser, setSetupCompleted, setRestoreFailed, setSavedOpponents, setSavedTournaments,
     setSavedAgeGroups, setSavedSeasons, saveTournament, saveAgeGroup, saveSeason,
   ]);
 
@@ -689,6 +692,7 @@ export function useGameDataManagement({
     setSavedSeasons?.([]);
     // The first-time-user flag is only read at startup, so it must be set explicitly here;
     // App then closes Settings and shows the setup screen.
+    setSetupCompleted(false);
     setIsFirstTimeUser(true);
     return true;
   }, [
@@ -748,17 +752,11 @@ export function useGameDataManagement({
       if (trimmedAge) saveAgeGroup(trimmedAge);
       if (trimmedSeason) saveSeason(trimmedSeason);
 
-      try {
-        if (!protectedStorageSetItem(STORAGE_KEYS.SETUP_COMPLETED, 'true')) {
-          throw new Error('Could not protect storage before saving setup completion');
-        }
-      } catch (err) {
-        console.error('Failed to save setup completed flag:', err);
-      }
+      setSetupCompleted(true);
       setIsFirstTimeUser(false);
       triggerHaptic();
     },
-    [saveTournament, saveAgeGroup, saveSeason, triggerHaptic]
+    [saveTournament, saveAgeGroup, saveSeason, triggerHaptic, setSetupCompleted, setIsFirstTimeUser]
   );
 
 
