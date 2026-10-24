@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PlayCircle, Upload, X } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { ThemedDropdown } from './ThemedDropdown';
 import { ConfirmationModal } from './ConfirmationModal';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
 import { reportFailure } from '../utils/userMessages';
+import { readSQLiteUpcomingGames } from '../storage/sqliteRepository';
 
-const SCHEDULED_GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
 
 interface ScheduledGame {
   id: string;
@@ -37,34 +37,34 @@ export const StartGamePicker: React.FC<StartGamePickerProps> = ({
   const [selectedGameId, setSelectedGameId] = useState<string | undefined>(undefined);
   const [error, setError] = useState('');
   const [loadFailureAlert, setLoadFailureAlert] = useState<string | null>(null);
-  const [scheduledGamesLoad] = useState<{ games: ScheduledGame[]; error: string }>(() => {
-    try {
-      const stored = localStorage.getItem(SCHEDULED_GAMES_KEY);
-      const parsed: unknown = stored ? JSON.parse(stored) : [];
-      if (!Array.isArray(parsed) || !parsed.every((item) =>
+  const [scheduledGames, setScheduledGames] = useState<ScheduledGame[]>([]);
+  const [scheduledGamesAlertOpen, setScheduledGamesAlertOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readSQLiteUpcomingGames().then((saved) => {
+      if (cancelled) return;
+      const valid = saved.every((item) =>
         !!item && typeof item === 'object' &&
         typeof (item as ScheduledGame).id === 'string' &&
         typeof (item as ScheduledGame).opponent === 'string' &&
         typeof (item as ScheduledGame).date === 'string' &&
         typeof (item as ScheduledGame).isHome === 'boolean'
-      )) {
-        throw new Error('Scheduled-game storage did not contain a valid list of games.');
-      }
-      return { games: parsed as ScheduledGame[], error: '' };
-    } catch (loadError) {
+      );
+      if (!valid) throw new Error('The SQLite scheduled-game list contains an invalid record.');
+      setScheduledGames(saved as ScheduledGame[]);
+    }).catch((loadError: unknown) => {
+      if (cancelled) return;
       recordDiagnosticError(
         loadError instanceof SyntaxError ? 'data_corruption' : 'storage_read',
         loadError,
-        'The saved scheduled-game list could not be read. No saved values were changed.',
+        'The saved scheduled-game list could not be read from SQLite. No saved values were changed.',
       );
-      return {
-        games: [],
-        error: "Dugout Pulse couldn't read the saved scheduled-game list. No saved data was intentionally changed. Review the diagnostic report before attempting recovery.",
-      };
-    }
-  });
-  const scheduledGames = scheduledGamesLoad.games;
-  const [scheduledGamesAlertOpen, setScheduledGamesAlertOpen] = useState(Boolean(scheduledGamesLoad.error));
+      setScheduledGames([]);
+      setScheduledGamesAlertOpen(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const matchingGames = useMemo(
     () => games
