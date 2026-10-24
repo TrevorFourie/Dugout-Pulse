@@ -62,20 +62,27 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   useEffect(() => {
     if (isLoading) return;
     let cancelled = false;
-    void readSQLiteUpcomingGames().then((saved) => {
-      if (cancelled) return;
-      if (!saved.every(isScheduledGame)) throw new Error('The SQLite scheduled-game list contains an invalid record.');
-      setGames(saved);
-      setStoredListsInvalid(false);
-      setGamesLoaded(true);
-    }).catch((error: unknown) => {
-      if (cancelled) return;
-      recordDiagnosticError('storage_read', error, 'Scheduled games could not be read from SQLite. No scheduled-game changes were enabled.');
-      setStoredListsInvalid(true);
-      setFailureAlert('Dugout Pulse could not load scheduled games from the device database. No saved data was changed. Review the diagnostic report before trying again.');
-      setGamesLoaded(false);
-    });
-    return () => { cancelled = true; };
+    const loadGames = () => {
+      void readSQLiteUpcomingGames().then((saved) => {
+        if (cancelled) return;
+        if (!saved.every(isScheduledGame)) throw new Error('The SQLite scheduled-game list contains an invalid record.');
+        setGames(saved);
+        setStoredListsInvalid(false);
+        setGamesLoaded(true);
+      }).catch((error: unknown) => {
+        if (cancelled) return;
+        recordDiagnosticError('storage_read', error, 'Scheduled games could not be read from SQLite. No scheduled-game changes were enabled.');
+        setStoredListsInvalid(true);
+        setFailureAlert('Dugout Pulse could not load scheduled games from the device database. No saved data was changed. Review the diagnostic report before trying again.');
+        setGamesLoaded(false);
+      });
+    };
+    loadGames();
+    window.addEventListener('dugout-pulse-upcoming-games-changed', loadGames);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('dugout-pulse-upcoming-games-changed', loadGames);
+    };
   }, [isLoading]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
