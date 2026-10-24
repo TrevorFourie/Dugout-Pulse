@@ -15,14 +15,14 @@ export const FieldsSettingsPanel: React.FC<FieldsSettingsPanelProps> = ({ isActi
   const { settings, updateSettings } = useGame();
   const venues = settings.venues || [];
   const fields = settings.fields || [];
-  const visibleFields = newFieldVenue
-    ? fields.filter((field) => field.venue.trim().toLocaleLowerCase() === newFieldVenue.trim().toLocaleLowerCase())
-    : fields;
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldVenue, setNewFieldVenue] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingVenue, setEditingVenue] = useState('');
+  const visibleFields = newFieldVenue
+    ? fields.filter((field) => field.venue.trim().toLocaleLowerCase() === newFieldVenue.trim().toLocaleLowerCase())
+    : fields;
 
   if (!isActive) return null;
 
