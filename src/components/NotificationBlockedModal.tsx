@@ -16,7 +16,7 @@ export const NotificationBlockedModal: React.FC<Props> = ({ isOpen, onClose }) =
   <ConfirmationModal
     isOpen={isOpen}
     title="Notifications are off"
-    message="Android is blocking notifications for Dugout Pulse, so game reminders can't reach you. Turn them on in Settings, then come back."
+    message="Game reminders can't reach you while notifications are off. Turn them on in Android Settings, then come back here."
     confirmLabel="Open Settings"
     cancelLabel="Not now"
     onConfirm={() => {
