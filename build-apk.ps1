@@ -705,30 +705,6 @@ foreach ($stale in @("android\app\build\intermediates\compressed_assets", "andro
     }
 }
 
-# Configure standalone ABI APK outputs while retaining the existing AAB and universal APK.
-$appGradlePath = Join-Path $WorkDir "android\app\build.gradle"
-$appGradle = Get-Content -LiteralPath $appGradlePath -Raw
-if ($appGradle -notmatch '(?s)\bsplits\s*\{\s*abi\s*\{') {
-    $abiSplitConfig = @'
-
-android {
-    splits {
-        abi {
-            enable true
-            reset()
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-            universalApk false
-        }
-    }
-}
-'@
-    # ABI splits belong inside the Android Gradle extension, not at project level.
-    # A separate android { } block configures the existing extension safely.
-    $appGradle += $abiSplitConfig
-    Set-Content -LiteralPath $appGradlePath -Value $appGradle -NoNewline
-    Write-Host "Configured standalone APK outputs for supported Android ABIs." -ForegroundColor Green
-}
-
 Write-Host "Building Android App Bundle (AAB) with Gradle..." -ForegroundColor Cyan
 Push-Location android
 try {
@@ -745,18 +721,6 @@ try {
     }
 } finally {
     Pop-Location
-}
-
-# Build standalone ABI APKs as an additional output; preserve the existing AAB flow.
-if (-not $Release) {
-    Write-Host "Assembling ABI-specific debug APKs..." -ForegroundColor Cyan
-    Push-Location android
-    try {
-        .\gradlew.bat assembleDebug
-        if ($LASTEXITCODE -ne 0) { throw "Gradle ABI-specific APK build failed with exit code $LASTEXITCODE." }
-    } finally {
-        Pop-Location
-    }
 }
 
 # Include seconds so repeated builds cannot overwrite an earlier package filename within the same minute.
@@ -985,25 +949,10 @@ if (-not $Release) {
     }
     Write-Host "Verified application identity matches '$ExpectedApplicationId' and the previous package's signing certificate." -ForegroundColor Green
 
-    # Offer a smaller arm64-only APK for compatible 64-bit Android phones.
-    # Keep the universal APK as the compatibility fallback for other devices.
-    $apkOutputDir = Join-Path $WorkDir "android\app\build\outputs\apk\debug"
-    $arm64Candidates = @(Get-ChildItem -LiteralPath $apkOutputDir -Filter "*arm64-v8a*debug*.apk" -File -ErrorAction SilentlyContinue)
-    if ($arm64Candidates.Count -eq 0) {
-        throw "Gradle did not produce an arm64-v8a standalone APK. The universal APK is retained; no optimized APK was delivered."
-    }
-    $arm64Source = $arm64Candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    $arm64Apk = Join-Path $OutDir "dugout-pulse-debug-$timestamp-whatsapp-arm64.apk"
-    Copy-Item -LiteralPath $arm64Source.FullName -Destination $arm64Apk -Force
-    $arm64Badging = (& $aaptPath dump badging $arm64Apk 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0 -or
-        $arm64Badging -notmatch "application-label:'Dugout Pulse'" -or
-        $arm64Badging -notmatch ("(?m)^package: name='" + [regex]::Escape($ExpectedApplicationId) + "'")) {
-        Remove-Item -LiteralPath $arm64Apk -Force -ErrorAction SilentlyContinue
-        throw "The arm64-only APK failed package/label verification and was removed. The universal APK remains available."
-    }
-    $arm64Size = (Get-Item -LiteralPath $arm64Apk).Length / 1MB
-    Write-Host "Verified arm64-only APK: $arm64Apk ($([math]::Round($arm64Size, 2)) MB). Use only on arm64-v8a devices; use the universal APK for compatibility." -ForegroundColor Green
+        # Remove arm64-only APKs left by the previous split-build workflow.
+    # This build now delivers one universal APK for mobile compatibility.
+    Get-ChildItem -LiteralPath $OutDir -Filter "dugout-pulse-*-whatsapp-arm64.apk" -File -ErrorAction SilentlyContinue |
+        Remove-Item -Force
 
     # bundletool can package the APK with a fixed ZIP timestamp (1981/01/01).
     # Set the actual Windows file timestamps after copying the APK to the output folder.
