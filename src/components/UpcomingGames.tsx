@@ -6,14 +6,11 @@ import { checkGameNotificationPermission, requestGameNotificationPermission, syn
 import { ConfirmationModal } from './ConfirmationModal';
 import { DatePicker } from './DatePicker';
 import { TimePicker } from './TimePicker';
-import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import teamIcon from '../assets/TeamIcon.png';
 import { TeamLogoImage } from './TeamLogoImage';
 import { recordDiagnosticError } from '../utils/errorDiagnostics';
-import { isLegacyStorageImportComplete, saveSQLiteUpcomingGames } from '../storage/sqliteRepository';
+import { readSQLiteUpcomingGames, saveSQLiteUpcomingGames } from '../storage/sqliteRepository';
 
-const GAMES_KEY = 'dugoutPulse.upcomingGames.v1';
-const OPPOSITION_TEAMS_KEY = 'dugoutPulse.oppositionTeams.v1';
 
 interface ScheduledGame {
   id: string;
@@ -49,41 +46,10 @@ const isScheduledGame = (value: unknown): value is ScheduledGame => {
     optionalStrings.every((key) => game[key] === undefined || typeof game[key] === 'string');
 };
 
-const isOppositionTeam = (value: unknown): value is OppositionTeam => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const team = value as Record<string, unknown>;
-  return typeof team.id === 'string' && team.id.length > 0 &&
-    typeof team.name === 'string' && team.name.length > 0 &&
-    (team.logo === undefined || typeof team.logo === 'string');
-};
-
-type StoredArrayRead<T> = { value: T; error: string | null };
-
-const readJson = <T,>(key: string, fallback: T, isValidItem: (item: unknown) => boolean): StoredArrayRead<T> => {
-  try {
-    const value = localStorage.getItem(key);
-    if (value === null) return { value: fallback, error: null };
-    const parsed: unknown = JSON.parse(value);
-    if (!Array.isArray(parsed)) throw new SyntaxError('Saved list did not contain an array.');
-    if (!parsed.every(isValidItem)) throw new SyntaxError('Saved list contained an item with an unexpected format.');
-    return { value: parsed as T, error: null };
-  } catch (error) {
-    recordDiagnosticError(
-      error instanceof SyntaxError ? 'data_corruption' : 'storage_read',
-      error,
-      'Saved local list ' + key + ' could not be read or validated. The stored value was not changed.',
-    );
-    return {
-      value: fallback,
-      error: 'Dugout Pulse could not read or validate a saved upcoming-game or opposition-team list. The original stored values were not changed. Review the diagnostic report before making changes.',
-    };
-  }
-};
-
 const inputClass = 'w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-[#18212D] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00BFA5] dark:border-[#354050] dark:bg-[#1A2028] dark:text-[#FAFAFA] dark:focus:ring-[#00D7BC]';
 
 export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> = ({ compact = false, nextOnly = false }) => {
-  const { activeProfile, allTournaments, settings, isLoading, restoreFailed } = useGame();
+  const { activeProfile, allTournaments, settings, isLoading, restoreFailed, oppositionTeams } = useGame();
   const playerTeams = useMemo(() => {
     const savedTeams = activeProfile.teams || [];
     if (savedTeams.length) return savedTeams;
@@ -93,12 +59,30 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   const [gameType, setGameType] = useState(defaultPlayerTeam?.tournament || allTournaments[0] || 'League');
   const gameTypes = useMemo(() => Array.from(new Set([...(allTournaments || []), ...playerTeams.map((team) => team.tournament).filter((value): value is string => Boolean(value?.trim()))])), [allTournaments, playerTeams]);
   const teamsForGameType = useMemo(() => playerTeams.filter((team) => (team.tournament || 'League').trim().toLocaleLowerCase() === gameType.trim().toLocaleLowerCase()), [playerTeams, gameType]);
-  const [initialGames] = useState(() => readJson<ScheduledGame[]>(GAMES_KEY, [], isScheduledGame));
-  const [initialTeams] = useState(() => readJson<OppositionTeam[]>(OPPOSITION_TEAMS_KEY, [], isOppositionTeam));
-  const [games, setGames] = useState<ScheduledGame[]>(initialGames.value);
-  const [teams, setTeams] = useState<OppositionTeam[]>(initialTeams.value);
-  const [failureAlert, setFailureAlert] = useState<string | null>(() => initialGames.error || initialTeams.error);
-  const [storedListsInvalid] = useState(() => Boolean(initialGames.error || initialTeams.error));
+  const [games, setGames] = useState<ScheduledGame[]>([]);
+  const teams = oppositionTeams;
+  const [failureAlert, setFailureAlert] = useState<string | null>(null);
+  const [storedListsInvalid, setStoredListsInvalid] = useState(false);
+  const [gamesLoaded, setGamesLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    let cancelled = false;
+    void readSQLiteUpcomingGames().then((saved) => {
+      if (cancelled) return;
+      if (!saved.every(isScheduledGame)) throw new Error('The SQLite scheduled-game list contains an invalid record.');
+      setGames(saved);
+      setStoredListsInvalid(false);
+      setGamesLoaded(true);
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      recordDiagnosticError('storage_read', error, 'Scheduled games could not be read from SQLite. No scheduled-game changes were enabled.');
+      setStoredListsInvalid(true);
+      setFailureAlert('Dugout Pulse could not load scheduled games from the device database. No saved data was changed. Review the diagnostic report before trying again.');
+      setGamesLoaded(false);
+    });
+    return () => { cancelled = true; };
+  }, [isLoading]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [opponent, setOpponent] = useState('');
@@ -142,21 +126,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
       void (async () => {
         try {
           await saveSQLiteUpcomingGames(next);
-          if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-            let sqliteIsAuthoritative = false;
-            try {
-              sqliteIsAuthoritative = await isLegacyStorageImportComplete();
-            } catch {
-              // Do not claim SQLite success if its authority cannot be confirmed.
-            }
-            if (sqliteIsAuthoritative) {
-              setGames(next);
-              setFailureAlert('The venue change was saved to SQLite, but the scheduled-game compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
-            } else {
-              setFailureAlert('Dugout Pulse could not safely save the venue change to scheduled games. No change was confirmed; review the diagnostic report before retrying.');
-            }
-            return;
-          }
           setGames(next);
           setVenue((current) =>
             current.trim().toLocaleLowerCase() === detail.oldName.trim().toLocaleLowerCase()
@@ -174,12 +143,12 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
   }, [games, restoreFailed, storedListsInvalid]);
 
   useEffect(() => {
-    if (isLoading || restoreFailed || storedListsInvalid) return;
+    if (isLoading || restoreFailed || storedListsInvalid || !gamesLoaded) return;
     void syncGameReminders(games, settings.gameRemindersEnabled === true).catch((error: unknown) => {
       recordDiagnosticError('native_failure', error, 'Game reminder synchronization failed after the scheduled-game list changed.');
       setFailureAlert('Dugout Pulse could not update game reminders. Your scheduled-game list remains saved; review notification settings and the diagnostic report.');
     });
-  }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed, storedListsInvalid]);
+  }, [games, settings.gameRemindersEnabled, isLoading, restoreFailed, storedListsInvalid, gamesLoaded]);
 
   const sortedGames = useMemo(
     () => [...games].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '')),
@@ -201,23 +170,6 @@ export const UpcomingGames: React.FC<{ compact?: boolean; nextOnly?: boolean }> 
     void (async () => {
       try {
         await saveSQLiteUpcomingGames(next);
-        if (!protectedStorageSetItem(GAMES_KEY, JSON.stringify(next))) {
-          // Once cutover is complete, SQLite has already committed the primary write.
-          // Keep the UI aligned with that committed state and report the mirror failure accurately.
-          let sqliteIsAuthoritative = false;
-          try {
-            sqliteIsAuthoritative = await isLegacyStorageImportComplete();
-          } catch {
-            // Do not claim SQLite success if its authority cannot be confirmed.
-          }
-          if (sqliteIsAuthoritative) {
-            setGames(next);
-            setFailureAlert('The scheduled-game change was saved to SQLite, but its compatibility copy could not be verified. Reload the app before making further changes and review the diagnostic report.');
-          } else {
-            setFailureAlert('Dugout Pulse could not safely save this scheduled-game change. No change was confirmed; review the diagnostic report before retrying.');
-          }
-          return;
-        }
         setGames(next);
         setMessage('');
       } catch (error) {
