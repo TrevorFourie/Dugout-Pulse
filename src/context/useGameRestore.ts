@@ -162,37 +162,9 @@ export function useGameRestore({
         setHiddenSeasons(state.hiddenSeasons);
         setIsFirstTimeUser(!isMeaningfullyConfigured(state.profiles, state.setupCompleted));
       };
-      const mirrorLiveState = async (state: SQLiteLiveState) => {
-        const entries: [string, string | null][] = [
-          [STORAGE_KEYS.GAMES, JSON.stringify(state.games)],
-          [STORAGE_KEYS.PROFILES, JSON.stringify(state.profiles)],
-          [STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings)],
-          ['dugoutPulse.oppositionTeams.v1', JSON.stringify(state.oppositionTeams)],
-          [STORAGE_KEYS.SAVED_OPPONENTS, JSON.stringify(state.savedOpponents)],
-          [STORAGE_KEYS.SAVED_TOURNAMENTS, JSON.stringify(state.savedTournaments)],
-          [STORAGE_KEYS.SAVED_AGE_GROUPS, JSON.stringify(state.savedAgeGroups)],
-          [STORAGE_KEYS.SAVED_SEASONS, JSON.stringify(state.savedSeasons)],
-          [STORAGE_KEYS.HIDDEN_TOURNAMENTS, JSON.stringify(state.hiddenTournaments)],
-          [STORAGE_KEYS.HIDDEN_AGE_GROUPS, JSON.stringify(state.hiddenAgeGroups)],
-          [STORAGE_KEYS.HIDDEN_SEASONS, JSON.stringify(state.hiddenSeasons)],
-          ['dugoutPulse.upcomingGames.v1', JSON.stringify(state.upcomingGames)],
-          ['dugoutPulse.logoLibrary.v1', JSON.stringify(state.logoLibrary)],
-          [STORAGE_KEYS.SETUP_COMPLETED, JSON.stringify(state.setupCompleted)],
-          [STORAGE_KEYS.LIVE_GAME, state.liveGame ? JSON.stringify(state.liveGame) : null],
-          [STORAGE_KEYS.EDITING_GAME_ID, state.editingGameId ? JSON.stringify(state.editingGameId) : null],
-          [STORAGE_KEYS.REOPENED_GAME_ID, state.reopenedGameId ? JSON.stringify(state.reopenedGameId) : null],
-        ];
-        const changed = entries.some(([key, value]) => localStorage.getItem(key) !== value);
-        if (changed && !(await createVerifiedRecoveryCheckpoint('Before restoring the verified SQLite state to the compatibility store'))) {
-          throw new Error('A verified recovery checkpoint could not be created before synchronising saved data from SQLite.');
-        }
-        for (const [key, value] of entries) {
-          if (localStorage.getItem(key) === value) continue;
-          const success = value === null
-            ? protectedStorageRemoveItem(key)
-            : protectedStorageSetItem(key, value);
-          if (!success) throw new Error('The SQLite state was read, but a compatibility-store value could not be safely synchronised.');
-        }
+      const mirrorLiveState = async (_state: SQLiteLiveState) => {
+        // This marker records cutover status only. Application data is no longer
+        // copied from SQLite into localStorage; SQLite is authoritative after cutover.
         localStorage.setItem(LOCAL_CUTOVER_MARKER, 'complete');
         if (localStorage.getItem(LOCAL_CUTOVER_MARKER) !== 'complete') {
           throw new Error('The local SQLite cutover marker could not be reconciled.');
