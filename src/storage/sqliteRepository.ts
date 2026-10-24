@@ -1002,7 +1002,30 @@ export async function saveLiveSQLiteStateFromCurrentLocalStorage(): Promise<void
   }, { includeAuxiliary: true });
 }
 
-/** Updates scheduled games transactionally after cutover; before cutover localStorage remains authoritative. */
+
+/** Read scheduled games from the authoritative SQLite table after cutover. */
+export async function readSQLiteUpcomingGames(): Promise<(Record<string, unknown> & { id: string })[]> {
+  if (!(await isLegacyStorageImportComplete())) {
+    throw new Error('SQLite is not yet authoritative for scheduled games.');
+  }
+  return withSQLiteRead(async (database) => {
+    const rows = await readRows(database, 'SELECT id, value_json FROM upcoming_games');
+    return parseLiveRows(rows, 'upcoming_games', isUpcomingGame, 'id');
+  });
+}
+
+/** Read custom-logo metadata from SQLite; image bytes remain in Capacitor Filesystem. */
+export async function readSQLiteLogoLibrary(): Promise<TeamLogoItem[]> {
+  if (!(await isLegacyStorageImportComplete())) {
+    throw new Error('SQLite is not yet authoritative for the custom-logo library.');
+  }
+  return withSQLiteRead(async (database) => {
+    const rows = await readRows(database, 'SELECT id, value_json FROM logo_library');
+    return parseLiveRows(rows, 'logo_library', isLogoItem, 'id');
+  });
+}
+
+/** Updates scheduled games transactionally in the authoritative SQLite store. */
 export async function saveSQLiteUpcomingGames(
   games: (Record<string, unknown> & { id: string })[],
 ): Promise<void> {
