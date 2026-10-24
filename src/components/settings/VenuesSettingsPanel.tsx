@@ -24,7 +24,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                     Venues
                   </h3>
                   <p className="mb-4 text-xs text-slate-500 dark:text-[#9CA3AF]">
-                    Save the ballparks where your team plays. You can manage this list here for use in game scheduling.
+                    Keep your team's ballparks here so they're ready when you schedule a game.
                   </p>
                   <form
                     onSubmit={(e) => {
@@ -33,7 +33,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                       if (!venue) return;
                       const currentVenues = settings.venues || [];
                       if (currentVenues.some((item) => item.toLowerCase() === venue.toLowerCase())) {
-                        onStatusMessage({ text: 'That venue is already in your list.', isError: true });
+                        onStatusMessage({ text: 'You've already added that venue.', isError: true });
                         return;
                       }
                       updateSettings({ venues: [...currentVenues, venue] });
@@ -66,7 +66,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                   </div>
                   {(settings.venues || []).length === 0 ? (
                     <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-xs text-slate-500 dark:border-[#354050] dark:text-[#9CA3AF]">
-                      No venues saved yet. Add your first venue above.
+                      No venues yet. Add your first ballpark above.
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -79,7 +79,7 @@ export const VenuesSettingsPanel: React.FC<VenuesSettingsPanelProps> = ({ isActi
                             return;
                           }
                           if ((settings.venues || []).some((item) => item !== venue && item.toLowerCase() === renamedVenue.toLowerCase())) {
-                            onStatusMessage({ text: 'A venue with that name already exists.', isError: true });
+                            onStatusMessage({ text: 'You've already got a venue with that name.', isError: true });
                             return;
                           }
                           if (renamedVenue !== venue) {
