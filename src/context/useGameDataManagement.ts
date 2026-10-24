@@ -478,7 +478,12 @@ export function useGameDataManagement({
           recordDiagnosticError('storage_write', error, 'Reset was stopped because the active SQLite store could not be checked safely.');
           return false;
         }
-        // Before cutover, localStorage remains authoritative and reset can proceed.
+        // No localStorage reset fallback is permitted when SQLite cannot be verified.
+      }
+      if (!sqliteCutoverComplete) {
+        setRestoreFailed(true);
+        recordDiagnosticError('storage_write', new Error('SQLite is not the verified active store.'), 'Reset was stopped because the app cannot safely reset a non-SQLite data store.');
+        return false;
       }
       const marker = localStorage.getItem('dugoutPulse.sqliteCutover.v1');
       if (marker === 'pending' || (marker === 'complete' && !sqliteCutoverComplete)) {
