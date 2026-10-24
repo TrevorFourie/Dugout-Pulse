@@ -372,8 +372,10 @@ export function useGameDataManagement({
         if (Array.isArray(extras.hiddenAgeGroups)) setHiddenAgeGroups(asStringList(extras.hiddenAgeGroups));
         if (Array.isArray(extras.hiddenSeasons)) setHiddenSeasons(asStringList(extras.hiddenSeasons));
         if (typeof extras.setupCompleted === 'boolean') {
-          setSetupCompleted(extras.setupCompleted);
-          setIsFirstTimeUser(!extras.setupCompleted);
+          const importedSetupCompleted = extras.setupCompleted === true &&
+            Array.isArray(data.profiles) && data.profiles.length > 0;
+          setSetupCompleted(importedSetupCompleted);
+          setIsFirstTimeUser(!importedSetupCompleted);
         }
       }
 
