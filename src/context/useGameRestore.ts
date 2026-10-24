@@ -362,9 +362,9 @@ export function useGameRestore({
       }
     }
 
-    // Create and verify the source snapshot only after established legacy-array merges
-    // have completed. Until the database transaction commits its cutover marker,
-    // localStorage remains authoritative and the existing restore path remains available.
+    // Create and verify the one-time import snapshot only after legacy-array merges.
+    // localStorage is used here solely as the migration source; normal app startup
+    // is blocked if SQLite cutover cannot be verified.
     try {
       await importLegacyStorageSnapshot();
       const snapshot = await readVerifiedSQLiteSnapshot();
