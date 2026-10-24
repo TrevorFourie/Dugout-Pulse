@@ -50,7 +50,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   if (isLoading) {
     // Keep the first React frame visually aligned with the native splash while
-    // localStorage is read; do not flash a separate spinner screen on startup.
+    // SQLite is restored before the dashboard is rendered.
     return (
       <div
         className="flex-1 min-h-0 flex items-center justify-center"
