@@ -151,7 +151,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         <div className="space-y-3">
           <div className="w-10 h-10 border-3 border-[#18212D] dark:border-[#354050] border-t-[#00BFA5] rounded-full animate-spin mx-auto" />
           <p className="text-sm font-semibold text-slate-600 dark:text-[#9CA3AF]">
-            Loading your stats…
+            Bringing your stats together…
           </p>
         </div>
       </div>
@@ -516,7 +516,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div className="p-8 text-center bg-slate-50 dark:bg-[#252D38]/30 rounded-xl border border-dashed border-slate-200 dark:border-[#354050] space-y-2">
               <Trophy className="w-8 h-8 text-slate-300 dark:text-[#6B7280] mx-auto" />
               <div className="text-sm font-semibold text-slate-700 dark:text-[#D1D5DB]">
-                No breakdown data available yet
+                No stats to break down just yet
               </div>
             </div>
           ) : (
