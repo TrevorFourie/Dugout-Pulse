@@ -247,7 +247,8 @@ export function snapshotBeforeGameWrite(): boolean {
 /** Snapshot before a write; verify the write and roll back the key if it fails. */
 export function protectedStorageSetItem(key: string, value: string): boolean {
   if (rejectLegacyAppDataWriteAfterCutover(key)) return false;
-  if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
+  const sqliteCutoverComplete = localStorage.getItem('dugoutPulse.sqliteCutover.v1') === 'complete';
+  if (!sqliteCutoverComplete && key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
   let previousValue: string | null | undefined;
   try {
     previousValue = localStorage.getItem(key);
@@ -281,7 +282,8 @@ export function protectedStorageSetItem(key: string, value: string): boolean {
 /** Snapshot before a removal; verify removal and restore the key if it fails. */
 export function protectedStorageRemoveItem(key: string): boolean {
   if (rejectLegacyAppDataWriteAfterCutover(key)) return false;
-  if (key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
+  const sqliteCutoverComplete = localStorage.getItem('dugoutPulse.sqliteCutover.v1') === 'complete';
+  if (!sqliteCutoverComplete && key !== RECOVERY_STORAGE_KEY && key !== PREVIOUS_RECOVERY_KEY && !snapshotBeforeGameWrite()) return false;
   let previousValue: string | null | undefined;
   try {
     previousValue = localStorage.getItem(key);
