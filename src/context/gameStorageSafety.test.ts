@@ -5,7 +5,7 @@
  * the app or triggering a build.
  */
 import test from 'node:test';
-import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY } from './gameContextDefaults';
+import { PENDING_COMPLETED_GAME_SAVE_KEY, PENDING_LIVE_GAME_WRITE_KEY, STORAGE_KEYS } from './gameContextDefaults';
 import assert from 'node:assert/strict';
 import {
   readPendingCompletedGameSaveFromStorage,
@@ -151,4 +151,17 @@ test('local recovery restore fails closed while a completed-game save is pending
   assert.equal(restoreRecoverySnapshot(), false);
   assert.equal(values.get('baseball_hub_games_v1'), JSON.stringify([{ id: 'current-game' }]));
   assert.ok(values.has(PENDING_COMPLETED_GAME_SAVE_KEY), 'the completed-game journal remains available for startup recovery');
+});
+
+
+test('legacy application-data writes and local recovery restore are blocked after SQLite cutover', () => {
+  values.clear();
+  values.set('dugoutPulse.sqliteCutover.v1', 'complete');
+  values.set(STORAGE_KEYS.GAMES, JSON.stringify([{ id: 'sqlite-authoritative-game' }]));
+  assert.equal(protectedStorageSetItem(STORAGE_KEYS.GAMES, JSON.stringify([])), false);
+  assert.equal(values.get(STORAGE_KEYS.GAMES), JSON.stringify([{ id: 'sqlite-authoritative-game' }]));
+  assert.equal(protectedStorageRemoveItem(STORAGE_KEYS.GAMES), false);
+  assert.equal(values.get(STORAGE_KEYS.GAMES), JSON.stringify([{ id: 'sqlite-authoritative-game' }]));
+  assert.equal(restoreRecoverySnapshot(), false);
+  assert.equal(values.get(STORAGE_KEYS.GAMES), JSON.stringify([{ id: 'sqlite-authoritative-game' }]));
 });
