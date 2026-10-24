@@ -83,8 +83,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             className="group flex min-w-0 items-center gap-3.5 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#00BFA5] sm:gap-2"
           >
             {/* Player profile image; TeamLogoImage falls back to TeamIcon when no image is selected. */}
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shrink-0 shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
-              <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
+            <div className="relative w-14 h-14 sm:w-16 sm:h-16 shrink-0">
+              <div className="w-full h-full rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#252D38] border border-slate-200 dark:border-[#354050] flex items-center justify-center shadow-xs group-hover:border-[#00BFA5]/50 transition-colors">
+                <TeamLogoImage value={activeProfile.logo} alt="" className="w-full h-full object-contain p-1" />
+              </div>
+              {activeProfile.jerseyNumber?.trim() && (
+                <span
+                  aria-label={`Jersey number ${activeProfile.jerseyNumber}`}
+                  className="absolute -right-1.5 -bottom-1 z-10 rounded-md border border-white/80 dark:border-[#354050] bg-[#00BFA5] dark:bg-[#00D7BC] px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[#18212D] shadow-sm"
+                >
+                  #{activeProfile.jerseyNumber}
+                </span>
+              )}
             </div>
 
             <div className="py-0">
@@ -103,6 +113,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <span className="py-0.5 text-slate-700 dark:text-[#D1D5DB] px-0.5"> · {activeProfile.defaultAgeGroup}</span>
                 )}
               </p>
+              {(activeProfile.fieldingPositions?.length || activeProfile.battingSide || activeProfile.throwingArm) && (
+                <p className="mt-1 text-[11px] sm:text-xs font-medium text-slate-600 dark:text-[#B8C2CF] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {activeProfile.fieldingPositions?.length ? (
+                    <span>Fielding: {activeProfile.fieldingPositions.join(', ')}</span>
+                  ) : null}
+                  {activeProfile.battingSide ? <span>Batting: {activeProfile.battingSide}</span> : null}
+                  {activeProfile.throwingArm ? <span>Throws: {activeProfile.throwingArm}</span> : null}
+                </p>
+              )}
             </div>
           </button>
         </div>
