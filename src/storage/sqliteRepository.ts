@@ -1063,6 +1063,27 @@ export async function saveSQLiteAppStateValue(key: string, value: unknown): Prom
   });
 }
 
+/** Import a legacy scoring UI preference only when SQLite has no value for it yet. */
+export async function migrateLegacySQLiteAppStateValueIfMissing(key: string, value: unknown): Promise<boolean> {
+  if (!SQLITE_UI_STATE_KEYS.has(key)) throw new Error('The requested SQLite app-state key is not an approved UI-state key.');
+  const serialized = serializeJson(value);
+  return withSQLiteTransaction(async (database) => {
+    const cutover = await database.query('SELECT value FROM app_meta WHERE key = ?', [CUTOVER_MARKER]);
+    const liveState = await database.query('SELECT value FROM app_meta WHERE key = ?', [LIVE_STATE_MARKER]);
+    if (cutover.values?.[0]?.value !== 'complete' || liveState.values?.[0]?.value !== '1') {
+      throw new Error('Legacy scoring UI state could not be imported because SQLite is not fully initialized.');
+    }
+    const existing = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+    if (typeof existing.values?.[0]?.value_json === 'string') return false;
+    await database.run('INSERT OR IGNORE INTO app_state (key, value_json) VALUES (?, ?)', [key, serialized], false);
+    const verified = await database.query('SELECT value_json FROM app_state WHERE key = ?', [key]);
+    if (typeof verified.values?.[0]?.value_json !== 'string') {
+      throw new Error('Legacy scoring UI state could not be verified after import.');
+    }
+    return verified.values?.[0]?.value_json === serialized;
+  });
+}
+
 /** Read independently managed auxiliary tables without reloading the entire app state. */
 export async function readSQLiteAuxiliaryState(): Promise<Pick<SQLiteLiveState, 'upcomingGames' | 'logoLibrary'>> {
   if (!(await isLegacyStorageImportComplete())) {
