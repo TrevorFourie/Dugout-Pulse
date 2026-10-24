@@ -4,9 +4,9 @@ import type { Game, PlayerProfile } from '../types/baseball';
 import { STORAGE_KEYS } from '../context/gameContextDefaults';
 import { protectedStorageSetItem } from '../context/gameStorageSafety';
 import { readLogoFileAsBase64, writeLogoFiles } from '../context/recoveryJournal';
-import { isMissingTeamLogoFileError, TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, type TeamLogoItem } from './teamLogoLibrary';
+import { isMissingTeamLogoFileError, TEAM_LOGO_LIBRARY_EVENT, readTeamLogoLibraryStrict, setTeamLogoLibraryCache, type TeamLogoItem } from './teamLogoLibrary';
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION, sealBackup, type BackupExtras } from './backupFormat';
-import { isLegacyStorageImportComplete, readLiveSQLiteState, type SQLiteLiveState } from '../storage/sqliteRepository';
+import { isLegacyStorageImportComplete, readLiveSQLiteState, saveSQLiteLogoLibrary, type SQLiteLiveState } from '../storage/sqliteRepository';
 import { recordDiagnosticError } from './errorDiagnostics';
 
 const LOGO_LIBRARY_KEY = 'dugoutPulse.logoLibrary.v1';
@@ -247,7 +247,10 @@ export async function restoreLogosFromBackup(data: Record<string, unknown>): Pro
     }
     const restoredIds = new Set(restored.map((entry) => entry.id));
     const merged = [...restored, ...existingLibrary.filter((entry) => !restoredIds.has(entry.id))];
-    if (!protectedStorageSetItem(LOGO_LIBRARY_KEY, JSON.stringify(merged))) {
+    if (await isLegacyStorageImportComplete()) {
+      await saveSQLiteLogoLibrary(merged);
+      setTeamLogoLibraryCache(merged);
+    } else if (!protectedStorageSetItem(LOGO_LIBRARY_KEY, JSON.stringify(merged))) {
       throw new Error('Could not safely update the logo library while restoring the backup.');
     }
     window.dispatchEvent(new CustomEvent(TEAM_LOGO_LIBRARY_EVENT));
